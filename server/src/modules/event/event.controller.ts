@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Req, Ip, Headers } from "@nestjs/common";
+import {
+  Controller, Get, Post, Patch, Body, Param, Query,
+  UseGuards, Ip, Headers
+} from "@nestjs/common";
 import { EventService } from "./event.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { RegisterEventDto } from "./dto/register-event.dto";
@@ -7,13 +10,14 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { UserRole } from "@prisma/client";
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
-import { Request } from "express";
+import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 
 @ApiTags("Events Platform")
 @Controller("events")
 export class EventController {
   constructor(private eventService: EventService) {}
+
+  // ─── Public: list + detail ───────────────────────────────────────────────────
 
   @Get()
   @ApiOperation({ summary: "List and filter upcoming published events" })
@@ -21,11 +25,20 @@ export class EventController {
     @Query("search") search?: string,
     @Query("category") category?: string,
     @Query("city") city?: string,
+    @Query("period") period?: "upcoming" | "past",
     @Query("limit") limit?: number,
     @Query("offset") offset?: number,
   ) {
-    return this.eventService.listEvents({ search, category, city, limit, offset });
+    return this.eventService.listEvents({ search, category, city, period, limit, offset });
   }
+
+  @Get(":idOrSlug")
+  @ApiOperation({ summary: "Get event metadata by ID or Slug" })
+  async get(@Param("idOrSlug") idOrSlug: string) {
+    return this.eventService.getEvent(idOrSlug);
+  }
+
+  // ─── Auth required ───────────────────────────────────────────────────────────
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -34,12 +47,6 @@ export class EventController {
   @ApiOperation({ summary: "Create a new event" })
   async create(@CurrentUser() user: any, @Body() dto: CreateEventDto) {
     return this.eventService.createEvent(user.id, dto);
-  }
-
-  @Get(":idOrSlug")
-  @ApiOperation({ summary: "Get event metadata by ID or Slug" })
-  async get(@Param("idOrSlug") idOrSlug: string) {
-    return this.eventService.getEvent(idOrSlug);
   }
 
   @Post(":eventId/register")
@@ -66,5 +73,76 @@ export class EventController {
     @Headers("user-agent") ua?: string,
   ) {
     return this.eventService.checkInTicket(qrCode, ip, ua, fingerprint);
+  }
+
+  // ─── Attendee: my tickets ────────────────────────────────────────────────────
+
+  @Get("attendee/my-tickets")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get all tickets for the authenticated user" })
+  async myTickets(@CurrentUser() user: any) {
+    return this.eventService.getMyTickets(user.id);
+  }
+
+  // ─── Organizer scope ─────────────────────────────────────────────────────────
+
+  @Get("organizer/my-events")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.EVENT_MANAGER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get organizer's own events" })
+  async myEvents(@CurrentUser() user: any) {
+    return this.eventService.getOrganizerEvents(user.id, user.roles ?? []);
+  }
+
+  @Get(":eventId/registrations")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.EVENT_MANAGER, UserRole.MODERATOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get all registrations for an event (organizer only)" })
+  async registrations(
+    @CurrentUser() user: any,
+    @Param("eventId") eventId: string,
+  ) {
+    return this.eventService.getEventRegistrations(eventId, user.id, user.roles ?? []);
+  }
+
+  @Get(":eventId/analytics")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.EVENT_MANAGER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get event analytics for organizer" })
+  async analytics(
+    @CurrentUser() user: any,
+    @Param("eventId") eventId: string,
+  ) {
+    return this.eventService.getEventAnalytics(eventId, user.id, user.roles ?? []);
+  }
+
+  @Patch(":eventId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.EVENT_MANAGER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Update an existing event" })
+  async update(
+    @CurrentUser() user: any,
+    @Param("eventId") eventId: string,
+    @Body() dto: Partial<CreateEventDto>,
+  ) {
+    return this.eventService.updateEvent(eventId, user.id, dto, user.roles ?? []);
+  }
+
+  @Patch("registrations/:registrationId/review")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN, UserRole.EVENT_MANAGER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Approve or reject a registration (payment review)" })
+  async reviewRegistration(
+    @CurrentUser() user: any,
+    @Param("registrationId") registrationId: string,
+    @Body("action") action: "APPROVED" | "REJECTED",
+  ) {
+    return this.eventService.reviewRegistration(registrationId, user.id, action, user.roles ?? []);
   }
 }

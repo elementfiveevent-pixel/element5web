@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Routes that require authentication
-const PROTECTED_ROUTES = ["/admin", "/network", "/stageverse"];
+const PROTECTED_ROUTES = [
+  "/admin",
+  "/network",
+  "/stageverse",
+  "/events/my-tickets",
+  "/events/create",
+  "/events/organizer",
+];
 
-// Routes only accessible when NOT logged in (redirect to home if already authed)
+// Routes only accessible when NOT logged in
 const AUTH_ONLY_ROUTES = ["/login", "/register"];
 
 export function proxy(request: NextRequest) {
@@ -27,5 +34,14 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/network/:path*", "/stageverse/:path*", "/login", "/register"],
+  matcher: [
+    "/admin/:path*",
+    "/network/:path*",
+    "/stageverse/:path*",
+    "/events/my-tickets",
+    "/events/create",
+    "/events/organizer/:path*",
+    "/login",
+    "/register",
+  ],
 };

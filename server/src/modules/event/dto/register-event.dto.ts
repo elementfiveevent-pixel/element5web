@@ -10,4 +10,9 @@ export class RegisterEventDto {
   @IsString()
   @IsOptional()
   paymentScreenshotUrl?: string;
+
+  @ApiProperty({ example: "ticket-category-id", description: "Selected ticket category", required: false })
+  @IsString()
+  @IsOptional()
+  ticketCategoryId?: string;
 }

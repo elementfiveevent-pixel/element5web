@@ -7,7 +7,8 @@ export interface User {
   id: string;
   email: string;
   fullName: string;
-  role: "SUPER_ADMIN" | "ORG_ADMIN" | "EVENT_MANAGER" | "ARTIST" | "JUDGE" | "MODERATOR" | "ATTENDEE";
+  role: "SUPER_ADMIN" | "ORG_ADMIN" | "EVENT_MANAGER" | "ARTIST" | "JUDGE" | "MODERATOR" | "AUDIENCE" | "VOLUNTEER" | "SPONSOR" | "GUEST";
+  roles?: User["role"][];
   profilePhotoUrl?: string;
   reputationXp: number;
 }
@@ -23,6 +24,19 @@ interface AuthContextProps {
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
+const normalizeUser = (data: any): User => {
+  const roles = Array.isArray(data.roles) && data.roles.length > 0
+    ? data.roles
+    : [data.role ?? "AUDIENCE"];
+
+  return {
+    ...data,
+    roles,
+    role: data.role ?? roles[0] ?? "AUDIENCE",
+    reputationXp: data.reputationXp ?? 0,
+  };
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       const data = await api.get("/auth/me");
-      setUser(data);
+      setUser(normalizeUser(data));
     } catch {
       // Clear token on validation failure
       localStorage.removeItem("e5_auth_token");

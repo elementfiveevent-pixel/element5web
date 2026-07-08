@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { EventCategory } from "@prisma/client";
 
@@ -33,6 +33,11 @@ export class CreateEventDto {
   @IsOptional()
   endDate?: string;
 
+  @ApiProperty({ example: "2026-10-12T23:59:00Z", required: false })
+  @IsDateString()
+  @IsOptional()
+  registrationEndDate?: string;
+
   @ApiProperty({ example: false, required: false })
   @IsBoolean()
   @IsOptional()
@@ -48,6 +53,16 @@ export class CreateEventDto {
   @IsOptional()
   upiVpa?: string;
 
+  @ApiProperty({ example: "https://res.cloudinary.com/demo/image/upload/upi.png", required: false })
+  @IsString()
+  @IsOptional()
+  upiQrUrl?: string;
+
+  @ApiProperty({ example: "https://res.cloudinary.com/demo/image/upload/flyer.png", required: false })
+  @IsString()
+  @IsOptional()
+  flyerUrl?: string;
+
   @ApiProperty({ example: "Digital Dome" })
   @IsString()
   @IsNotEmpty()
@@ -58,6 +73,11 @@ export class CreateEventDto {
   @IsNotEmpty()
   venueAddress!: string;
 
+  @ApiProperty({ example: "https://maps.google.com/?q=Digital+Dome", required: false })
+  @IsString()
+  @IsOptional()
+  mapsLink?: string;
+
   @ApiProperty({ example: "San Francisco" })
   @IsString()
   @IsNotEmpty()
@@ -67,4 +87,17 @@ export class CreateEventDto {
   @IsString()
   @IsNotEmpty()
   state!: string;
+
+  @ApiProperty({ example: "Entry closes 15 minutes after start.", required: false })
+  @IsString()
+  @IsOptional()
+  termsConditions?: string;
+
+  @ApiProperty({
+    example: [{ label: "Instagram handle", type: "text", required: false }],
+    required: false,
+  })
+  @IsArray()
+  @IsOptional()
+  customFields?: Array<Record<string, unknown>>;
 }
