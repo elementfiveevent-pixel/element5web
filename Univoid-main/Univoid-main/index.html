@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' https://pagead2.googlesyndication.com https://*.supabase.co https://*.adtrafficquality.google https://www.googletagservices.com https://www.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://pagead2.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://*.googlesyndication.com https://*.doubleclick.net; frame-src 'self' https://googleads.g.doubleclick.net https://tpc.googlesyndication.com https://*.adtrafficquality.google https://www.google.com https://*.doubleclick.net; worker-src 'self' blob:; upgrade-insecure-requests;" />
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+  <link rel="canonical" href="https://univoid.tech/" />
+
+  <!-- 🔒 SECURITY BLOCKER: PREVENTS LOVABLE BADGE INJECTION (deferred to not block first paint) -->
+  <script>
+    (function () {
+      // Defer to after first paint — badge can't exist before React mounts
+      var run = function() {
+        // 1. CSS Hide Force
+        var style = document.createElement('style');
+        style.textContent = '#lovable-badge, aside[aria-label="Edit with Lovable"], [class*="lovable-badge"] { display: none !important; opacity: 0 !important; pointer-events: none !important; width: 0 !important; height: 0 !important; }';
+        document.head.appendChild(style);
+
+        // 2. DOM Node Blocker (overrides)
+        var originalAppend = Element.prototype.appendChild;
+        var originalInsertBefore = Element.prototype.insertBefore;
+
+        function isForbidden(node) {
+          if (!node || !node.tagName) return false;
+          if (node.id === 'lovable-badge' || (node.getAttribute && node.getAttribute('aria-label') === 'Edit with Lovable')) return true;
+          if (node.tagName === 'ASIDE' && node.id && node.id.includes('lovable')) return true;
+          return false;
+        }
+
+        Element.prototype.appendChild = function (node) {
+          if (isForbidden(node)) return node;
+          return originalAppend.call(this, node);
+        };
+
+        Element.prototype.insertBefore = function (node, ref) {
+          if (isForbidden(node)) return node;
+          return originalInsertBefore.call(this, node, ref);
+        };
+
+        // 3. MutationObserver
+        var observer = new MutationObserver(function(mutations) {
+          mutations.forEach(function(m) {
+            m.addedNodes.forEach(function(node) {
+              if (node.nodeType === 1 && isForbidden(node)) node.remove();
+            });
+          });
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+      };
+
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(run);
+      } else {
+        setTimeout(run, 100);
+      }
+    })();
+  </script>
+
+  <!-- Resource Hints for faster connections -->
+  <link rel="dns-prefetch" href="https://rtvrdbbojqsrbkngnjgq.supabase.co" />
+  <link rel="preconnect" href="https://rtvrdbbojqsrbkngnjgq.supabase.co" crossorigin />
+  <link rel="dns-prefetch" href="https://pagead2.googlesyndication.com" />
+  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+  <!-- Preconnect to critical third-party origins -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Load fonts via Google Fonts CSS only - no direct gstatic preloads -->
+  <!-- Removed direct font preload that caused 404 errors on mobile -->
+
+  <!-- Load fonts with display=swap for non-blocking -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet" />
+  </noscript>
+
+  <meta name="google-adsense-account" content="ca-pub-1169163493596327">
+  <meta name="google-site-verification" content="WO3fcwYwVqz133pBn41D3bbA9AoLgEMzHdha8jd9pY0" />
+  <title>UniVoid - Everything a College Student Needs in One Place</title>
+  <meta name="description"
+    content="UniVoid is a student-first platform for Indian college students. Access study materials, campus events, projects, and book exchange — all personalized for you." />
+  <meta name="author" content="UniVoid" />
+  <meta name="keywords"
+    content="student resources, study materials, college events, projects, book exchange, Indian students, university, educational platform" />
+
+  <meta property="og:title" content="UniVoid - Everything a College Student Needs in One Place" />
+  <meta property="og:description"
+    content="Study materials, events, projects, and book exchange — personalized for Indian college students." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://univoid.tech/" />
+  <meta property="og:image" content="https://univoid.tech/images/univoid-og.jpg" />
+  <meta property="og:site_name" content="UniVoid" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="@UniVoid" />
+  <meta name="twitter:title" content="UniVoid - Everything a College Student Needs in One Place" />
+  <meta name="twitter:description"
+    content="Study materials, events, projects, and book exchange — personalized for Indian college students." />
+  <meta name="twitter:image" content="https://univoid.tech/images/univoid-og.jpg" />
+
+  <!-- Structured Data (JSON-LD) -->
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "UniVoid",
+      "url": "https://univoid.tech",
+      "logo": "https://univoid.tech/favicon.png",
+      "description": "UniVoid is a student-first platform for Indian college students. Access study materials, campus events, projects, and book exchange.",
+      "sameAs": [
+        "https://twitter.com/UniVoid"
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "contactType": "customer support",
+        "url": "https://univoid.tech/contact"
+      }
+    }
+    </script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "UniVoid",
+      "url": "https://univoid.tech",
+      "description": "Everything a College Student Needs in One Place",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://univoid.tech/materials?search={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "EducationalOrganization",
+      "name": "UniVoid",
+      "url": "https://univoid.tech",
+      "description": "A student-first platform providing study materials, events, projects, and resources for Indian college students.",
+      "areaServed": {
+        "@type": "Country",
+        "name": "India"
+      },
+      "audience": {
+        "@type": "EducationalAudience",
+        "educationalRole": "student"
+      }
+    }
+    </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+
+  <!-- Google AdSense - Deferred to not block rendering -->
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1169163493596327"
+    crossorigin="anonymous"></script>
+</body>
+
+</html>

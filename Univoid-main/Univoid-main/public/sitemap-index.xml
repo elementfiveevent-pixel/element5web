@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- 
+    UniVoid Sitemap Index
+    This file references all sitemaps for the website.
+    The dynamic sitemap is served from an Edge Function and includes all content.
+  -->
+  <sitemap>
+    <loc>https://rtvrdbbojqsrbkngnjgq.supabase.co/functions/v1/sitemap</loc>
+    <lastmod>2026-01-25</lastmod>
+  </sitemap>
+</sitemapindex>

@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    // Pin workspace root to this project so the lockfile warning disappears
+    root: __dirname,
+  },
 };
 
 export default nextConfig;

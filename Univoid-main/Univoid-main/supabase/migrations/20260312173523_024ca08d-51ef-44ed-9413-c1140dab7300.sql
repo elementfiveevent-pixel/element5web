@@ -1,0 +1,1 @@
+ALTER TABLE public.events ADD COLUMN artist_free_entry boolean NOT NULL DEFAULT false;

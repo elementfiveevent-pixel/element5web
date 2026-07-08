@@ -1,0 +1,25 @@
+name: Monitor Supabase Pool
+
+on:
+  schedule:
+    - cron: '*/15 * * * *' # Check every 15 minutes (Github Action minimum is usually 5+ mins for scheduled)
+
+jobs:
+  ping-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          # Replace with your actual project URL found in .env
+          PROJECT_URL="https://rtvrdbbojqsrbkngnjgq.supabase.co"
+          
+          echo "Checking health at $PROJECT_URL/functions/v1/health_check"
+          
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PROJECT_URL/functions/v1/health_check")
+          
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Health check failed with status $STATUS"
+            exit 1
+          else
+            echo "Health check passed"
+          fi
