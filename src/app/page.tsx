@@ -120,9 +120,9 @@ export default function Home() {
             </span>
           </div>
 
-          <h1 className="font-display font-extrabold text-4xl sm:text-6xl md:text-8xl tracking-tight leading-none uppercase text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+          <h1 className="font-display font-extrabold text-4xl sm:text-6xl lg:text-7xl xl:text-8xl tracking-tight leading-none uppercase text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
             WE BUILD <br />
-            <span className="text-yellow-festival">OPPORTUNITIES</span>
+            <span className="text-yellow-festival inline-block">OPPORTUNITIES</span>
           </h1>
 
           <p className="font-space text-sm sm:text-lg md:text-xl max-w-2xl mx-auto text-[#FAF8F5]/90 font-bold bg-[#121212]/70 p-3 sm:p-4 border-2 border-[#121212] shadow-brutal rounded">
@@ -154,9 +154,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="space-y-8">
             <span className="brutal-tape text-sm">THE VISION</span>
-            <h2 className="font-display font-extrabold text-5xl md:text-7xl uppercase tracking-tighter leading-none">
-              THIS IS NOT A TEMPLATE. <br />
-              <span className="text-red-stage">THIS IS A MOVEMENT.</span>
+            <h2 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-6xl uppercase tracking-tighter leading-none">
+              THIS IS NOT A <span className="inline-block">TEMPLATE.</span> <br />
+              <span className="text-red-stage">THIS IS A <span className="inline-block">MOVEMENT.</span></span>
             </h2>
             <p className="font-space text-lg font-bold leading-relaxed text-[#121212]/80">
               Element 5 is Gujarat's youth-first creative network. We believe that every artist, whether a street rapper in Surat, a poet in Rajkot, or an experimental composer in Ahmedabad, deserves a premium stage. We build the physical and digital infrastructure that turns unknown creators into recognized culture-makers.
@@ -192,8 +192,8 @@ export default function Home() {
         <div className="max-w-7xl mx-auto space-y-16">
           <div className="text-center space-y-4">
             <span className="brutal-sticker rotate-[-3deg] text-sm bg-yellow-festival">OUR FIRST IP</span>
-            <h2 className="font-display font-extrabold text-5xl md:text-7xl uppercase tracking-tighter text-white">
-              STAGEVERSE EVOLUTION
+            <h2 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-6xl uppercase tracking-tighter text-white">
+              <span className="inline-block">STAGEVERSE</span> <span className="inline-block">EVOLUTION</span>
             </h2>
             <p className="font-space text-lg text-[#FAF8F5]/60 max-w-xl mx-auto">
               From secret underground rooms to packing major cultural hubs. Look how far StageVerse has evolved.
@@ -247,9 +247,9 @@ export default function Home() {
           
           <div className="lg:col-span-5 space-y-8">
             <span className="brutal-tape">REAL-TIME RANKINGS</span>
-            <h2 className="font-display font-extrabold text-5xl md:text-6xl uppercase tracking-tighter">
-              STAGEVERSE <br />
-              <span className="text-red-stage">LEADERBOARD</span>
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl uppercase tracking-tighter">
+              <span className="inline-block">STAGEVERSE</span> <br />
+              <span className="text-red-stage inline-block">LEADERBOARD</span>
             </h2>
             <p className="font-space font-bold text-base text-[#121212]/80">
               Each StageVerse event connects live to this dashboard. Audience members vote directly from their phones. Cast your vote below to support your favorite regional talent!
@@ -497,9 +497,9 @@ export default function Home() {
         </div>
 
         <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
-          <h2 className="font-display font-extrabold text-5xl md:text-7xl uppercase tracking-tighter">
+          <h2 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-6xl uppercase tracking-tighter">
             DON'T JUST WATCH. <br />
-            <span className="text-red-stage">TAKE THE STAGE.</span>
+            <span className="text-red-stage inline-block">TAKE THE STAGE.</span>
           </h2>
           <p className="font-space text-lg md:text-xl font-bold max-w-xl mx-auto text-[#121212]/80">
             Submit your profile to join Element 5. Be discovered by brands, discover collaborators, and get shortlisted for upcoming StageVerse open mics.

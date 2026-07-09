@@ -167,8 +167,8 @@ export default function DiscoverArtists() {
         {/* Header */}
         <div className="space-y-4">
           <span className="brutal-tape uppercase text-xs">VERIFIED DIRECTORY</span>
-          <h1 className="font-display font-extrabold text-5xl md:text-7xl uppercase tracking-tighter">
-            DISCOVER <span className="text-red-stage">CREATORS</span>
+          <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-7xl uppercase tracking-tighter">
+            DISCOVER <span className="text-red-stage inline-block">CREATORS</span>
           </h1>
           <p className="font-space text-base font-bold text-gray-700 max-w-xl">
             "LinkedIn + Spotify + Instagram" for Gujarat's independent performers. Find rappers, beatboxers, comedians, and storytellers.

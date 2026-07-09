@@ -152,8 +152,8 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="space-y-4">
           <span className="brutal-tape uppercase text-xs">AETHERIS CENTRAL</span>
-          <h1 className="font-display font-extrabold text-5xl md:text-7xl uppercase tracking-tighter">
-            ADMIN <span className="text-red-stage">CMS</span>
+          <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-7xl uppercase tracking-tighter">
+            ADMIN <span className="text-red-stage inline-block">CMS</span>
           </h1>
           <p className="font-space text-base font-bold text-gray-700 max-w-xl">
             Live telemetry, content management, and moderation tools for the Element 5 platform.

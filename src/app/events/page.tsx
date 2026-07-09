@@ -118,8 +118,8 @@ export default function EventsPage() {
         {/* Page header */}
         <div className="space-y-3">
           <span className="brutal-tape text-xs uppercase select-none">ELEMENT 5 EVENTS</span>
-          <h1 className="font-display font-extrabold text-4xl sm:text-5xl md:text-7xl uppercase tracking-tighter leading-none mt-2">
-            {tab === "past" ? "PAST" : "ALL"} <span className="text-red-stage">EVENTS</span>
+          <h1 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-7xl uppercase tracking-tighter leading-none mt-2">
+            {tab === "past" ? "PAST" : "ALL"} <span className="text-red-stage inline-block">EVENTS</span>
           </h1>
           <p className="font-space text-sm font-bold text-[#121212]/60 max-w-xl">
             {tab === "past"

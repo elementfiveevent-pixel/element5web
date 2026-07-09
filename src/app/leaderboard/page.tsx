@@ -99,8 +99,8 @@ export default function LeaderboardPage() {
         {/* Page Header */}
         <div className="space-y-4">
           <span className="brutal-tape text-xs uppercase select-none">CREATOR LEADERBOARD</span>
-          <h1 className="font-display font-extrabold text-5xl md:text-7xl uppercase tracking-tighter">
-            THE STAGEVERSE <span className="text-red-stage">CHARTS</span>
+          <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-7xl uppercase tracking-tighter">
+            THE <span className="inline-block">STAGEVERSE</span> <span className="text-red-stage inline-block">CHARTS</span>
           </h1>
           <p className="font-space text-base font-bold text-gray-700 max-w-xl">
             Live rank updates based on audience votes, active performance reviews, and judge ratings in our arena.
