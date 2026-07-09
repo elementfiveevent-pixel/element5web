@@ -224,7 +224,7 @@ export default function CreateEventPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-12 px-4 sm:px-6">
+    <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-8 sm:py-12 px-4 sm:px-6">
       <div className="max-w-3xl mx-auto space-y-8">
 
         {/* Back */}

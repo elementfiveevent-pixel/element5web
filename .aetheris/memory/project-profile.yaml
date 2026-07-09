@@ -1,0 +1,21 @@
+schema_version: "2.1.0"
+workspace_root: "C:\\Users\\heerp\\OneDrive\\Desktop\\element 5 new website"
+languages:
+  typescript:
+    confidence: 0.98
+    evidence: "typescript dependency"
+frameworks:
+  react:
+    confidence: 0.98
+    evidence: "react dependency"
+  nextjs:
+    confidence: 0.98
+    evidence: "next dependency"
+infrastructure: {}
+conventions:
+  file_naming: "CamelCase"
+  styling: "tailwind"
+  testing: "unknown"
+monorepo: false
+package_manager: "npm"
+fingerprint: "bdaed7413baa54839bff8ddfc82405d4825057ecbd3bc88f13b7d0bb22ed6b9f"

@@ -52,8 +52,13 @@ export class StageVerseService {
   }
 
   async submitJudgeScore(judgeId: string, submissionId: string, dto: SubmitScoreDto) {
-    const submission = await this.prisma.stageVerseSubmission.findUnique({
-      where: { id: submissionId },
+    const submission = await this.prisma.stageVerseSubmission.findFirst({
+      where: {
+        OR: [
+          { id: submissionId },
+          { userId: submissionId }
+        ]
+      },
       include: { event: true },
     });
 
@@ -89,8 +94,13 @@ export class StageVerseService {
   }
 
   async castVote(voterId: string, submissionId: string) {
-    const submission = await this.prisma.stageVerseSubmission.findUnique({
-      where: { id: submissionId },
+    const submission = await this.prisma.stageVerseSubmission.findFirst({
+      where: {
+        OR: [
+          { id: submissionId },
+          { userId: submissionId }
+        ]
+      },
       include: { user: { select: { fullName: true } } },
     });
 

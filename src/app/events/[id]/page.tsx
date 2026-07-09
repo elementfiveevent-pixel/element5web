@@ -58,11 +58,11 @@ function Countdown({ target }: { target: string }) {
   }, [target]);
   const pad = (n: number) => String(n).padStart(2, "0");
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-2">
       {[["d","DAYS"],["h","HRS"],["m","MIN"],["s","SEC"]].map(([k,l]) => (
-        <div key={k} className="border-2 border-[#121212] bg-[#121212] text-[#FAF8F5] px-3 py-2 rounded text-center min-w-[52px]">
-          <span className="font-display font-black text-2xl block">{pad(tl[k as keyof typeof tl])}</span>
-          <span className="font-space font-black text-[8px] uppercase tracking-widest text-[#FAF8F5]/40">{l}</span>
+        <div key={k} className="border-2 border-[#121212] bg-[#121212] text-[#FAF8F5] px-2 sm:px-3 py-2 rounded text-center min-w-[44px] sm:min-w-[52px]">
+          <span className="font-display font-black text-xl sm:text-2xl block">{pad(tl[k as keyof typeof tl])}</span>
+          <span className="font-space font-black text-[7px] sm:text-[8px] uppercase tracking-widest text-[#FAF8F5]/40">{l}</span>
         </div>
       ))}
     </div>

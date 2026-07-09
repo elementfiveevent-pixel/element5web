@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import HeroScene from "@/components/3d/HeroScene";
-import PodiumScene from "@/components/3d/PodiumScene";
+import dynamic from "next/dynamic";
+import HeroBackground from "@/components/ui/HeroBackground";
+
+const PodiumScene = dynamic(() => import("@/components/3d/PodiumScene"), { ssr: false });
 import { Play, Flame, Star, Trophy, Users, Award, Calendar, MapPin, Clock, ArrowRight, Check, Sparkles } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
@@ -86,20 +88,20 @@ export default function Home() {
           curtainsOpened ? "translate-y-[-100%]" : "translate-y-0"
         }`}
       >
-        <div className="w-1/2 h-full bg-[#0F0E0E] border-r-2 border-yellow-festival flex items-center justify-end pr-8">
-          <h1 className="font-display font-extrabold text-5xl text-yellow-festival uppercase tracking-tighter select-none">
+        <div className="w-1/2 h-full bg-[#0F0E0E] border-r-2 border-yellow-festival flex items-center justify-end pr-4 sm:pr-8">
+          <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-yellow-festival uppercase tracking-tighter select-none">
             ELEMENT
           </h1>
         </div>
-        <div className="w-1/2 h-full bg-[#0F0E0E] border-l-2 border-yellow-festival flex items-center justify-start pl-8">
-          <h1 className="font-display font-extrabold text-5xl text-[#FAF8F5] uppercase tracking-tighter select-none">
+        <div className="w-1/2 h-full bg-[#0F0E0E] border-l-2 border-yellow-festival flex items-center justify-start pl-4 sm:pl-8">
+          <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-[#FAF8F5] uppercase tracking-tighter select-none">
             5
           </h1>
         </div>
         {/* Entrance trigger block (clickable if user wants to skip) */}
         <button
           onClick={() => setCurtainsOpened(true)}
-          className="absolute inset-0 m-auto w-36 h-36 rounded-full border-3 border-yellow-festival bg-[#121212] text-yellow-festival font-black uppercase text-xs tracking-widest flex flex-col items-center justify-center gap-1 shadow-brutal animate-bounce pointer-events-auto"
+          className="absolute inset-0 m-auto w-28 h-28 sm:w-36 sm:h-36 rounded-full border-3 border-yellow-festival bg-[#121212] text-yellow-festival font-black uppercase text-xs tracking-widest flex flex-col items-center justify-center gap-1 shadow-brutal animate-bounce pointer-events-auto"
         >
           <span>ENTER</span>
           <span className="text-[9px] text-[#FAF8F5]/60">THE VENUE</span>
@@ -107,49 +109,38 @@ export default function Home() {
       </div>
 
       {/* 2. HERO EXPERIENCE */}
-      <section className="relative h-[92vh] flex items-center justify-center px-6 border-b-3 border-[#121212]">
-        {/* 3D Scene in Background */}
-        {lightsOn && <HeroScene />}
-
-        {/* Ambient Overlay */}
+      <section className="relative h-[92vh] flex items-center justify-center px-4 sm:px-6 border-b-3 border-[#121212]">
+        <HeroBackground />
         <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent z-1" />
 
-        {/* Hero Content */}
-        <div className="relative z-10 max-w-5xl text-center space-y-8 select-none">
+        <div className="relative z-10 w-full max-w-5xl text-center space-y-5 sm:space-y-8 select-none px-2">
           <div className="inline-flex items-center gap-3">
-            <span className="brutal-sticker text-sm uppercase tracking-wider rotate-[3deg]">
+            <span className="brutal-sticker text-[10px] sm:text-sm uppercase tracking-wider rotate-[3deg]">
               🔥 GUJARAT'S CREATIVE MOVEMENT
             </span>
           </div>
 
-          <h1 className="font-display font-extrabold text-6xl md:text-8xl tracking-tight leading-none uppercase text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+          <h1 className="font-display font-extrabold text-4xl sm:text-6xl md:text-8xl tracking-tight leading-none uppercase text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
             WE BUILD <br />
-            <span className="text-yellow-festival outline-text">OPPORTUNITIES</span>
+            <span className="text-yellow-festival">OPPORTUNITIES</span>
           </h1>
 
-          <p className="font-space text-lg md:text-xl max-w-2xl mx-auto text-[#FAF8F5]/90 font-bold bg-[#121212]/70 p-4 border-2 border-[#121212] shadow-brutal rounded">
+          <p className="font-space text-sm sm:text-lg md:text-xl max-w-2xl mx-auto text-[#FAF8F5]/90 font-bold bg-[#121212]/70 p-3 sm:p-4 border-2 border-[#121212] shadow-brutal rounded">
             StageVerse is Ahmedabad's biggest community-driven Open Mic platform. 
             We showcase the rawest poetry, hip-hop, beatboxing, and storytelling.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-6 pt-4">
-            <Link
-              href="#register"
-              className="bg-red-stage text-[#FAF8F5] border-3 border-[#121212] px-8 py-4 font-black uppercase tracking-wider text-base shadow-brutal-white shadow-brutal-white-hover rounded"
-            >
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-6 pt-2 sm:pt-4 px-4 sm:px-0">
+            <Link href="#register" className="text-center bg-red-stage text-[#FAF8F5] border-3 border-[#121212] px-6 py-3 sm:px-8 sm:py-4 font-black uppercase tracking-wider text-sm sm:text-base shadow-brutal-white shadow-brutal-white-hover rounded">
               BOOK TICKETS
             </Link>
-            <Link
-              href="/artists"
-              className="bg-yellow-festival text-[#121212] border-3 border-[#121212] px-8 py-4 font-black uppercase tracking-wider text-base shadow-brutal shadow-brutal-hover rounded"
-            >
+            <Link href="/artists" className="text-center bg-yellow-festival text-[#121212] border-3 border-[#121212] px-6 py-3 sm:px-8 sm:py-4 font-black uppercase tracking-wider text-sm sm:text-base shadow-brutal shadow-brutal-hover rounded">
               DISCOVER CREATORS
             </Link>
           </div>
         </div>
 
-        {/* Soundbeat Pulse visual indicator */}
-        <div className="absolute bottom-8 left-8 flex items-end gap-1.5 z-10 opacity-70">
+        <div className="absolute bottom-4 sm:bottom-8 left-4 sm:left-8 hidden sm:flex items-end gap-1.5 z-10 opacity-70">
           <div className={`w-1.5 bg-yellow-festival transition-all duration-300 ${audioPulse ? "h-8" : "h-3"}`} />
           <div className={`w-1.5 bg-red-stage transition-all duration-300 ${audioPulse ? "h-4" : "h-10"}`} />
           <div className={`w-1.5 bg-[#FAF8F5] transition-all duration-300 ${audioPulse ? "h-12" : "h-4"}`} />
@@ -170,18 +161,18 @@ export default function Home() {
             <p className="font-space text-lg font-bold leading-relaxed text-[#121212]/80">
               Element 5 is Gujarat's youth-first creative network. We believe that every artist, whether a street rapper in Surat, a poet in Rajkot, or an experimental composer in Ahmedabad, deserves a premium stage. We build the physical and digital infrastructure that turns unknown creators into recognized culture-makers.
             </p>
-            <div className="flex gap-4">
-              <div className="border-3 border-[#121212] p-4 bg-yellow-festival shadow-brutal rounded">
-                <h4 className="font-display font-black text-2xl">100K+</h4>
-                <p className="font-bold text-xs uppercase tracking-wide">Combined Reach</p>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full">
+              <div className="border-3 border-[#121212] p-2.5 sm:p-4 bg-yellow-festival shadow-brutal rounded min-w-0">
+                <h4 className="font-display font-black text-xl sm:text-2xl truncate">100K+</h4>
+                <p className="font-bold text-[9px] sm:text-xs uppercase tracking-wide truncate">Combined Reach</p>
               </div>
-              <div className="border-3 border-[#121212] p-4 bg-[#FAF8F5] shadow-brutal rounded">
-                <h4 className="font-display font-black text-2xl">15+</h4>
-                <p className="font-bold text-xs uppercase tracking-wide">Selected Artists</p>
+              <div className="border-3 border-[#121212] p-2.5 sm:p-4 bg-[#FAF8F5] shadow-brutal rounded min-w-0">
+                <h4 className="font-display font-black text-xl sm:text-2xl truncate">15+</h4>
+                <p className="font-bold text-[9px] sm:text-xs uppercase tracking-wide truncate">Selected Artists</p>
               </div>
-              <div className="border-3 border-[#121212] p-4 bg-[#121212] text-[#FAF8F5] shadow-brutal rounded">
-                <h4 className="font-display font-black text-2xl">₹2,500</h4>
-                <p className="font-bold text-xs uppercase tracking-wide">Cash Prize</p>
+              <div className="border-3 border-[#121212] p-2.5 sm:p-4 bg-[#121212] text-[#FAF8F5] shadow-brutal rounded min-w-0">
+                <h4 className="font-display font-black text-xl sm:text-2xl truncate">₹2,500</h4>
+                <p className="font-bold text-[9px] sm:text-xs uppercase tracking-wide truncate">Cash Prize</p>
               </div>
             </div>
           </div>

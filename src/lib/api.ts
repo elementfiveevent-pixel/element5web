@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:4000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://element5website.onrender.com";
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, any>;

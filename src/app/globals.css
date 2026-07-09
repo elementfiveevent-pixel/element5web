@@ -68,6 +68,24 @@ body {
   font-family: var(--font-space);
   overflow-x: hidden;
   position: relative;
+  min-width: 320px;
+}
+
+/* Prevent tables and wide content from breaking mobile layout */
+* {
+  box-sizing: border-box;
+}
+
+/* Mobile-safe scrollable containers */
+.overflow-x-scroll-mobile {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent long words from overflowing */
+p, h1, h2, h3, h4, h5, h6, span {
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Custom noise texture overlay */

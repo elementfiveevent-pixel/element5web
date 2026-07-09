@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   Calendar, ChevronDown, Ticket, PlusCircle, LayoutDashboard,
-  BarChart2, Mic2, Users, Trophy, Radio, Menu, X, LogOut, User
+  BarChart2, Mic2, Users, Trophy, Radio, Menu, X, LogOut
 } from "lucide-react";
 
 // ── Dropdown item shape ──────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ export const Header: React.FC = () => {
               <div className="flex items-center gap-2 border-l border-[#FAF8F5]/10 pl-3">
                 <div className="text-right hidden md:block">
                   <span className="text-[10px] font-black text-yellow-festival block uppercase tracking-wider leading-tight">
-                    {user.fullName.split(" ")[0]}
+                    {user.fullName.split(" ")[0]} ({user.reputationXp} XP)
                   </span>
                   <span className="text-[9px] text-[#FAF8F5]/40 font-bold uppercase">
                     {user.role.replace("_", " ")}
@@ -276,7 +276,7 @@ export const Header: React.FC = () => {
 
       {/* ── Mobile drawer ─────────────────────────────────────────────────── */}
       {mobileOpen && (
-        <div className="lg:hidden bg-[#0F0E0E] border-t-2 border-[#FAF8F5]/10 px-4 pb-6 pt-4 space-y-1">
+        <div className="lg:hidden bg-[#0F0E0E] border-t-2 border-[#FAF8F5]/10 px-4 pb-6 pt-4 space-y-1 max-h-[80vh] overflow-y-auto">
           <MobileSection title="Events">
             {eventItems.map((i) => <MobileLink key={i.href} item={i} onClose={() => setMobileOpen(false)} />)}
           </MobileSection>
@@ -302,21 +302,24 @@ export const Header: React.FC = () => {
 
           <div className="pt-4 border-t border-[#FAF8F5]/10">
             {user ? (
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-yellow-festival uppercase">
-                  {user.fullName} · {user.role}
-                </span>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <span className="text-xs font-black text-yellow-festival uppercase block truncate max-w-[180px]">
+                    {user.fullName} ({user.reputationXp} XP)
+                  </span>
+                  <span className="text-[10px] font-bold text-[#FAF8F5]/40 uppercase">{user.role.replace("_", " ")}</span>
+                </div>
                 <button
                   onClick={() => { logout(); setMobileOpen(false); }}
-                  className="text-xs font-black text-red-stage uppercase border border-red-stage px-3 py-1 rounded"
+                  className="flex items-center gap-1.5 text-xs font-black text-red-stage uppercase border border-red-stage px-3 py-1.5 rounded"
                 >
-                  LOGOUT
+                  <LogOut size={12} /> LOGOUT
                 </button>
               </div>
             ) : (
               <div className="flex gap-3">
-                <Link href="/login" onClick={() => setMobileOpen(false)} className="flex-1 text-center border-2 border-[#FAF8F5]/30 text-[#FAF8F5] font-bold py-2 text-xs rounded">LOGIN</Link>
-                <Link href="/register" onClick={() => setMobileOpen(false)} className="flex-1 text-center bg-yellow-festival text-[#121212] font-black border-2 border-[#121212] py-2 text-xs rounded">JOIN FREE</Link>
+                <Link href="/login" onClick={() => setMobileOpen(false)} className="flex-1 text-center border-2 border-[#FAF8F5]/30 text-[#FAF8F5] font-bold py-2.5 text-xs rounded">LOGIN</Link>
+                <Link href="/register" onClick={() => setMobileOpen(false)} className="flex-1 text-center bg-yellow-festival text-[#121212] font-black border-2 border-[#121212] py-2.5 text-xs rounded">JOIN FREE</Link>
               </div>
             )}
           </div>

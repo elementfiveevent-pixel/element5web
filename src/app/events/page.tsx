@@ -112,13 +112,13 @@ export default function EventsPage() {
   const categoryColor = (cat: string) => CATEGORY_COLORS[cat] ?? "bg-gray-200 text-[#121212]";
 
   return (
-    <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-14 px-4 sm:px-6">
-      <div className="max-w-7xl mx-auto space-y-10">
+    <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-10 sm:py-14 px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10">
 
         {/* Page header */}
         <div className="space-y-3">
           <span className="brutal-tape text-xs uppercase select-none">ELEMENT 5 EVENTS</span>
-          <h1 className="font-display font-extrabold text-5xl md:text-7xl uppercase tracking-tighter leading-none mt-2">
+          <h1 className="font-display font-extrabold text-4xl sm:text-5xl md:text-7xl uppercase tracking-tighter leading-none mt-2">
             {tab === "past" ? "PAST" : "ALL"} <span className="text-red-stage">EVENTS</span>
           </h1>
           <p className="font-space text-sm font-bold text-[#121212]/60 max-w-xl">
@@ -145,26 +145,28 @@ export default function EventsPage() {
         </div>
 
         {/* Filters */}
-        <div className="border-3 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal p-4 flex flex-col sm:flex-row items-stretch gap-3">
-          <div className="relative flex-1 min-w-[200px]">
+        <div className="border-3 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal p-4 flex flex-col gap-3">
+          <div className="relative w-full">
             <Search size={16} className="absolute inset-y-0 left-3 my-auto text-[#121212]/40" />
             <input type="text" placeholder="Search events…" value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-3 border-3 border-[#121212] bg-white rounded font-space font-bold placeholder-[#121212]/30 focus:outline-none" />
           </div>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}
-            className="px-4 py-3 border-3 border-[#121212] bg-white rounded font-display font-bold focus:outline-none">
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c === "All" ? "All Categories" : c}</option>)}
-          </select>
-          <select value={city} onChange={(e) => setCity(e.target.value)}
-            className="px-4 py-3 border-3 border-[#121212] bg-white rounded font-display font-bold focus:outline-none">
-            {CITIES.map((c) => <option key={c} value={c}>{c === "All" ? "All Cities" : c}</option>)}
-          </select>
-          {!loading && (
-            <span className="font-space font-black text-xs text-[#121212]/40 uppercase self-center whitespace-nowrap hidden md:block">
-              {events.length} event{events.length !== 1 ? "s" : ""}
-            </span>
-          )}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <select value={category} onChange={(e) => setCategory(e.target.value)}
+              className="flex-1 px-4 py-3 border-3 border-[#121212] bg-white rounded font-display font-bold focus:outline-none">
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c === "All" ? "All Categories" : c}</option>)}
+            </select>
+            <select value={city} onChange={(e) => setCity(e.target.value)}
+              className="flex-1 px-4 py-3 border-3 border-[#121212] bg-white rounded font-display font-bold focus:outline-none">
+              {CITIES.map((c) => <option key={c} value={c}>{c === "All" ? "All Cities" : c}</option>)}
+            </select>
+            {!loading && (
+              <span className="font-space font-black text-xs text-[#121212]/40 uppercase self-center sm:self-auto whitespace-nowrap text-center sm:text-left">
+                {events.length} event{events.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Grid */}

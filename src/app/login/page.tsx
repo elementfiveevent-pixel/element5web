@@ -31,7 +31,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[80vh] bg-[#FFF5E4] text-[#121212] flex items-center justify-center py-16 px-6">
+    <div className="min-h-[80vh] bg-[#FFF5E4] text-[#121212] flex items-center justify-center py-10 px-4 sm:px-6">
       <div className="w-full max-w-md bg-[#FAF8F5] border-3 border-[#121212] p-8 rounded shadow-brutal space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">

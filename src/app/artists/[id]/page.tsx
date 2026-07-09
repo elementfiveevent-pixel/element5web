@@ -59,6 +59,46 @@ interface BackendArtistProfile {
   performances?: { eventId: string; performanceDate: string; videoUrl?: string }[];
 }
 
+function mapBackend(data: BackendArtistProfile): Artist {
+  return {
+    id: data.userId || data.id,
+    name: data.stageName,
+    genre: data.genres.join(" & ") || "Creator",
+    location: [data.city, data.state].filter(Boolean).join(", ") || "Gujarat",
+    rating: 4.5,
+    followers: data.user?.reputationXp || 0,
+    bio: data.biography || "",
+    votes: 0,
+    stageVerseScore: 70,
+    performancesCount: data.performances?.length || 0,
+    badges: [
+      ...(data.isVerified ? ["Verified"] : []),
+      ...(data.achievements?.map((a) => a.achievement.title) || []),
+    ],
+    recentActivity: "",
+    trend: "stable",
+    avatar: data.user?.profilePhotoUrl ||
+      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.stageName)}&backgroundColor=121212&textColor=FAF8F5`,
+    cover: data.portfolioUrls[0] ||
+      "https://images.unsplash.com/photo-1540039155733-5bb30b4f21f0?w=1200&h=400&fit=crop",
+    videos: data.performances?.filter((p) => p.videoUrl).map((p) => ({
+      title: `Performance on ${new Date(p.performanceDate).toLocaleDateString()}`,
+      url: p.videoUrl!,
+      platform: "youtube" as const,
+    })) || [],
+    skills: data.skills,
+    experience: data.languages.join(", "),
+    awards: data.achievements?.map((a) => a.achievement.title) || [],
+    availability: data.availabilityStatus === "AVAILABLE"
+      ? "Available"
+      : data.availabilityStatus === "BOOKED"
+      ? "Booked"
+      : "Collab Only",
+    collaborationsOpen: data.availabilityStatus !== "UNAVAILABLE",
+    socials: {},
+  };
+}
+
 // ─────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────
@@ -100,45 +140,7 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
     fetchArtist();
   }, [id, localArtists]);
 
-  function mapBackend(data: BackendArtistProfile): Artist {
-    return {
-      id: data.userId || data.id,
-      name: data.stageName,
-      genre: data.genres.join(" & ") || "Creator",
-      location: [data.city, data.state].filter(Boolean).join(", ") || "Gujarat",
-      rating: 4.5,
-      followers: data.user?.reputationXp || 0,
-      bio: data.biography || "",
-      votes: 0,
-      stageVerseScore: 70,
-      performancesCount: data.performances?.length || 0,
-      badges: [
-        ...(data.isVerified ? ["Verified"] : []),
-        ...(data.achievements?.map((a) => a.achievement.title) || []),
-      ],
-      recentActivity: "",
-      trend: "stable",
-      avatar: data.user?.profilePhotoUrl ||
-        `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.stageName)}&backgroundColor=121212&textColor=FAF8F5`,
-      cover: data.portfolioUrls[0] ||
-        "https://images.unsplash.com/photo-1540039155733-5bb30b4f21f0?w=1200&h=400&fit=crop",
-      videos: data.performances?.filter((p) => p.videoUrl).map((p) => ({
-        title: `Performance on ${new Date(p.performanceDate).toLocaleDateString()}`,
-        url: p.videoUrl!,
-        platform: "youtube" as const,
-      })) || [],
-      skills: data.skills,
-      experience: data.languages.join(", "),
-      awards: data.achievements?.map((a) => a.achievement.title) || [],
-      availability: data.availabilityStatus === "AVAILABLE"
-        ? "Available"
-        : data.availabilityStatus === "BOOKED"
-        ? "Booked"
-        : "Collab Only",
-      collaborationsOpen: data.availabilityStatus !== "UNAVAILABLE",
-      socials: {},
-    };
-  }
+
 
   const handleLike = () => {
     if (hasLiked) {
