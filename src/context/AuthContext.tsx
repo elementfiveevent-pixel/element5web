@@ -16,8 +16,8 @@ export interface User {
 interface AuthContextProps {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (fullName: string, email: string, password: string, role: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
+  register: (fullName: string, email: string, password: string, role: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -96,7 +96,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.accessToken) {
         setTokens(data.accessToken);
         await refreshUser();
+        return { success: true, mode: "live" as const };
       }
+      return { success: false, mode: "live" as const, message: "Invalid credentials received from server." };
     } catch (err: any) {
       console.warn("Backend login failed, falling back to local simulation:", err);
       const mockName = email.split("@")[0].toUpperCase();
@@ -110,6 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setTokens("mock-jwt-token");
       setUser(normalizeUser(mockUser));
       localStorage.setItem("e5_mock_user", JSON.stringify(mockUser));
+      return { success: true, mode: "local" as const, message: err?.message || "Server offline, signed in locally." };
     }
   };
 
@@ -119,7 +122,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.accessToken) {
         setTokens(data.accessToken);
         await refreshUser();
+        return { success: true, mode: "live" as const };
       }
+      return { success: false, mode: "live" as const, message: "Failed to register on production server." };
     } catch (err: any) {
       console.warn("Backend registration failed, falling back to local simulation:", err);
       const mockUser = {
@@ -132,6 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setTokens("mock-jwt-token");
       setUser(normalizeUser(mockUser));
       localStorage.setItem("e5_mock_user", JSON.stringify(mockUser));
+      return { success: true, mode: "local" as const, message: err?.message || "Server offline, registered profile locally." };
     }
   };
 

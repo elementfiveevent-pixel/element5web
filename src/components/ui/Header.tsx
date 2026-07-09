@@ -30,20 +30,57 @@ function NavDropdown({
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    timerRef.current = setTimeout(() => {
+      setOpen(false);
+    }, 150); // 150ms delay to bridge any gap
+  };
 
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, []);
 
   return (
-    <div ref={ref} className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <div
+      ref={ref}
+      className="relative"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 font-bold text-sm tracking-widest hover:text-yellow-festival transition-colors py-1"
+        onClick={() => {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          setOpen((v) => !v);
+        }}
+        className="flex items-center gap-1.5 font-bold text-sm tracking-widest hover:text-yellow-festival transition-colors py-1 cursor-pointer"
       >
         {label}
         {badge && (
@@ -58,7 +95,11 @@ function NavDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50 w-64">
+        <div 
+          className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50 w-64 transition-all duration-200 animate-in fade-in slide-in-from-top-1"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
           <div className="bg-[#0F0E0E] border-3 border-[#FAF8F5]/20 rounded shadow-[8px_8px_0px_0px_rgba(255,222,77,0.3)] overflow-hidden relative">
             {/* Arrow */}
             <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0F0E0E] border-l-2 border-t-2 border-[#FAF8F5]/20 rotate-45" />

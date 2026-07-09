@@ -24,8 +24,15 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await register(fullName, email, password, role);
-      router.push("/");
+      const res = await register(fullName, email, password, role);
+      if (res.success) {
+        if (res.mode === "local") {
+          console.warn("Registered locally using fallback simulation:", res.message);
+        }
+        router.push("/");
+      } else {
+        setError(res.message || "Failed to create account. Please check parameters.");
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to create account. Please check parameters.");
     } finally {

@@ -21,8 +21,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      router.push("/");
+      const res = await login(email, password);
+      if (res.success) {
+        if (res.mode === "local") {
+          console.warn("Signed in locally using fallback simulation:", res.message);
+        }
+        router.push("/");
+      } else {
+        setError(res.message || "Invalid credentials or server offline");
+      }
     } catch (err: any) {
       setError(err?.message || "Invalid credentials or server offline");
     } finally {

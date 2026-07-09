@@ -82,10 +82,17 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Prevent long words from overflowing */
-p, h1, h2, h3, h4, h5, h6, span {
+/* Prevent long words from overflowing on body paragraphs and spans */
+p, span {
   overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
+}
+
+/* Headings should wrap naturally at word bounds and never break in the middle of a word */
+h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: normal;
+  word-break: keep-all;
+  hyphens: none;
 }
 
 /* Custom noise texture overlay */
