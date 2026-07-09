@@ -58,38 +58,40 @@ function NavDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-64 bg-[#0F0E0E] border-3 border-[#FAF8F5]/20 rounded shadow-[8px_8px_0px_0px_rgba(255,222,77,0.3)] z-50 overflow-hidden">
-          {/* Arrow */}
-          <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0F0E0E] border-l-2 border-t-2 border-[#FAF8F5]/20 rotate-45" />
+        <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 z-50 w-64">
+          <div className="bg-[#0F0E0E] border-3 border-[#FAF8F5]/20 rounded shadow-[8px_8px_0px_0px_rgba(255,222,77,0.3)] overflow-hidden relative">
+            {/* Arrow */}
+            <div className="absolute -top-[7px] left-1/2 -translate-x-1/2 w-3 h-3 bg-[#0F0E0E] border-l-2 border-t-2 border-[#FAF8F5]/20 rotate-45" />
 
-          <div className="py-2">
-            {items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className="flex items-start gap-3 px-4 py-3 hover:bg-[#FAF8F5]/5 transition-colors group"
-              >
-                <span className="mt-0.5 text-yellow-festival flex-shrink-0 group-hover:scale-110 transition-transform">
-                  {item.icon}
-                </span>
-                <div className="min-w-0">
-                  <span className="font-display font-bold text-xs uppercase tracking-wider text-[#FAF8F5] block">
-                    {item.label}
+            <div className="py-2">
+              {items.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-start gap-3 px-4 py-3 hover:bg-[#FAF8F5]/5 transition-colors group"
+                >
+                  <span className="mt-0.5 text-yellow-festival flex-shrink-0 group-hover:scale-110 transition-transform">
+                    {item.icon}
                   </span>
-                  {item.description && (
-                    <span className="font-space text-[10px] text-[#FAF8F5]/40 leading-tight block mt-0.5">
-                      {item.description}
+                  <div className="min-w-0">
+                    <span className="font-display font-bold text-xs uppercase tracking-wider text-[#FAF8F5] block">
+                      {item.label}
+                    </span>
+                    {item.description && (
+                      <span className="font-space text-[10px] text-[#FAF8F5]/40 leading-tight block mt-0.5">
+                        {item.description}
+                      </span>
+                    )}
+                  </div>
+                  {item.badge && (
+                    <span className="ml-auto flex-shrink-0 text-[9px] font-black bg-red-stage text-white px-1.5 py-0.5 rounded uppercase">
+                      {item.badge}
                     </span>
                   )}
-                </div>
-                {item.badge && (
-                  <span className="ml-auto flex-shrink-0 text-[9px] font-black bg-red-stage text-white px-1.5 py-0.5 rounded uppercase">
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            ))}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}
