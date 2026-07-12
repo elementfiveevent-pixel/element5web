@@ -4,13 +4,13 @@ import React, { useState, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import {
   Users, Vote, Calendar, TrendingUp, Check, ShieldAlert,
-  Award, Database, Cpu, Activity, RefreshCw, AlertCircle, FileText, Eye, X
+  Award, Database, Cpu, Activity, RefreshCw, AlertCircle, FileText, Eye, X, Scan
 } from "lucide-react";
-import confetti from "canvas-confetti";
-import CloudinaryUpload from "@/components/ui/CloudinaryUpload";
+import SupabaseUpload from "@/components/ui/SupabaseUpload";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface BackendStats {
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
   const [eventSuccess, setEventSuccess] = useState(false);
 
   useEffect(() => {
-    if (!loading && (!user || !["SUPER_ADMIN", "ORG_ADMIN", "EVENT_MANAGER"].includes(user.role))) {
+    if (!loading && (!user || user.role !== "SUPER_ADMIN")) {
       router.push("/login");
     }
   }, [user, loading, router]);
@@ -128,7 +128,7 @@ export default function AdminDashboard() {
 
   const handleToggleEvent = (id: string) => {
     setEvents(events.map(e => e.id === id ? { ...e, isCompleted: !e.isCompleted } : e));
-    confetti({ particleCount: 40, spread: 30, colors: ["#FFDE4D", "#D80032"] });
+    import("canvas-confetti").then(({ default: c }) => c({ particleCount: 40, spread: 30, colors: ["#FFDE4D", "#D80032"] }));
   };
 
   const handleCreateEvent = (e: React.FormEvent) => {
@@ -141,7 +141,7 @@ export default function AdminDashboard() {
       schedule: [], sponsors: [], audienceCount: 0, registrationProgress: 0, registrationLimit: 200, isCompleted: false,
     }, ...events]);
     setNewEventTitle(""); setNewEventVenue(""); setEventSuccess(true);
-    confetti({ particleCount: 80, spread: 60, colors: ["#FFDE4D", "#D80032"] });
+    import("canvas-confetti").then(({ default: c }) => c({ particleCount: 80, spread: 60, colors: ["#FFDE4D", "#D80032"] }));
     setTimeout(() => setEventSuccess(false), 2000);
   };
 
@@ -150,14 +150,16 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto space-y-12">
 
         {/* Header */}
-        <div className="space-y-4">
-          <span className="brutal-tape uppercase text-xs">AETHERIS CENTRAL</span>
-          <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-7xl uppercase tracking-tighter">
-            ADMIN <span className="text-red-stage inline-block">CMS</span>
-          </h1>
-          <p className="font-space text-base font-bold text-gray-700 max-w-xl">
-            Live telemetry, content management, and moderation tools for the Element 5 platform.
-          </p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="space-y-3">
+            <span className="brutal-tape uppercase text-xs">AETHERIS CENTRAL</span>
+            <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-7xl uppercase tracking-tighter">
+              ADMIN <span className="text-red-stage inline-block">CMS</span>
+            </h1>
+            <p className="font-space text-sm sm:text-base font-bold text-gray-700 max-w-xl">
+              Live telemetry, content management, and moderation tools for the Element 5 platform.
+            </p>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -326,12 +328,12 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
                 <h4 className="font-display font-black text-base uppercase">Event Flyer Upload</h4>
-                <CloudinaryUpload folder="element5/flyers" accept="image/*" label="UPLOAD EVENT FLYER" maxSizeMB={10}
+                <SupabaseUpload folder="element5/flyers" accept="image/*" label="UPLOAD EVENT FLYER" maxSizeMB={10}
                   onUploadSuccess={r => console.log("Uploaded:", r.secure_url)} />
               </div>
               <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
                 <h4 className="font-display font-black text-base uppercase">Performance Media</h4>
-                <CloudinaryUpload folder="element5/performances" accept="image/*,video/*" label="UPLOAD PERFORMANCE MEDIA" maxSizeMB={50}
+                <SupabaseUpload folder="element5/performances" accept="image/*,video/*" label="UPLOAD PERFORMANCE MEDIA" maxSizeMB={50}
                   onUploadSuccess={r => console.log("Uploaded:", r.secure_url)} />
               </div>
             </div>

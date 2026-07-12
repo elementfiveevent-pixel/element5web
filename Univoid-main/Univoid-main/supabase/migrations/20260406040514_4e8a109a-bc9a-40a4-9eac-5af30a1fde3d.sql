@@ -1,1 +1,0 @@
-ALTER TABLE public.materials REPLICA IDENTITY FULL;

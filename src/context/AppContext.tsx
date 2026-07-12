@@ -98,231 +98,13 @@ interface AppContextProps {
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
-const initialArtists: Artist[] = [
-  {
-    id: "aarav-mehta",
-    name: "Aarav Mehta",
-    genre: "Gujarati Poetry & Storytelling",
-    location: "Ahmedabad, Gujarat",
-    rating: 4.9,
-    followers: 12400,
-    bio: "Blending classical Gujarati literature with modern spoken-word rhythms. Telling stories of Ahmedabad streets, ancient pols, and contemporary youth struggles.",
-    votes: 485,
-    stageVerseScore: 97,
-    performancesCount: 18,
-    badges: ["Legend", "1000 Votes", "Community Favorite"],
-    recentActivity: "Performed at StageVerse 1.0 (Winner)",
-    trend: "up",
-    avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop",
-    cover: "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=1200&h=400&fit=crop",
-    videos: [
-      { title: "Ahmedabad Ni Galiyo (Spoken Word)", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", platform: "youtube" },
-      { title: "Maro Shaher (StageVerse 1.0)", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", platform: "youtube" }
-    ],
-    skills: ["Spoken Word Poetry", "Script Writing", "Narrator"],
-    experience: "3+ Years performing across Western India",
-    awards: ["Best Poet - StageVerse 1.0", "Youth Icon of Gujarat 2025 Nominee"],
-    availability: "Available",
-    collaborationsOpen: true,
-    socials: {
-      instagram: "https://instagram.com/aarav_mehta",
-      youtube: "https://youtube.com/c/aaravpoetry",
-      spotify: "https://open.spotify.com/artist/aarav"
-    }
-  },
-  {
-    id: "shreya-joshi",
-    name: "Shreya Joshi",
-    genre: "Sufi & Experimental Indie Rock",
-    location: "Vadodara, Gujarat",
-    rating: 4.8,
-    followers: 9800,
-    bio: "Combining traditional Sufi poetry with alternative rock. Known for powerful high notes and haunting acoustic arrangements.",
-    votes: 420,
-    stageVerseScore: 94,
-    performancesCount: 12,
-    badges: ["Top Performer", "500 Votes", "Rising Star"],
-    recentActivity: "Released a new acoustic session video",
-    trend: "up",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop",
-    cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1200&h=400&fit=crop",
-    videos: [
-      { title: "Maula - Sufi Cover Live", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", platform: "youtube" }
-    ],
-    skills: ["Classical Vocals", "Acoustic Guitar", "Songwriting"],
-    experience: "5 Years classical training, 2 years stage performance",
-    awards: ["Winner - Vadodara Indie Fest 2025"],
-    availability: "Collab Only",
-    collaborationsOpen: true,
-    socials: {
-      instagram: "https://instagram.com/shreya_sufirock",
-      spotify: "https://open.spotify.com/artist/shreya"
-    }
-  },
-  {
-    id: "krish-patel",
-    name: "D-Vibe (Krish Patel)",
-    genre: "Desi Hip-Hop & Rap",
-    location: "Surat, Gujarat",
-    rating: 4.7,
-    followers: 18200,
-    bio: "Spitting rapid-fire bars in Gujarati, Hindi, and English. Bringing the raw Surat street culture onto the big stage.",
-    votes: 395,
-    stageVerseScore: 92,
-    performancesCount: 22,
-    badges: ["1000 Votes", "Rising Star"],
-    recentActivity: "Freestyle session went viral on Instagram Reels",
-    trend: "stable",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop",
-    cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1200&h=400&fit=crop",
-    videos: [
-      { title: "Surti Locho (Gujarati Rap)", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", platform: "youtube" }
-    ],
-    skills: ["Rapping", "Beat Production", "Songwriting"],
-    experience: "Rap battles veteran in Mumbai & Surat circuits",
-    awards: ["StageVerse 2.0 Runner Up"],
-    availability: "Available",
-    collaborationsOpen: true,
-    socials: {
-      instagram: "https://instagram.com/dvibe_music",
-      youtube: "https://youtube.com/c/dvibehiphop"
-    }
-  },
-  {
-    id: "riya-shah",
-    name: "Riya Shah",
-    genre: "Stand-Up Comedy",
-    location: "Rajkot, Gujarat",
-    rating: 4.6,
-    followers: 7200,
-    bio: "Observations on Gujarati family dynamics, NRI cousins, and engineering struggles. Punchy, clean, and relatable humor.",
-    votes: 310,
-    stageVerseScore: 89,
-    performancesCount: 10,
-    badges: ["Community Favorite", "10 Performances"],
-    recentActivity: "Booked for upcoming corporate show in Ahmedabad",
-    trend: "up",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop",
-    cover: "https://images.unsplash.com/photo-1516280440614-37939bbacd6a?w=1200&h=400&fit=crop",
-    videos: [
-      { title: "Gujarati Shaadi Shenanigans", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", platform: "youtube" }
-    ],
-    skills: ["Stand-Up Comedy", "Improv", "Acting"],
-    experience: "Performed 40+ open mics across India",
-    awards: ["Best Comic - Rajkot Comedy Open 2024"],
-    availability: "Available",
-    collaborationsOpen: false,
-    socials: {
-      instagram: "https://instagram.com/riya_laughs"
-    }
-  },
-  {
-    id: "kunal-vyas",
-    name: "Beat-Boxer Kunal",
-    genre: "Beatboxing & Loop Station",
-    location: "Ahmedabad, Gujarat",
-    rating: 4.9,
-    followers: 15600,
-    bio: "A one-man electronic dance music show using only vocal cords and loops. Reinventing EDM live performances.",
-    votes: 490,
-    stageVerseScore: 98,
-    performancesCount: 26,
-    badges: ["Legend", "1000 Votes", "Top Performer"],
-    recentActivity: "Headlining the pre-event showcase of StageVerse 3.0",
-    trend: "up",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop",
-    cover: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=1200&h=400&fit=crop",
-    videos: [
-      { title: "Vocal Synthesizer Routine", url: "https://www.youtube.com/embed/dQw4w9WgXcQ", platform: "youtube" }
-    ],
-    skills: ["Vocal Scratching", "Loop Station Setup", "Bass Synthesis"],
-    experience: "Represented Gujarat in National Beatboxing Championship",
-    awards: ["Gujarat Beatbox Champion 2025"],
-    availability: "Available",
-    collaborationsOpen: true,
-    socials: {
-      instagram: "https://instagram.com/kunal_beats",
-      youtube: "https://youtube.com/c/kunalbeatbox"
-    }
-  }
-];
+const initialArtists: Artist[] = [];
 
-const initialEvents: Event[] = [
-  {
-    id: "stageverse-3.0",
-    title: "StageVerse 3.0: Ahmedabad Edition",
-    type: "StageVerse",
-    date: "July 26, 2026",
-    time: "7:00 PM onwards",
-    venue: "The Brutalist Box, Sindhu Bhavan Road, Ahmedabad",
-    description: "Gujarat's biggest community-driven Open Mic is back for Season 3. Witness 15 hand-selected creators battling live. You are the judge — audience votes decide the champion who walks away with ₹2,500, professional recordings, and featured promotion.",
-    image: "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=800&h=500&fit=crop",
-    countdownDate: "2026-07-26T19:00:00+05:30",
-    schedule: [
-      { time: "07:00 PM", title: "Gates Open & Networking", description: "Grab a drink, meet fellow creators, and experience interactive digital installations." },
-      { time: "07:30 PM", title: "Opening Showcase", description: "Guest routine by Kunal Vyas (Loop Station Beatboxing)." },
-      { time: "07:45 PM", title: "Artist Lineup: Round 1", description: "First 7 artists perform (Poetry, Rap, Stand-up)." },
-      { time: "08:45 PM", title: "Mid-Show Talks", description: "Brief panel on building the creator ecosystem in Gujarat by Element 5 Founders." },
-      { time: "09:00 PM", title: "Artist Lineup: Round 2", description: "Remaining 8 artists perform." },
-      { time: "10:00 PM", title: "Live Audience Voting & Winner Crowned", description: "Audience scans code, casts votes, live leaderboard results, and awards ceremony." }
-    ],
-    sponsors: [
-      { name: "Red Bull Culture", logo: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=100&h=50&fit=crop" },
-      { name: "Vite Studios", logo: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&h=50&fit=crop" }
-    ],
-    audienceCount: 148,
-    registrationProgress: 72,
-    registrationLimit: 250,
-    isCompleted: false
-  },
-  {
-    id: "element-talks-1.0",
-    title: "Element Talks 1.0: Creative Monetization",
-    type: "Element Talks",
-    date: "August 15, 2026",
-    time: "4:00 PM - 6:30 PM",
-    venue: "Vibrant Hub, Vadodara",
-    description: "An intensive masterclass panel on how local regional artists can build sustainable income models, secure brand deals, and distribute music/performances on major streaming portals.",
-    image: "https://images.unsplash.com/photo-1515187029135-18ee286d815b?w=800&h=500&fit=crop",
-    countdownDate: "2026-08-15T16:00:00+05:30",
-    schedule: [
-      { time: "04:00 PM", title: "Keynote Address", description: "Structuring your creator brand." },
-      { time: "04:45 PM", title: "Panel Discussion", description: "Surviving as a full-time creator in Gujarat." },
-      { time: "05:45 PM", title: "Interactive Q&A", description: "Reviewing audience portfolios." }
-    ],
-    sponsors: [],
-    audienceCount: 82,
-    registrationProgress: 45,
-    registrationLimit: 120,
-    isCompleted: false
-  },
-  {
-    id: "stageverse-2.0",
-    title: "StageVerse 2.0: Surat Showcase",
-    type: "StageVerse",
-    date: "June 14, 2026",
-    time: "6:30 PM",
-    venue: "The Art Loft, Surat",
-    description: "Our historic Surat event where D-Vibe and Kunal Vyas set the stage on fire. Fully booked within 2 hours of announcement, resulting in over 10K social views.",
-    image: "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800&h=500&fit=crop",
-    countdownDate: "2026-06-14T18:30:00+05:30",
-    schedule: [],
-    sponsors: [],
-    audienceCount: 180,
-    registrationProgress: 100,
-    registrationLimit: 180,
-    isCompleted: true
-  }
-];
+const initialEvents: Event[] = [];
 
-const initialMessages: Message[] = [
-  { id: "m1", senderId: "aarav-mehta", receiverId: "currentUser", text: "Hey! Loved your recent video submission. Are you down to collaborate on a poetry-meets-beatbox track for the next StageVerse?", timestamp: "07:32 PM" }
-];
+const initialMessages: Message[] = [];
 
-const initialCollabs: CollabRequest[] = [
-  { id: "c1", title: "Need Guitarist for Sufi Rock Track", category: "Need Guitarist", authorId: "shreya-joshi", authorName: "Shreya Joshi", description: "Looking for an acoustic/electric guitarist in Vadodara to track riffs for an upcoming single. High energy Sufi structure.", date: "July 07, 2026" },
-  { id: "c2", title: "Videographer needed for Rap Video", category: "Need Videographer", authorId: "krish-patel", authorName: "Krish Patel", description: "Shooting a street rap video around Surat. Need someone with active stabilizer rig and sharp editing style.", date: "July 06, 2026" }
-];
+const initialCollabs: CollabRequest[] = [];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [artists, setArtists] = useState<Artist[]>(initialArtists);
@@ -352,6 +134,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (cachedBadges) setUserBadges(JSON.parse(cachedBadges));
     if (cachedArtists) setArtists(JSON.parse(cachedArtists));
     if (cachedCollabs) setCollabRequests(JSON.parse(cachedCollabs));
+  }, []);
+
+  // Fetch events from the backend on mount
+  useEffect(() => {
+    api.get("/events")
+      .then((data: any) => {
+        const list = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : []);
+        if (list.length > 0) {
+          const mapped = list.map((e: any) => ({
+            id: e.id,
+            title: e.title,
+            type: e.category === "STAGEVERSE" ? "StageVerse" : "Element Talks",
+            date: new Date(e.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+            time: new Date(e.startDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+            venue: e.location?.venueName || "TBD",
+            description: e.description || "",
+            image: e.flyerUrl || "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7",
+            countdownDate: e.startDate,
+            schedule: [],
+            sponsors: [],
+            audienceCount: e.registrationsCount || 0,
+            registrationProgress: e.maxCapacity ? Math.round((e.registrationsCount / e.maxCapacity) * 100) : 0,
+            registrationLimit: e.maxCapacity || 100,
+            isCompleted: ["COMPLETED", "ARCHIVED", "CANCELLED"].includes(e.status) || new Date(e.endDate || e.startDate) < new Date(),
+          }));
+          setEvents(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch events in AppContext:", err);
+      });
   }, []);
 
   const addUserXP = (amount: number) => {

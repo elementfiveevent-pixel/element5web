@@ -12,7 +12,16 @@ import confetti from "canvas-confetti";
 
 export default function Home() {
   const { artists, events, userVotes, registeredEvents, voteForArtist, registerForEvent } = useApp();
+  const nextEvent = events[0] || {
+    id: "stageverse-3.0",
+    title: "StageVerse 3.0: Ahmedabad Edition",
+    venue: "The Brutalist Box, Ahmedabad",
+    audienceCount: 148,
+    registrationLimit: 250,
+  };
+
   const [curtainsOpened, setCurtainsOpened] = useState(false);
+  const [curtainsFinished, setCurtainsFinished] = useState(false);
   const [lightsOn, setLightsOn] = useState(false);
   const [audioPulse, setAudioPulse] = useState(false);
   
@@ -24,6 +33,10 @@ export default function Home() {
     const curtainTimer = setTimeout(() => {
       setCurtainsOpened(true);
     }, 1200);
+
+    const finishTimer = setTimeout(() => {
+      setCurtainsFinished(true);
+    }, 2400);
 
     const lightsTimer = setTimeout(() => {
       setLightsOn(true);
@@ -52,6 +65,7 @@ export default function Home() {
 
     return () => {
       clearTimeout(curtainTimer);
+      clearTimeout(finishTimer);
       clearTimeout(lightsTimer);
       clearInterval(audioTimer);
       clearInterval(interval);
@@ -83,30 +97,35 @@ export default function Home() {
   return (
     <div className="relative overflow-hidden min-h-screen bg-[#121212]">
       {/* 1. CINEMATIC CURTAIN INTRO */}
-      <div
-        className={`fixed inset-0 z-50 flex pointer-events-none transition-transform duration-1000 ease-in-out ${
-          curtainsOpened ? "translate-y-[-100%]" : "translate-y-0"
-        }`}
-      >
-        <div className="w-1/2 h-full bg-[#0F0E0E] border-r-2 border-yellow-festival flex items-center justify-end pr-4 sm:pr-8">
-          <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-yellow-festival uppercase tracking-tighter select-none">
-            ELEMENT
-          </h1>
-        </div>
-        <div className="w-1/2 h-full bg-[#0F0E0E] border-l-2 border-yellow-festival flex items-center justify-start pl-4 sm:pl-8">
-          <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-[#FAF8F5] uppercase tracking-tighter select-none">
-            5
-          </h1>
-        </div>
-        {/* Entrance trigger block (clickable if user wants to skip) */}
-        <button
-          onClick={() => setCurtainsOpened(true)}
-          className="absolute inset-0 m-auto w-28 h-28 sm:w-36 sm:h-36 rounded-full border-3 border-yellow-festival bg-[#121212] text-yellow-festival font-black uppercase text-xs tracking-widest flex flex-col items-center justify-center gap-1 shadow-brutal animate-bounce pointer-events-auto"
+      {!curtainsFinished && (
+        <div
+          className={`fixed inset-0 z-50 flex pointer-events-none transition-transform duration-1000 ease-in-out ${
+            curtainsOpened ? "translate-y-[-100%]" : "translate-y-0"
+          }`}
         >
-          <span>ENTER</span>
-          <span className="text-[9px] text-[#FAF8F5]/60">THE VENUE</span>
-        </button>
-      </div>
+          <div className="w-1/2 h-full bg-[#0F0E0E] border-r-2 border-yellow-festival flex items-center justify-end pr-4 sm:pr-8">
+            <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-yellow-festival uppercase tracking-tighter select-none">
+              ELEMENT
+            </h1>
+          </div>
+          <div className="w-1/2 h-full bg-[#0F0E0E] border-l-2 border-yellow-festival flex items-center justify-start pl-4 sm:pl-8">
+            <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-[#FAF8F5] uppercase tracking-tighter select-none">
+              5
+            </h1>
+          </div>
+          {/* Entrance trigger block (clickable if user wants to skip) */}
+          <button
+            onClick={() => {
+              setCurtainsOpened(true);
+              setCurtainsFinished(true);
+            }}
+            className="absolute inset-0 m-auto w-28 h-28 sm:w-36 sm:h-36 rounded-full border-3 border-yellow-festival bg-[#121212] text-yellow-festival font-black uppercase text-xs tracking-widest flex flex-col items-center justify-center gap-1 shadow-brutal animate-bounce pointer-events-auto"
+          >
+            <span>ENTER</span>
+            <span className="text-[9px] text-[#FAF8F5]/60">THE VENUE</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. HERO EXPERIENCE */}
       <section className="relative h-[92vh] flex items-center justify-center px-4 sm:px-6 border-b-3 border-[#121212]">
@@ -357,11 +376,11 @@ export default function Home() {
                 <Calendar size={14} /> JULY 26, 2026 • 07:00 PM
               </span>
               <h2 className="font-display font-extrabold text-3xl md:text-5xl uppercase tracking-tighter">
-                {events[0].title}
+                {nextEvent.title}
               </h2>
               <div className="flex flex-wrap gap-4 text-xs font-black uppercase text-gray-600">
                 <span className="flex items-center gap-1 bg-[#121212]/10 px-3 py-1 rounded">
-                  <MapPin size={12} /> {events[0].venue.split(",")[0]}
+                  <MapPin size={12} /> {nextEvent.venue.split(",")[0]}
                 </span>
                 <span className="flex items-center gap-1 bg-[#121212]/10 px-3 py-1 rounded">
                   <Clock size={12} /> Live Audience Voting
@@ -402,13 +421,13 @@ export default function Home() {
               <div className="flex justify-between font-black uppercase text-xs">
                 <span>Registration Cap Progress</span>
                 <span className="text-red-stage">
-                  {events[0].audienceCount} / {events[0].registrationLimit} Seats Filled
+                  {nextEvent.audienceCount} / {nextEvent.registrationLimit} Seats Filled
                 </span>
               </div>
               <div className="w-full h-6 border-3 border-[#121212] bg-[#FAF8F5] rounded overflow-hidden p-0.5">
                 <div
                   className="h-full bg-red-stage border-r-2 border-[#121212] transition-all duration-500"
-                  style={{ width: `${(events[0].audienceCount / events[0].registrationLimit) * 100}%` }}
+                  style={{ width: `${(nextEvent.audienceCount / nextEvent.registrationLimit) * 100}%` }}
                 />
               </div>
             </div>
@@ -424,7 +443,7 @@ export default function Home() {
                 </div>
               ) : (
                 <button
-                  onClick={() => handleRegister("stageverse-3.0")}
+                  onClick={() => handleRegister(nextEvent.id)}
                   className="w-full sm:w-auto bg-yellow-festival text-[#121212] font-black px-8 py-4 border-3 border-[#121212] shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded uppercase tracking-wider text-base"
                 >
                   CLAIM FREE SPOT

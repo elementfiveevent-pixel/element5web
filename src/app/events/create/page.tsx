@@ -9,7 +9,7 @@ import {
   ArrowLeft, ArrowRight, Check, AlertCircle, Calendar, MapPin,
   Users, Tag, Info, Eye, Send, Loader2, PlusCircle, X
 } from "lucide-react";
-import CloudinaryUpload from "@/components/ui/CloudinaryUpload";
+import SupabaseUpload from "@/components/ui/SupabaseUpload";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FormData {
@@ -34,8 +34,13 @@ interface FormData {
   maxCapacity: string;
   isPaid: boolean;
   price: string;
+  audiencePrice: string;
+  artistPrice: string;
   upiVpa: string;
+  upiId: string;
   upiQrUrl: string;
+  artistQrUrl: string;
+  audienceQrUrl: string;
 
   // Step 4 – media
   flyerUrl: string;
@@ -64,7 +69,7 @@ const INITIAL: FormData = {
   startDate: "", startTime: "19:00", endDate: "", endTime: "22:00",
   registrationEndDate: "",
   venueName: "", venueAddress: "", city: "", state: "", mapsLink: "",
-  maxCapacity: "200", isPaid: false, price: "0", upiVpa: "", upiQrUrl: "",
+  maxCapacity: "200", isPaid: false, price: "0", audiencePrice: "0", artistPrice: "0", upiVpa: "", upiId: "", upiQrUrl: "", artistQrUrl: "", audienceQrUrl: "",
   flyerUrl: "",
   termsConditions: "", customFields: [],
 };
@@ -152,6 +157,8 @@ export default function CreateEventPage() {
         maxCapacity:         parseInt(form.maxCapacity) || 200,
         isPaid:              form.isPaid,
         price:               form.isPaid ? parseFloat(form.price) || 0 : 0,
+        audiencePrice:       form.isPaid ? parseFloat(form.audiencePrice) || 0 : 0,
+        artistPrice:         form.isPaid ? parseFloat(form.artistPrice) || 0 : 0,
         upiVpa:              form.upiVpa.trim() || undefined,
         upiQrUrl:            form.upiQrUrl || undefined,
         flyerUrl:            form.flyerUrl || undefined,
@@ -181,7 +188,7 @@ export default function CreateEventPage() {
   const canNext: Record<number, boolean> = {
     1: !!form.title.trim() && !!form.category && !!form.startDate,
     2: !!form.venueName.trim() && !!form.venueAddress.trim() && !!form.city.trim() && !!form.state.trim(),
-    3: !form.isPaid || (!!form.price && parseFloat(form.price) > 0),
+    3: !form.isPaid || (!!form.audiencePrice && parseFloat(form.audiencePrice) >= 0 && !!form.artistPrice && parseFloat(form.artistPrice) >= 0),
     4: true,
     5: true,
     6: true,
@@ -368,15 +375,56 @@ export default function CreateEventPage() {
                   </div>
 
                   {form.isPaid && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#121212]/10">
-                      <Field label="Ticket Price (₹)" required>
-                        <input type="number" min={0} step={10} className={inputCls} placeholder="499"
-                          value={form.price} onChange={(e) => set("price", e.target.value)} />
-                      </Field>
-                      <Field label="UPI VPA (for payment)">
-                        <input className={inputCls} placeholder="event@upi"
-                          value={form.upiVpa} onChange={(e) => set("upiVpa", e.target.value)} />
-                      </Field>
+                    <div className="space-y-4 pt-2 border-t border-[#121212]/10">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Field label="Audience Ticket Price (₹)" required>
+                          <input type="number" min={0} className={inputCls} placeholder="299"
+                            value={form.audiencePrice} onChange={(e) => {
+                              set("audiencePrice", e.target.value);
+                              set("price", e.target.value);
+                            }} />
+                        </Field>
+                        <Field label="Artist / Performer Price (₹)" required>
+                          <input type="number" min={0} className={inputCls} placeholder="499"
+                            value={form.artistPrice} onChange={(e) => set("artistPrice", e.target.value)} />
+                        </Field>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Field label="UPI VPA ID (for payment)" required>
+                          <input className={inputCls} placeholder="event@upi"
+                            value={form.upiVpa} onChange={(e) => {
+                              set("upiVpa", e.target.value);
+                              set("upiId", e.target.value);
+                            }} />
+                        </Field>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Field label="Audience QR Code (Optional)">
+                          <SupabaseUpload
+                            folder="element5/qrs"
+                            accept="image/*"
+                            label="UPLOAD AUDIENCE QR"
+                            maxSizeMB={5}
+                            onUploadSuccess={(r) => {
+                              set("audienceQrUrl", r.secure_url);
+                              set("upiQrUrl", r.secure_url);
+                            }}
+                          />
+                          {form.audienceQrUrl && <p className="text-xs text-green-600 font-bold mt-1">✓ Audience QR Code Uploaded</p>}
+                        </Field>
+                        
+                        <Field label="Artist QR Code (Optional)">
+                          <SupabaseUpload
+                            folder="element5/qrs"
+                            accept="image/*"
+                            label="UPLOAD ARTIST QR"
+                            maxSizeMB={5}
+                            onUploadSuccess={(r) => set("artistQrUrl", r.secure_url)}
+                          />
+                          {form.artistQrUrl && <p className="text-xs text-green-600 font-bold mt-1">✓ Artist QR Code Uploaded</p>}
+                        </Field>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -387,7 +435,7 @@ export default function CreateEventPage() {
             {step === 4 && (
               <>
                 <Field label="Event Flyer / Banner">
-                  <CloudinaryUpload
+                  <SupabaseUpload
                     folder="element5/flyers"
                     accept="image/*"
                     label="UPLOAD EVENT FLYER"
@@ -496,7 +544,7 @@ export default function CreateEventPage() {
                       <span className="flex items-center gap-1.5"><Calendar size={11} className="text-red-stage" />{form.startDate} {form.startTime}</span>
                       <span className="flex items-center gap-1.5"><MapPin size={11} className="text-red-stage" />{form.venueName || "—"}, {form.city}</span>
                       <span className="flex items-center gap-1.5"><Users size={11} className="text-red-stage" />Cap: {form.maxCapacity}</span>
-                      <span className="flex items-center gap-1.5"><Tag size={11} className="text-red-stage" />{form.isPaid ? `₹${form.price}` : "FREE"}</span>
+                      <span className="flex items-center gap-1.5"><Tag size={11} className="text-red-stage" />{form.isPaid ? `Aud: ₹${form.audiencePrice} / Art: ₹${form.artistPrice}` : "FREE"}</span>
                     </div>
                   </div>
                 </div>

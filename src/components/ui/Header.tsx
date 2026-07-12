@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   Calendar, ChevronDown, Ticket, PlusCircle, LayoutDashboard,
-  BarChart2, Mic2, Users, Trophy, Radio, Menu, X, LogOut
+  BarChart2, Mic2, Users, Trophy, Radio, Menu, X, LogOut, User
 } from "lucide-react";
 
 // ── Dropdown item shape ──────────────────────────────────────────────────────
@@ -147,8 +147,8 @@ export const Header: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isOrganizerOrAdmin =
-    user && ["SUPER_ADMIN", "ORG_ADMIN", "EVENT_MANAGER"].includes(user.role);
-  const isAdmin = user && ["SUPER_ADMIN", "ORG_ADMIN"].includes(user.role);
+    user && ["SUPER_ADMIN", "ORG_ADMIN"].includes(user.role);
+  const isAdmin = user && user.role === "SUPER_ADMIN";
 
   const eventItems: NavItem[] = [
     {
@@ -240,13 +240,52 @@ export const Header: React.FC = () => {
         </Link>
 
         {/* Desktop nav */}
-        <nav className="hidden lg:flex items-center gap-7 font-bold text-sm tracking-widest text-[#FAF8F5]">
-          <NavDropdown label="EVENTS" items={eventItems} />
+        <nav className="hidden lg:flex items-center gap-7 font-bold text-xs uppercase tracking-widest text-[#FAF8F5]">
+          <Link
+            href="/events"
+            className={`hover:text-yellow-festival transition-colors ${
+              pathname === "/events" ? "text-yellow-festival" : ""
+            }`}
+          >
+            All Events
+          </Link>
 
-          <NavDropdown label="PLATFORM" items={platformItems} />
+          <Link
+            href="/stageverse"
+            className={`hover:text-yellow-festival transition-colors ${
+              pathname === "/stageverse" ? "text-yellow-festival" : ""
+            }`}
+          >
+            Stageverse
+          </Link>
+
+          <Link
+            href="/leaderboard"
+            className={`hover:text-yellow-festival transition-colors ${
+              pathname === "/leaderboard" ? "text-yellow-festival" : ""
+            }`}
+          >
+            Leaderboard
+          </Link>
+
+          <Link
+            href="/community"
+            className={`hover:text-yellow-festival transition-colors ${
+              pathname.startsWith("/community") ? "text-yellow-festival" : ""
+            }`}
+          >
+            Community
+          </Link>
 
           {isOrganizerOrAdmin && (
-            <NavDropdown label="ORGANIZER" items={organizerItems} badge="ORG" />
+            <Link
+              href="/events/organizer"
+              className={`hover:text-yellow-festival transition-colors ${
+                pathname.startsWith("/events/organizer") ? "text-yellow-festival" : ""
+              }`}
+            >
+              ORGANIZER
+            </Link>
           )}
 
           {isAdmin && (
@@ -272,23 +311,12 @@ export const Header: React.FC = () => {
               >
                 <Ticket size={12} /> MY TICKETS
               </Link>
-              <div className="flex items-center gap-2 border-l border-[#FAF8F5]/10 pl-3">
-                <div className="text-right hidden md:block">
-                  <span className="text-[10px] font-black text-yellow-festival block uppercase tracking-wider leading-tight">
-                    {user.fullName.split(" ")[0]} ({user.reputationXp} XP)
-                  </span>
-                  <span className="text-[9px] text-[#FAF8F5]/40 font-bold uppercase">
-                    {user.role.replace("_", " ")}
-                  </span>
-                </div>
-                <button
-                  onClick={logout}
-                  title="Logout"
-                  className="bg-[#D80032] text-white font-bold border-2 border-[#121212] p-1.5 text-xs shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded cursor-pointer"
-                >
-                  <LogOut size={13} />
-                </button>
-              </div>
+              <Link
+                href="/profile"
+                className="flex items-center gap-1.5 border border-[#FAF8F5]/20 text-[#FAF8F5]/70 hover:text-yellow-festival hover:border-yellow-festival font-bold px-3 py-1.5 text-[11px] tracking-widest rounded transition-all"
+              >
+                <User size={12} /> PROFILE
+              </Link>
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-2">
@@ -319,14 +347,48 @@ export const Header: React.FC = () => {
 
       {/* ── Mobile drawer ─────────────────────────────────────────────────── */}
       {mobileOpen && (
-        <div className="lg:hidden bg-[#0F0E0E] border-t-2 border-[#FAF8F5]/10 px-4 pb-6 pt-4 space-y-1 max-h-[80vh] overflow-y-auto">
-          <MobileSection title="Events">
-            {eventItems.map((i) => <MobileLink key={i.href} item={i} onClose={() => setMobileOpen(false)} />)}
-          </MobileSection>
+        <div className="lg:hidden bg-[#0F0E0E] border-t-2 border-[#FAF8F5]/10 px-4 pb-6 pt-4 space-y-3 max-h-[80vh] overflow-y-auto">
+          <div className="flex flex-col gap-2 border-b border-[#FAF8F5]/10 pb-4">
+            <Link
+              href="/events"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-2 py-2.5 rounded hover:bg-[#FAF8F5]/5 transition-colors font-display font-bold text-xs uppercase tracking-wider ${
+                pathname === "/events" ? "text-yellow-festival" : "text-[#FAF8F5]"
+              }`}
+            >
+              <span className="text-yellow-festival">📅</span> All Events
+            </Link>
 
-          <MobileSection title="Platform">
-            {platformItems.map((i) => <MobileLink key={i.href} item={i} onClose={() => setMobileOpen(false)} />)}
-          </MobileSection>
+            <Link
+              href="/stageverse"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-2 py-2.5 rounded hover:bg-[#FAF8F5]/5 transition-colors font-display font-bold text-xs uppercase tracking-wider ${
+                pathname === "/stageverse" ? "text-yellow-festival" : "text-[#FAF8F5]"
+              }`}
+            >
+              <span className="text-yellow-festival">⚡</span> Stageverse
+            </Link>
+
+            <Link
+              href="/leaderboard"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-2 py-2.5 rounded hover:bg-[#FAF8F5]/5 transition-colors font-display font-bold text-xs uppercase tracking-wider ${
+                pathname === "/leaderboard" ? "text-yellow-festival" : "text-[#FAF8F5]"
+              }`}
+            >
+              <span className="text-yellow-festival">🏆</span> Leaderboard
+            </Link>
+
+            <Link
+              href="/community"
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-2 py-2.5 rounded hover:bg-[#FAF8F5]/5 transition-colors font-display font-bold text-xs uppercase tracking-wider ${
+                pathname.startsWith("/community") ? "text-yellow-festival" : "text-[#FAF8F5]"
+              }`}
+            >
+              <span className="text-yellow-festival">👥</span> Community
+            </Link>
+          </div>
 
           {isOrganizerOrAdmin && (
             <MobileSection title="Organizer">
@@ -352,12 +414,21 @@ export const Header: React.FC = () => {
                   </span>
                   <span className="text-[10px] font-bold text-[#FAF8F5]/40 uppercase">{user.role.replace("_", " ")}</span>
                 </div>
-                <button
-                  onClick={() => { logout(); setMobileOpen(false); }}
-                  className="flex items-center gap-1.5 text-xs font-black text-red-stage uppercase border border-red-stage px-3 py-1.5 rounded"
-                >
-                  <LogOut size={12} /> LOGOUT
-                </button>
+                <div className="flex gap-2">
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-1.5 text-xs font-black text-yellow-festival uppercase border border-yellow-festival/30 px-3 py-1.5 rounded"
+                  >
+                    <User size={12} /> PROFILE
+                  </Link>
+                  <button
+                    onClick={() => { logout(); setMobileOpen(false); }}
+                    className="flex items-center gap-1.5 text-xs font-black text-red-stage uppercase border border-red-stage px-3 py-1.5 rounded"
+                  >
+                    <LogOut size={12} /> LOGOUT
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex gap-3">

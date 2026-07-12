@@ -29,7 +29,11 @@ export default function RegisterPage() {
         if (res.mode === "local") {
           console.warn("Registered locally using fallback simulation:", res.message);
         }
-        router.push("/");
+        if (role === "ARTIST") {
+          router.push("/onboarding");
+        } else {
+          router.push("/");
+        }
       } else {
         setError(res.message || "Failed to create account. Please check parameters.");
       }
@@ -120,7 +124,6 @@ export default function RegisterPage() {
             >
               <option value="AUDIENCE">Audience / Judge</option>
               <option value="ARTIST">Artist / Creator</option>
-              <option value="EVENT_MANAGER">Event Organizer</option>
             </select>
           </div>
 

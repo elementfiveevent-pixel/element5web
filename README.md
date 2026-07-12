@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎤 Element 5: Open Mic & Performance Battle Hub
 
-## Getting Started
+Element 5 is a neobrutalist, gamified web platform built for open mic, poetry, stand-up comedy, and rap battle events. It features an interactive, real-time voting engine called **StageVerse**, automated ticketing check-ins, artist portfolios, and complete event organization tools.
 
-First, run the development server:
+---
 
+## 🔑 Separate Registration Gateways (No Overlapping Roles)
+
+To prevent account confusion and enforce strict separation between roles, Element 5 uses **different URLs** for each user category:
+
+| User Type | Registration URL | Purpose |
+| :--- | :--- | :--- |
+| **🎤 Artist / Creator** | [/register](http://localhost:3000/register) | Create a profile, showcase video reels, and register to perform. |
+| **👥 Audience / Voter** | [/register](http://localhost:3000/register) | Reserve tickets, vote in live events, and earn XP. |
+| **💼 Event Organizer** | [/register/organizer](http://localhost:3000/register/organizer) | Register to host, schedule events, scan tickets, and view analytics. |
+| **🛡️ System Admin** | [/register/admin](http://localhost:3000/register/admin) | Register as a super administrator to manage CMS, users, and health. |
+
+*Note: The roles are completely separated—the public `/register` page does not contain admin/organizer options.*
+
+---
+
+## 🔑 Pre-Seeded Test Credentials
+
+Use these pre-seeded accounts in the local database to explore each dashboard and flow immediately:
+
+### 1. Admin & Organizer Portals (URL: [/login](http://localhost:3000/login))
+* **Super Admin**:
+  * **Email**: `admin@element5.com`
+  * **Password**: `Element5AdminSecure2026!`
+  * **URL**: Access via [/admin](http://localhost:3000/admin) after login.
+* **Event Organizer**:
+  * **Email**: `organizer@element5.com`
+  * **Password**: `Element5CreatorPass2026!`
+  * **URL**: Access via [/events/organizer](http://localhost:3000/events/organizer) after login.
+
+### 2. Creator & Audience Portal (URL: [/login](http://localhost:3000/login))
+* **Artist 1 (`DJ Zenith`)**:
+  * **Email**: `artist1@element5.com`
+  * **Password**: `Element5CreatorPass2026!`
+  * **URL**: Onboarding profile redirects to `/profile`.
+
+---
+
+## 🛠️ How to Run the Project Locally
+
+Element 5 is split into two service layers:
+* **Frontend**: Next.js (runs on port `3000`)
+* **Backend**: NestJS (runs on port `4000` with raw PostgreSQL connections)
+
+### 📋 Prerequisites
+* **Node.js** (v18 or higher recommended)
+* **PostgreSQL / Supabase Database instance**
+
+---
+
+### Step 1: Database Setup & Migration
+1. Retrieve your database connection string (from your Supabase Project settings).
+2. Open the file `backend/.env` and specify your connections:
+   ```env
+   DATABASE_URL="postgresql://postgres.your-id:password@aws-0.pooler.supabase.com:6543/postgres?pgbouncer=true"
+   DIRECT_URL="postgresql://postgres.your-id:password@aws-0.supabase.com:5432/postgres"
+   JWT_SECRET="element5_jwt_secret_token_signature_2026_key"
+   ```
+3. Run the SQL schema migrations to create the tables, indexes, and seeded credentials:
+   ```bash
+   cd backend
+   npm run db:migrate
+   ```
+
+### Step 2: Start the Backend Server (NestJS)
+Run the following commands to boot the NestJS backend in hot-reload development mode:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+   cd backend
+   npm install
+   npm run start:dev
 ```
+The API server will listen on [http://localhost:4000](http://localhost:4000).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Step 3: Start the Frontend App (Next.js)
+Run the following commands in the frontend folder (`Element5website/`) to boot the web client:
+```bash
+   npm install
+   npm run dev
+```
+The web application will open on [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ⚡ Real-Time Voting Engine (StageVerse)
 
-## Learn More
+The live voting engine allows audience members to decide the winner of open mic sessions and battles:
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* **For the Organizer**: 
+  * Controls the live ballot from `/events/organizer?tab=voting`. Can toggle the voting gate `OPEN` or `CLOSED` or trigger a complete `RESET`.
+  * Monitors live vote totals for each performer as they pour in.
+* **For the Audience**:
+  * Toggles the live view at `/stageverse`. If voting is closed, they watch the track preview. If opened, they are presented with a neobrutalist voting slip to select their favorite track.
+* **For the Artist**:
+  * Their uploaded YouTube showcase is read by the system, placing their track name and biography details automatically onto the ballot when approved.

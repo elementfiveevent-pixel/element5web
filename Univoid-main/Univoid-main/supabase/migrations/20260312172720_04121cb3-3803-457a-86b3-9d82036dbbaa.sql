@@ -1,1 +1,0 @@
-ALTER TABLE public.events ADD COLUMN allow_audience_members boolean NOT NULL DEFAULT false;

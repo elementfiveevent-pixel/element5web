@@ -11,6 +11,24 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
+function getYoutubeEmbedUrl(url: string) {
+  if (!url) return null;
+  let videoId = "";
+  try {
+    if (url.includes("youtube.com/watch")) {
+      const searchParams = new URLSearchParams(new URL(url).search);
+      videoId = searchParams.get("v") || "";
+    } else if (url.includes("youtu.be/")) {
+      videoId = url.split("youtu.be/")[1]?.split("?")[0] || "";
+    } else if (url.includes("youtube.com/embed/")) {
+      videoId = url.split("youtube.com/embed/")[1]?.split("?")[0] || "";
+    }
+  } catch {
+    // Ignore invalid
+  }
+  return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+}
+
 // ─────────────────────────────────────────────
 // Skeleton
 // ─────────────────────────────────────────────
@@ -131,7 +149,43 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
         if (local) {
           setArtist(local);
         } else {
-          setNotFound(true);
+          const cached = typeof window !== "undefined" ? localStorage.getItem("e5_mock_user") : null;
+          const parsedUser = cached ? JSON.parse(cached) : null;
+          if (parsedUser && (parsedUser.id === id || id === "mock-user-id") && parsedUser.role === "ARTIST") {
+            const artProfile = parsedUser.artistProfile || {};
+            const mockArtist: Artist = {
+              id: parsedUser.id,
+              name: artProfile.stageName || parsedUser.fullName,
+              genre: artProfile.genre || "Creator",
+              location: "Gujarat, IN",
+              rating: 4.8,
+              followers: parsedUser.reputationXp || 120,
+              bio: artProfile.bio || artProfile.pastAchievement || "Set up stage profile.",
+              votes: 0,
+              stageVerseScore: 95,
+              performancesCount: artProfile.youtubeLink ? 1 : 0,
+              badges: ["Verified"],
+              recentActivity: "",
+              trend: "up",
+              avatar: parsedUser.profilePhotoUrl || artProfile.profilePhotoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artProfile.stageName || parsedUser.fullName)}&backgroundColor=121212&textColor=FAF8F5`,
+              cover: "https://images.unsplash.com/photo-1540039155733-5bb30b4f21f0?w=1200&h=400&fit=crop",
+              videos: artProfile.youtubeLink ? [{
+                title: "Featured Performance Clip",
+                url: artProfile.youtubeLink,
+                platform: "youtube" as const
+              }] : [],
+              skills: artProfile.skills ? artProfile.skills.split(",").map((s: string) => s.trim()) : [artProfile.genre || "Performance"],
+              experience: artProfile.experienceLevel === "NEWBIE" ? "First Timer / Newbie" : artProfile.experienceLevel === "EXPERIENCED" ? "6+ Months Experience" : "Pro / Regular",
+              awards: [artProfile.pastAchievement].filter(Boolean),
+              socials: {
+                instagram: artProfile.instagramHandle ? `https://instagram.com/${artProfile.instagramHandle}` : undefined,
+                youtube: artProfile.youtubeLink || undefined
+              }
+            };
+            setArtist(mockArtist);
+          } else {
+            setNotFound(true);
+          }
         }
       } finally {
         setLoading(false);
@@ -216,12 +270,22 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
                 alt={artist.name}
                 className="w-36 h-36 rounded-full object-cover border-4 border-[#121212] bg-white -mt-24 shadow-brutal relative z-10"
               />
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <h2 className="font-display font-black text-2xl tracking-tight leading-none">{artist.name}</h2>
                 <p className="text-xs font-black uppercase text-red-stage tracking-wider">{artist.genre}</p>
                 <p className="text-xs font-space font-medium text-gray-500 flex items-center justify-center md:justify-start gap-1">
                   <MapPin size={12} /> {artist.location}
                 </p>
+                {artist.bio && (
+                  <p className="font-space text-xs font-bold text-gray-600 mt-2 leading-relaxed">
+                    {artist.bio}
+                  </p>
+                )}
+                {artist.availability && (
+                  <span className="inline-block bg-green-500 text-white font-display font-black text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-green-500 mt-1 select-none">
+                    🟢 {artist.availability}
+                  </span>
+                )}
               </div>
 
               {/* Stats */}
@@ -249,6 +313,19 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
               >
                 <Heart size={14} fill={hasLiked ? "white" : "none"} />
                 {hasLiked ? "LIKED" : "LIKE"}
+              </button>
+
+              {/* Share */}
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  confetti({ particleCount: 30, spread: 25, colors: ["#FFDE4D", "#D80032"] });
+                  alert("Profile link copied to clipboard!");
+                }}
+                className="w-full border-2 border-[#121212] bg-[#FFDE4D] text-[#121212] py-2.5 px-4 font-black uppercase text-xs tracking-wider flex items-center justify-center gap-1.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer"
+              >
+                <Share2 size={14} />
+                SHARE PROFILE
               </button>
 
               {/* Socials */}
@@ -346,7 +423,7 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
             <div className="w-full flex-grow bg-[#0F0E0E] rounded border-2 border-white/20 mt-4 flex items-center justify-center relative overflow-hidden">
               {artist.videos.length > 0 ? (
                 <iframe
-                  src={artist.videos[0].url}
+                  src={getYoutubeEmbedUrl(artist.videos[0].url) || artist.videos[0].url}
                   title={artist.videos[0].title}
                   className="w-full h-full min-h-[280px]"
                   allowFullScreen

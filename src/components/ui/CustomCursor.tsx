@@ -77,6 +77,7 @@ export default function CustomCursor() {
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
+        pointerEvents: "none",
       }}
     >
       {cursorType === "media" && (

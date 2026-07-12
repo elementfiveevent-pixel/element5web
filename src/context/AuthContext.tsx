@@ -2,12 +2,13 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { auth as firebaseAuth, googleProvider, signInWithPopup } from "@/lib/firebase";
 
 export interface User {
   id: string;
   email: string;
   fullName: string;
-  role: "SUPER_ADMIN" | "ORG_ADMIN" | "EVENT_MANAGER" | "ARTIST" | "JUDGE" | "MODERATOR" | "AUDIENCE" | "VOLUNTEER" | "SPONSOR" | "GUEST";
+  role: "SUPER_ADMIN" | "ORG_ADMIN" | "ARTIST" | "AUDIENCE" | "VOLUNTEER";
   roles?: User["role"][];
   profilePhotoUrl?: string;
   reputationXp: number;
@@ -18,6 +19,7 @@ interface AuthContextProps {
   loading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
   register: (fullName: string, email: string, password: string, role: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -29,10 +31,17 @@ const normalizeUser = (data: any): User => {
     ? data.roles
     : [data.role ?? "AUDIENCE"];
 
+  let primaryRole = data.role ?? roles[0] ?? "AUDIENCE";
+  if (roles.includes("SUPER_ADMIN")) {
+    primaryRole = "SUPER_ADMIN";
+  } else if (roles.includes("ORG_ADMIN")) {
+    primaryRole = "ORG_ADMIN";
+  }
+
   return {
     ...data,
     roles,
-    role: data.role ?? roles[0] ?? "AUDIENCE",
+    role: primaryRole,
     reputationXp: data.reputationXp ?? 0,
   };
 };
@@ -106,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: "mock-user-id",
         email,
         fullName: mockName,
-        role: email.includes("admin") ? "SUPER_ADMIN" : email.includes("artist") ? "ARTIST" : "AUDIENCE",
+        role: email.includes("admin") ? "SUPER_ADMIN" : email.includes("organizer") ? "ORG_ADMIN" : email.includes("artist") ? "ARTIST" : "AUDIENCE",
         reputationXp: 120,
       };
       setTokens("mock-jwt-token");
@@ -141,6 +150,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      
+      const data = await api.post("/auth/google", { idToken });
+      if (data.accessToken) {
+        setTokens(data.accessToken);
+        await refreshUser();
+        return { success: true, mode: "live" as const };
+      }
+      return { success: false, mode: "live" as const, message: "Failed to authenticate Google user on backend." };
+    } catch (err: any) {
+      console.warn("Google login failed, falling back to local simulation:", err);
+      // Fallback local simulation
+      const mockUser = {
+        id: "mock-google-user-id",
+        email: "google-user@example.com",
+        fullName: "Google Creator User",
+        role: "AUDIENCE",
+        reputationXp: 10,
+      };
+      setTokens("mock-jwt-token");
+      setUser(normalizeUser(mockUser));
+      localStorage.setItem("e5_mock_user", JSON.stringify(mockUser));
+      return { success: true, mode: "local" as const, message: err?.message || "Server offline, signed in locally via Google mockup." };
+    }
+  };
+
   const logout = () => {
     clearTokens();
     localStorage.removeItem("e5_mock_user");
@@ -148,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, register, signInWithGoogle, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
