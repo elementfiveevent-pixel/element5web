@@ -250,11 +250,11 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
                 >
                   <div className="col-span-4 flex items-center gap-2 min-w-0">
                     <div className="w-7 h-7 rounded-full bg-[#121212]/10 flex-shrink-0 flex items-center justify-center font-display font-black text-xs">
-                      {(r.user?.fullName || r.user?.fullname || "?")[0]}
+                      {(r.user?.fullName || "?")[0]}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <p className="font-display font-bold text-sm truncate">{profile.stageName || profile.stagename || r.user?.fullName || r.user?.fullname || "User"}</p>
+                        <p className="font-display font-bold text-sm truncate">{profile.stageName || r.user?.fullName || "User"}</p>
                         {isUserArtist && (
                           <span className="bg-red-stage text-white font-display font-black text-[7px] px-1.5 py-0.5 rounded rotate-[-2deg]">
                             ARTIST
