@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import Link from "next/link";
@@ -679,7 +679,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
           ),
         }))
       );
-      confetti({ particleCount: 30, spread: 40, colors: ["#50C878", "#FFDE4D"] });
+      import("canvas-confetti").then(({ default: c }) => c({ particleCount: 30, spread: 40, colors: ["#50C878", "#FFDE4D"] }));
     } catch (err: any) {
       console.warn("Backend offline. Simulating ticket check-in locally.");
       setRegs((prev) =>
@@ -690,7 +690,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
           ),
         }))
       );
-      confetti({ particleCount: 30, spread: 40, colors: ["#50C878", "#FFDE4D"] });
+      import("canvas-confetti").then(({ default: c }) => c({ particleCount: 30, spread: 40, colors: ["#50C878", "#FFDE4D"] }));
     } finally {
       setCheckingIn(null);
     }
@@ -716,7 +716,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
         }))
       );
       setScanFeedback({ type: "success", message: `Successfully checked in ticket ${targetCode}!` });
-      confetti({ particleCount: 40, spread: 50, colors: ["#50C878", "#FFDE4D"] });
+      import("canvas-confetti").then(({ default: c }) => c({ particleCount: 40, spread: 50, colors: ["#50C878", "#FFDE4D"] }));
     } catch (err: any) {
       // Fallback local simulation if backend throws
       console.warn("Check-in error:", err);
@@ -740,7 +740,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
           }))
         );
         setScanFeedback({ type: "success", message: `[Simulated] Checked in ticket ${targetCode}!` });
-        confetti({ particleCount: 40, spread: 50, colors: ["#50C878", "#FFDE4D"] });
+        import("canvas-confetti").then(({ default: c }) => c({ particleCount: 40, spread: 50, colors: ["#50C878", "#FFDE4D"] }));
       } else {
         setScanFeedback({ type: "error", message: err?.message || "Invalid or already used ticket code." });
       }
@@ -799,8 +799,8 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
   const ticketsList = regs.flatMap((r) =>
     (r.tickets || []).map((t) => ({
       ...t,
-      attendeeName: r.user?.fullName || r.user?.fullname || "User",
-      attendeeEmail: r.user?.email || r.user?.email || "",
+      attendeeName: r.user?.fullName || "User",
+      attendeeEmail: r.user?.email || "",
       role: r.user?.role || "AUDIENCE",
       paymentStatus: r.paymentStatus,
     }))
@@ -1044,7 +1044,7 @@ const TABS = [
 ] as const;
 type TabKey = typeof TABS[number]["key"];
 
-export default function OrganizerDashboard() {
+function OrganizerDashboardContent() {
   const { user, loading } = useAuth();
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as TabKey) ?? "events";
@@ -1508,5 +1508,13 @@ export default function OrganizerDashboard() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function OrganizerDashboard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FFF5E4] py-12 text-center font-display font-black uppercase text-[#121212]/40 animate-pulse">Loading Organizer Dashboard…</div>}>
+      <OrganizerDashboardContent />
+    </Suspense>
   );
 }

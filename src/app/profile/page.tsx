@@ -208,7 +208,7 @@ export default function ProfilePage() {
                 <div className="space-y-3">
                   <h4 className="font-display font-black text-sm uppercase text-gray-500">Skills & Specializations</h4>
                   <div className="flex flex-wrap gap-2">
-                    {skillsText ? skillsText.split(",").map((skill) => (
+                    {skillsText ? skillsText.split(",").map((skill: string) => (
                       <span key={skill} className="bg-yellow-festival/20 text-[#121212] border-2 border-[#121212] px-3 py-1 font-bold text-xs rounded shadow-brutal-light">
                         {skill.trim()}
                       </span>

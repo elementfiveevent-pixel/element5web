@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useApp } from "@/context/AppContext";
 import { useSearchParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -47,7 +47,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 const CATEGORIES = ["All", "STAGEVERSE", "FESTIVAL", "WORKSHOP", "MEETUP", "NETWORKING", "AWARDS", "COMMUNITY", "EXHIBITION"];
 const CITIES     = ["All", "Ahmedabad", "Surat", "Vadodara", "Rajkot", "Gandhinagar"];
 
-export default function EventsPage() {
+function EventsContent() {
   const { events: localEvents } = useApp();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -281,5 +281,13 @@ export default function EventsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function EventsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FFF5E4] py-12 text-center font-display font-black uppercase text-[#121212]/40 animate-pulse">Loading Events…</div>}>
+      <EventsContent />
+    </Suspense>
   );
 }

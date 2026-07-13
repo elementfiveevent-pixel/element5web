@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import DiscoverArtists from "@/app/artists/page";
 import ArtistNetwork from "@/app/network/page";
 
-export default function CommunityPage() {
+function CommunityContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -66,5 +66,13 @@ export default function CommunityPage() {
         {activeTab === "artists" ? <DiscoverArtists /> : <ArtistNetwork />}
       </div>
     </div>
+  );
+}
+
+export default function CommunityPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FFF5E4] py-12 text-center font-display font-black uppercase text-[#121212]/40">Loading Community…</div>}>
+      <CommunityContent />
+    </Suspense>
   );
 }
