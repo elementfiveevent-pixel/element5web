@@ -177,6 +177,8 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
               skills: artProfile.skills ? artProfile.skills.split(",").map((s: string) => s.trim()) : [artProfile.genre || "Performance"],
               experience: artProfile.experienceLevel === "NEWBIE" ? "First Timer / Newbie" : artProfile.experienceLevel === "EXPERIENCED" ? "6+ Months Experience" : "Pro / Regular",
               awards: [artProfile.pastAchievement].filter(Boolean),
+              availability: "Available",
+              collaborationsOpen: true,
               socials: {
                 instagram: artProfile.instagramHandle ? `https://instagram.com/${artProfile.instagramHandle}` : undefined,
                 youtube: artProfile.youtubeLink || undefined

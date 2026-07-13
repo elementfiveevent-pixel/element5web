@@ -1059,7 +1059,7 @@ export default function OrganizerDashboard() {
   const [editForm, setEditForm] = useState<any>({
     title: "", description: "", venueName: "", venueAddress: "", city: "", state: "",
     maxCapacity: "200", isPaid: false, price: "0", audiencePrice: "0", artistPrice: "0",
-    upiVpa: "", upiQrUrl: "", artistQrUrl: "", audienceQrUrl: "", flyerUrl: ""
+    upiVpa: "", upiQrUrl: "", artistQrUrl: "", audienceQrUrl: "", flyerUrl: "", status: "PUBLISHED"
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -1085,6 +1085,7 @@ export default function OrganizerDashboard() {
         artistQrUrl: fullEvent.artistQrUrl || "",
         audienceQrUrl: fullEvent.audienceQrUrl || fullEvent.upiQrUrl || "",
         flyerUrl: fullEvent.flyerUrl || "",
+        status: fullEvent.status || "PUBLISHED",
       });
       setEditError(null);
       setIsEditModalOpen(true);
@@ -1100,6 +1101,7 @@ export default function OrganizerDashboard() {
       const payload = {
         title: editForm.title,
         description: editForm.description,
+        status: editForm.status,
         venueName: editForm.venueName,
         venueAddress: editForm.venueAddress,
         city: editForm.city,
@@ -1379,7 +1381,7 @@ export default function OrganizerDashboard() {
             </div>
 
             <div className="max-h-[60vh] overflow-y-auto space-y-4 pr-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-gray-500">Event Title</label>
                   <input className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded" value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} />
@@ -1387,6 +1389,15 @@ export default function OrganizerDashboard() {
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-gray-500">Max Capacity</label>
                   <input type="number" className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded" value={editForm.maxCapacity} onChange={e => setEditForm({ ...editForm, maxCapacity: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-500">Event Status</label>
+                  <select className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded bg-white" value={editForm.status} onChange={e => setEditForm({ ...editForm, status: e.target.value })}>
+                    <option value="PUBLISHED">Published / Active</option>
+                    <option value="COMPLETED">Completed / Over</option>
+                    <option value="CANCELLED">Cancelled</option>
+                    <option value="DRAFT">Draft</option>
+                  </select>
                 </div>
               </div>
 

@@ -18,6 +18,11 @@ export class CreateEventDto {
   @IsNotEmpty()
   category!: EventCategory;
 
+  @ApiProperty({ example: "PUBLISHED", required: false })
+  @IsString()
+  @IsOptional()
+  status?: string;
+
   @ApiProperty({ example: 500, required: false })
   @IsInt()
   @IsOptional()

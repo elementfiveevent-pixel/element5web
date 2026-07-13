@@ -3,6 +3,7 @@ export declare class CreateEventDto {
     title: string;
     description?: string;
     category: EventCategory;
+    status?: string;
     maxCapacity?: number;
     startDate: string;
     endDate?: string;

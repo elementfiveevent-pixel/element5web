@@ -477,9 +477,18 @@ export class EventService {
   ) {
     await this.assertOrganizerAccess(eventId, organizerId, roles);
 
+    if (dto.status === "COMPLETED" || dto.status === "CANCELLED" || dto.status === "ARCHIVED") {
+      await this.prisma.eventRegistration.updateMany({
+        where: { eventId },
+        data: { paymentScreenshotUrl: null }
+      });
+      console.log(`[Storage Cleanup] Cleared payment screenshots for event ${eventId} (Status: ${dto.status})`);
+    }
+
     return this.prisma.event.update({
       where: { id: eventId },
       data: {
+        ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.title && { title: dto.title }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.flyerUrl !== undefined && { flyerUrl: dto.flyerUrl }),
