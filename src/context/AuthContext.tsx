@@ -56,30 +56,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!token) {
         setUser(null);
         setLoading(false);
-        return;
+        return null;
       }
       if (token === "mock-jwt-token") {
         const cached = localStorage.getItem("e5_mock_user");
         if (cached) {
-          setUser(normalizeUser(JSON.parse(cached)));
+          const u = normalizeUser(JSON.parse(cached));
+          setUser(u);
           setLoading(false);
-          return;
+          return u;
         }
       }
       const data = await api.get("/auth/me");
-      setUser(normalizeUser(data));
+      const u = normalizeUser(data);
+      setUser(u);
+      return u;
     } catch {
       const token = localStorage.getItem("e5_auth_token");
       if (token === "mock-jwt-token") {
         const cached = localStorage.getItem("e5_mock_user");
         if (cached) {
-          setUser(normalizeUser(JSON.parse(cached)));
+          const u = normalizeUser(JSON.parse(cached));
+          setUser(u);
           setLoading(false);
-          return;
+          return u;
         }
       }
       localStorage.removeItem("e5_auth_token");
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -104,8 +109,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await api.post("/auth/login", { email, password });
       if (data.accessToken) {
         setTokens(data.accessToken);
-        await refreshUser();
-        return { success: true, mode: "live" as const };
+        const userProfile = await refreshUser();
+        return { success: true, mode: "live" as const, user: userProfile };
       }
       return { success: false, mode: "live" as const, message: "Invalid credentials received from server." };
     } catch (err: any) {
@@ -119,9 +124,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         reputationXp: 120,
       };
       setTokens("mock-jwt-token");
-      setUser(normalizeUser(mockUser));
+      const u = normalizeUser(mockUser);
+      setUser(u);
       localStorage.setItem("e5_mock_user", JSON.stringify(mockUser));
-      return { success: true, mode: "local" as const, message: err?.message || "Server offline, signed in locally." };
+      return { success: true, mode: "local" as const, user: u, message: err?.message || "Server offline, signed in locally." };
     }
   };
 

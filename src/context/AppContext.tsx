@@ -98,9 +98,142 @@ interface AppContextProps {
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
 
-const initialArtists: Artist[] = [];
+const initialArtists: Artist[] = [
+  {
+    id: "artist-1",
+    name: "MC Kavyo",
+    genre: "Hip-Hop / Rap",
+    location: "Rajkot, India",
+    rating: 4.9,
+    followers: 1240,
+    bio: "Pioneer of Gujarati underground hip-hop. Spitting bars since 2021. Founder of Rajkot Rap Cyphers. Focuses on bringing authentic street poetry to the masses.",
+    votes: 430,
+    stageVerseScore: 92,
+    performancesCount: 15,
+    badges: ["Verified Creator", "Lyrics Champ", "Crowd Puller"],
+    recentActivity: "Performed at Replay Arena Rajkot",
+    trend: "up",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300",
+    cover: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4",
+    videos: [{ title: "Kavyo - 'Street Truths' Live", url: "https://youtu.be/dQw4w9WgXcQ", platform: "youtube" }],
+    skills: ["Rapping", "Lyricism", "Beatbox", "Hosting"],
+    experience: "5+ Years",
+    awards: ["Best Underground Artist 2024", "StageVerse Rajkot Champion"],
+    availability: "Available",
+    collaborationsOpen: true,
+    socials: { instagram: "kavyo_rap", youtube: "kavyoofficial" },
+  },
+  {
+    id: "artist-2",
+    name: "Electronic Gentry",
+    genre: "EDM / Synthwave",
+    location: "Ahmedabad, India",
+    rating: 4.7,
+    followers: 820,
+    bio: "Independent electronic music producer blending retro synth waves with modern hard hitting drops. Known for high energy live visual synthesizers.",
+    votes: 210,
+    stageVerseScore: 84,
+    performancesCount: 8,
+    badges: ["Verified Creator", "Synth Wizard"],
+    recentActivity: "Released new single 'Neon Rajkot'",
+    trend: "up",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300",
+    cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745",
+    videos: [],
+    skills: ["Music Production", "Ableton Live", "Modular Synth"],
+    experience: "3 Years",
+    awards: ["Best Electronic Act - Vadodara Hub"],
+    availability: "Collab Only",
+    collaborationsOpen: true,
+    socials: { instagram: "elec_gentry", spotify: "open.spotify.com/artist/elec" },
+  },
+  {
+    id: "artist-3",
+    name: "Aanya Mehta",
+    genre: "Indie Pop",
+    location: "Vadodara, India",
+    rating: 4.8,
+    followers: 2100,
+    bio: "Singer songwriter and acoustic guitarist writing heartfelt lyrics about simple lives. Often seen doing intimate living room gigs and local cafe events.",
+    votes: 350,
+    stageVerseScore: 89,
+    performancesCount: 22,
+    badges: ["Verified Creator", "Melody Queen"],
+    recentActivity: "Cafe tour completed in Vadodara",
+    trend: "stable",
+    avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300",
+    cover: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7",
+    videos: [],
+    skills: ["Singing", "Acoustic Guitar", "Songwriting"],
+    experience: "4 Years",
+    awards: [],
+    availability: "Booked",
+    collaborationsOpen: false,
+    socials: { instagram: "aanya_music" },
+  }
+];
 
-const initialEvents: Event[] = [];
+const initialEvents: Event[] = [
+  {
+    id: "mock-event-1",
+    title: "StageVerse 4.0: Rajkot Edition",
+    type: "StageVerse",
+    date: "18 Jul, 2026",
+    time: "19:00",
+    venue: "Replay Arena, Rajkot, Gujarat",
+    description: "The ultimate live performance showdown for underground hip-hop, rap, and electronic artists in Rajkot. Cast your votes live, witness raw talent on stage, and be part of the creator economy.",
+    image: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7",
+    countdownDate: "2026-07-18T19:00:00",
+    schedule: [
+      { time: "19:00", title: "Gates Open", description: "Audience check-in and entry" },
+      { time: "19:30", title: "Opening Beats", description: "DJ set by Electronic Gentry" },
+      { time: "20:00", title: "StageVerse Showdown", description: "Live voting round with 6 artists" },
+      { time: "21:30", title: "Winner Announcement", description: "XP and rewards distribution" },
+    ],
+    sponsors: [
+      { name: "Red Bull", logo: "https://images.unsplash.com/photo-1560169897-fc0cdbdfa4d5?w=50" },
+      { name: "Pioneer DJ", logo: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=50" },
+    ],
+    audienceCount: 142,
+    registrationProgress: 71,
+    registrationLimit: 200,
+    isCompleted: false,
+  },
+  {
+    id: "mock-event-2",
+    title: "Soundwaves Music Festival",
+    type: "Element Fest",
+    date: "25 Aug, 2026",
+    time: "16:00",
+    venue: "Shastri Ground, Rajkot, Gujarat",
+    description: "A grand multi-genre music festival featuring indie rock bands, electronic DJs, folk artists, and food trucks. Experience the biggest cultural event of the year.",
+    image: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745",
+    countdownDate: "2026-08-25T16:00:00",
+    schedule: [],
+    sponsors: [],
+    audienceCount: 850,
+    registrationProgress: 85,
+    registrationLimit: 1000,
+    isCompleted: false,
+  },
+  {
+    id: "mock-event-3",
+    title: "Vocal Masterclass with MC Kavyo",
+    type: "Element Talks",
+    date: "10 Sep, 2026",
+    time: "14:00",
+    venue: "Studio 51, Rajkot, Gujarat",
+    description: "Learn performance skills, mic control, stage presence, and voice modulation from the pioneer of Gujarati rap, MC Kavyo. Limited seats available.",
+    image: "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b",
+    countdownDate: "2026-09-10T14:00:00",
+    schedule: [],
+    sponsors: [],
+    audienceCount: 18,
+    registrationProgress: 36,
+    registrationLimit: 50,
+    isCompleted: false,
+  }
+];
 
 const initialMessages: Message[] = [];
 
@@ -164,6 +297,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
       .catch((err) => {
         console.warn("Failed to fetch events in AppContext:", err);
+      });
+  }, []);
+
+  // Fetch artists from the backend on mount
+  useEffect(() => {
+    api.get("/artists")
+      .then((data: any) => {
+        const list = Array.isArray(data) ? data : (data?.data && Array.isArray(data.data) ? data.data : []);
+        if (list.length > 0) {
+          const mapped = list.map((ap: any) => ({
+            id: ap.user?.id || ap.userId || `artist-${ap.id}`,
+            name: ap.stageName || ap.user?.fullName || "Verified Creator",
+            genre: Array.isArray(ap.genres) ? ap.genres.join(" / ") : ap.genre || "Performance",
+            location: `${ap.city || "Gujarat"}, India`,
+            rating: 4.8,
+            followers: ap.user?.reputationXp ? Math.floor(ap.user.reputationXp * 1.5) + 120 : 120,
+            bio: ap.biography || "No bio posted yet.",
+            votes: 0,
+            stageVerseScore: 50,
+            performancesCount: ap.performances?.length || 0,
+            badges: ap.isVerified ? ["Verified Creator"] : [],
+            recentActivity: "Joined Element 5 Hub",
+            trend: "stable" as const,
+            avatar: ap.user?.profilePhotoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300",
+            cover: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4",
+            videos: ap.portfolioUrls ? ap.portfolioUrls.map((url: string) => ({ title: "Portfolio Work", url, platform: "youtube" as const })) : [],
+            skills: ap.skills || [],
+            experience: ap.experience || "1 Year",
+            awards: ap.achievements ? ap.achievements.map((ac: any) => ac.achievement?.title || "Award") : [],
+            availability: ap.availabilityStatus === "AVAILABLE" ? "Available" as const : ap.availabilityStatus === "BOOKED" ? "Booked" as const : "Collab Only" as const,
+            collaborationsOpen: ap.availabilityStatus === "AVAILABLE" || ap.availabilityStatus === "ON_TOUR",
+            socials: {
+              instagram: ap.instagramHandle || "",
+              youtube: ap.youtubeLink || "",
+            },
+          }));
+          setArtists(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch artists in AppContext:", err);
       });
   }, []);
 

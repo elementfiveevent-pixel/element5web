@@ -32,9 +32,8 @@ export default function LoginPage() {
         if (res.mode === "local") {
           console.warn("Signed in locally using fallback simulation:", res.message);
         }
-        const cached = typeof window !== "undefined" ? localStorage.getItem("e5_mock_user") : null;
-        const parsedUser = cached ? JSON.parse(cached) : null;
-        if (parsedUser?.role === "ARTIST" && !parsedUser?.artistProfileCompleted) {
+        const loggedUser = res.user;
+        if (loggedUser?.role === "ARTIST" && !loggedUser?.artistProfile) {
           router.push("/onboarding");
         } else {
           router.push("/");

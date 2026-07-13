@@ -23,9 +23,12 @@ export default function AdminLoginPage() {
     try {
       const res = await login(email, password);
       if (res.success) {
-        // Retrieve the user from storage or state (or fetch) to verify they are an organizer/admin
-        const isOrganizer = true; // By default we proceed, check roles on dashboard
-        router.push("/events/organizer");
+        const loggedUser = res.user;
+        if (loggedUser?.role === "SUPER_ADMIN") {
+          router.push("/admin");
+        } else {
+          router.push("/events/organizer");
+        }
       } else {
         setError(res.message || "Invalid credentials or server offline");
       }

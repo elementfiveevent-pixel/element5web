@@ -12,8 +12,20 @@ async function bootstrap() {
   // 1. Global Security Middleware
   app.use(helmet());
   app.use(cookieParser());
+
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(",").map(o => o.trim())
+    : ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000"];
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || "*",
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*") || allowedOrigins.includes("https://*") || origin.endsWith(".vercel.app")) {
+        callback(null, true);
+      } else {
+        callback(new Error("CORS policy block: origin not whitelisted"));
+      }
+    },
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
     credentials: true,
   });
