@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../../prisma-stub.ts";
 export declare class RegisterDto {
     email: string;
     password: string;

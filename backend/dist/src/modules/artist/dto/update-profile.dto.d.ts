@@ -1,4 +1,4 @@
-import { AvailabilityStatus } from "@prisma/client";
+import { AvailabilityStatus } from "../../../prisma-stub.ts";
 export declare class UpdateArtistProfileDto {
     stageName?: string;
     biography?: string;

@@ -15,7 +15,11 @@ async function run() {
   }
 
   console.log("⏳ Connecting to PostgreSQL database...");
-  const client = new Client({ connectionString });
+  const useSsl = connectionString.includes("supabase.co") || connectionString.includes("supabase.com");
+  const client = new Client({
+    connectionString,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+  });
   
   try {
     await client.connect();

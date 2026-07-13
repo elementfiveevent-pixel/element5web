@@ -83,25 +83,9 @@ export default function OnboardingPage() {
         profilePhotoUrl,
       };
 
-      // Update mock user
-      const updatedUser = {
-        ...user,
-        fullName: stageName,
-        profilePhotoUrl,
-        artistProfileCompleted: true,
-        artistProfile,
-      };
-
-      // Save to localStorage so AuthContext loads it
-      localStorage.setItem("e5_mock_user", JSON.stringify(updatedUser));
-      
-      // Attempt API update (fail-safe for backend compatibility)
-      try {
-        const { api } = await import("@/lib/api");
-        await api.post("/auth/artist-profile", artistProfile);
-      } catch (apiErr) {
-        console.warn("Backend profile save failed (falling back to mock state):", apiErr);
-      }
+      // Attempt API update
+      const { api } = await import("@/lib/api");
+      await api.post("/auth/artist-profile", artistProfile);
 
       await refreshUser();
       confetti({ particleCount: 100, spread: 80, colors: ["#FFDE4D", "#D80032", "#FAF8F5"] });

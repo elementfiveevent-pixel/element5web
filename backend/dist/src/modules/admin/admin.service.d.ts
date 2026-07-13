@@ -10,7 +10,7 @@ export declare class AdminService {
         ticketsCheckedIn: any;
         timestamp: string;
     }>;
-    listReports(): Promise<any[]>;
+    listReports(): Promise<any>;
     resolveReport(reportId: string, moderatorId: string, actionTaken: string): Promise<any>;
-    listAuditLogs(): Promise<any[]>;
+    listAuditLogs(): Promise<any>;
 }

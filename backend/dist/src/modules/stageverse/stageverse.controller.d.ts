@@ -5,7 +5,7 @@ export declare class StageVerseController {
     private stageVerseService;
     constructor(stageVerseService: StageVerseService);
     submit(user: any, dto: SubmitTrackDto): Promise<any>;
-    getSubmissions(eventId: string): Promise<any[]>;
+    getSubmissions(eventId: string): Promise<any>;
     score(user: any, subId: string, dto: SubmitScoreDto): Promise<any>;
     vote(user: any, subId: string): Promise<{
         success: boolean;
@@ -22,13 +22,5 @@ export declare class StageVerseController {
         success: boolean;
         message: string;
     }>;
-    getStandings(eventId: string): Promise<{
-        submissionId: any;
-        performer: any;
-        photoUrl: any;
-        trackTitle: any;
-        votesCount: any;
-        judgeAverage: number;
-        totalScore: number;
-    }[]>;
+    getStandings(eventId: string): Promise<any>;
 }

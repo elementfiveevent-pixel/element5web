@@ -19,19 +19,11 @@ export declare class StageVerseService {
         message: string;
     }>;
     submitTrack(userId: string, dto: SubmitTrackDto): Promise<any>;
-    listSubmissions(eventId: string): Promise<any[]>;
+    listSubmissions(eventId: string): Promise<any>;
     submitJudgeScore(judgeId: string, submissionId: string, dto: SubmitScoreDto): Promise<any>;
     castVote(voterId: string, submissionId: string): Promise<{
         success: boolean;
         message: string;
     }>;
-    calculateStandings(eventId: string): Promise<{
-        submissionId: any;
-        performer: any;
-        photoUrl: any;
-        trackTitle: any;
-        votesCount: any;
-        judgeAverage: number;
-        totalScore: number;
-    }[]>;
+    calculateStandings(eventId: string): Promise<any>;
 }

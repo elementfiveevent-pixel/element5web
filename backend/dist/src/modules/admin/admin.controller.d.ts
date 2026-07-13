@@ -10,7 +10,7 @@ export declare class AdminController {
         ticketsCheckedIn: any;
         timestamp: string;
     }>;
-    getReports(): Promise<any[]>;
+    getReports(): Promise<any>;
     resolveReport(user: any, reportId: string, action: string): Promise<any>;
-    getAudits(): Promise<any[]>;
+    getAudits(): Promise<any>;
 }

@@ -149,45 +149,7 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
         if (local) {
           setArtist(local);
         } else {
-          const cached = typeof window !== "undefined" ? localStorage.getItem("e5_mock_user") : null;
-          const parsedUser = cached ? JSON.parse(cached) : null;
-          if (parsedUser && (parsedUser.id === id || id === "mock-user-id") && parsedUser.role === "ARTIST") {
-            const artProfile = parsedUser.artistProfile || {};
-            const mockArtist: Artist = {
-              id: parsedUser.id,
-              name: artProfile.stageName || parsedUser.fullName,
-              genre: artProfile.genre || "Creator",
-              location: "Gujarat, IN",
-              rating: 4.8,
-              followers: parsedUser.reputationXp || 120,
-              bio: artProfile.bio || artProfile.pastAchievement || "Set up stage profile.",
-              votes: 0,
-              stageVerseScore: 95,
-              performancesCount: artProfile.youtubeLink ? 1 : 0,
-              badges: ["Verified"],
-              recentActivity: "",
-              trend: "up",
-              avatar: parsedUser.profilePhotoUrl || artProfile.profilePhotoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artProfile.stageName || parsedUser.fullName)}&backgroundColor=121212&textColor=FAF8F5`,
-              cover: "https://images.unsplash.com/photo-1540039155733-5bb30b4f21f0?w=1200&h=400&fit=crop",
-              videos: artProfile.youtubeLink ? [{
-                title: "Featured Performance Clip",
-                url: artProfile.youtubeLink,
-                platform: "youtube" as const
-              }] : [],
-              skills: artProfile.skills ? artProfile.skills.split(",").map((s: string) => s.trim()) : [artProfile.genre || "Performance"],
-              experience: artProfile.experienceLevel === "NEWBIE" ? "First Timer / Newbie" : artProfile.experienceLevel === "EXPERIENCED" ? "6+ Months Experience" : "Pro / Regular",
-              awards: [artProfile.pastAchievement].filter(Boolean),
-              availability: "Available",
-              collaborationsOpen: true,
-              socials: {
-                instagram: artProfile.instagramHandle ? `https://instagram.com/${artProfile.instagramHandle}` : undefined,
-                youtube: artProfile.youtubeLink || undefined
-              }
-            };
-            setArtist(mockArtist);
-          } else {
-            setNotFound(true);
-          }
+          setNotFound(true);
         }
       } finally {
         setLoading(false);

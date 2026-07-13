@@ -94,53 +94,9 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
       .then((d) => {
         setRegs(Array.isArray(d) ? d : []);
       })
-      .catch(() => {
-        setRegs([
-          {
-            id: "reg-dummy-1",
-            paymentStatus: "APPROVED",
-            createdAt: new Date().toISOString(),
-            totalAmount: "0",
-            user: {
-              id: "mock-artist-1",
-              fullName: "MC Kavyo",
-              email: "kavyo@gmail.com",
-              mobileNumber: "+91 98765 43210",
-              role: "ARTIST",
-              artistProfile: {
-                stageName: "MC Kavyo",
-                instagramHandle: "kavyo_rap",
-                genre: "Rap",
-                experienceLevel: "EXPERIENCED",
-                pastAchievement: "Winner of Gujarat HipHop League, 3 Spotify singles.",
-                youtubeLink: "https://youtube.com/watch?v=dQw4w9WgXcQ"
-              }
-            } as any,
-            tickets: [{ id: "t-1", qrCode: "E5-KAVYO-1", isUsed: false }]
-          },
-          {
-            id: "reg-dummy-2",
-            paymentStatus: "PENDING",
-            createdAt: new Date().toISOString(),
-            totalAmount: "0",
-            user: {
-              id: "mock-artist-2",
-              fullName: "Kavi Aarav",
-              email: "aarav@poetry.com",
-              mobileNumber: "+91 98765 00000",
-              role: "ARTIST",
-              artistProfile: {
-                stageName: "Kavi Aarav",
-                instagramHandle: "aarav_spokenword",
-                genre: "Poetry",
-                experienceLevel: "PRO",
-                pastAchievement: "Featured in StageVerse 2.0 Surat Showcase, Spoken Word India finalist.",
-                youtubeLink: "https://youtube.com/watch?v=dQw4w9WgXcQ"
-              }
-            } as any,
-            tickets: [{ id: "t-2", qrCode: "E5-AARAV-2", isUsed: false }]
-          }
-        ]);
+      .catch((err) => {
+        console.error("Failed to fetch registrations:", err);
+        setRegs([]);
       })
       .finally(() => setLoading(false));
   }, [eventId]);
@@ -573,53 +529,9 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
     try {
       const res = await api.get(`/events/${eventId}/registrations`);
       setRegs(Array.isArray(res) ? res : []);
-    } catch {
-      setRegs([
-        {
-          id: "reg-dummy-1",
-          paymentStatus: "APPROVED",
-          createdAt: new Date().toISOString(),
-          totalAmount: "0",
-          user: {
-            id: "mock-artist-1",
-            fullName: "MC Kavyo",
-            email: "kavyo@gmail.com",
-            mobileNumber: "+91 98765 43210",
-            role: "ARTIST",
-            artistProfile: {
-              stageName: "MC Kavyo",
-              instagramHandle: "kavyo_rap",
-              genre: "Rap",
-              experienceLevel: "EXPERIENCED",
-              pastAchievement: "Winner of Gujarat HipHop League, 3 Spotify singles.",
-              youtubeLink: "https://youtube.com/watch?v=dQw4w9WgXcQ"
-            }
-          } as any,
-          tickets: [{ id: "t-1", qrCode: "E5-KAVYO-1", isUsed: false }]
-        },
-        {
-          id: "reg-dummy-2",
-          paymentStatus: "PENDING",
-          createdAt: new Date().toISOString(),
-          totalAmount: "0",
-          user: {
-            id: "mock-artist-2",
-            fullName: "Kavi Aarav",
-            email: "aarav@poetry.com",
-            mobileNumber: "+91 98765 00000",
-            role: "ARTIST",
-            artistProfile: {
-              stageName: "Kavi Aarav",
-              instagramHandle: "aarav_spokenword",
-              genre: "Poetry",
-              experienceLevel: "PRO",
-              pastAchievement: "Featured in StageVerse 2.0 Surat Showcase, Spoken Word India finalist.",
-              youtubeLink: "https://youtube.com/watch?v=dQw4w9WgXcQ"
-            }
-          } as any,
-          tickets: [{ id: "t-2", qrCode: "E5-AARAV-2", isUsed: false }]
-        }
-      ]);
+    } catch (err) {
+      console.error("Failed to fetch tickets:", err);
+      setRegs([]);
     } finally {
       setLoading(false);
     }

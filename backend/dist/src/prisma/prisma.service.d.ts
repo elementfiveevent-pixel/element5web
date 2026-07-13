@@ -1,5 +1,4 @@
 import { OnModuleInit, OnModuleDestroy } from "@nestjs/common";
-import { Pool, PoolClient } from "pg";
 export declare class PostgresModel {
     private pool;
     private tableName;
@@ -11,17 +10,17 @@ export declare class PostgresModel {
     private loadIncludes;
     findUnique(args?: any): Promise<any>;
     findFirst(args?: any): Promise<any>;
-    findMany(args?: any): Promise<any[]>;
+    findMany(args?: any): Promise<any>;
     create(args?: any): Promise<any>;
     update(args?: any): Promise<any>;
     delete(args?: any): Promise<any>;
     upsert(args?: any): Promise<any>;
     count(args?: any): Promise<any>;
     updateMany(args?: any): Promise<{
-        count: number | null;
+        count: any;
     }>;
     deleteMany(args?: any): Promise<{
-        count: number | null;
+        count: any;
     }>;
 }
 export declare class PrismaService implements OnModuleInit, OnModuleDestroy {
@@ -57,6 +56,6 @@ export declare class PrismaService implements OnModuleInit, OnModuleDestroy {
     onModuleInit(): Promise<void>;
     onModuleDestroy(): Promise<void>;
     isConnected(): boolean;
-    $queryRaw(query: TemplateStringsArray, ...values: any[]): Promise<any[]>;
+    $queryRaw(query: TemplateStringsArray, ...values: any[]): Promise<any>;
     $transaction(callback: (tx: any) => Promise<any>): Promise<any>;
 }

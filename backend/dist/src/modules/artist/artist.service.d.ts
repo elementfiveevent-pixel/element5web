@@ -13,6 +13,6 @@ export declare class ArtistService {
         state?: string;
         limit?: number;
         offset?: number;
-    }): Promise<any[]>;
-    searchNearby(lat: number, lng: number, radiusKm?: number): Promise<any[]>;
+    }): Promise<any>;
+    searchNearby(lat: number, lng: number, radiusKm?: number): Promise<any>;
 }

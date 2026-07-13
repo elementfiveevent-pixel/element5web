@@ -18,7 +18,7 @@ async function bootstrap() {
     : ["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000"];
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin) || allowedOrigins.includes("*") || allowedOrigins.includes("https://*") || origin.endsWith(".vercel.app")) {
         callback(null, true);

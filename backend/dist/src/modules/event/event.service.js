@@ -44,7 +44,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.EventService = void 0;
 const common_1 = require("@nestjs/common");
-const client_1 = require("@prisma/client");
+const client_1 = require("../../prisma-stub.ts");
 const crypto = __importStar(require("crypto"));
 const prisma_service_1 = require("../../prisma/prisma.service");
 const ORGANIZER_ROLES = [

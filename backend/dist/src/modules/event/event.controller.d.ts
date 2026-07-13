@@ -8,7 +8,7 @@ export declare class EventController {
         total: any;
         limit: number;
         offset: number;
-        data: any[];
+        data: any;
     }>;
     get(idOrSlug: string): Promise<any>;
     create(user: any, dto: CreateEventDto): Promise<any>;
@@ -27,32 +27,9 @@ export declare class EventController {
         eventName: any;
         checkedOutAt: Date;
     }>;
-    myTickets(user: any): Promise<{
-        ticketId: any;
-        qrCode: any;
-        isUsed: any;
-        usedAt: any;
-        createdAt: any;
-        paymentStatus: any;
-        registrationId: any;
-        totalAmount: any;
-        ticketCategoryName: string | undefined;
-        event: {
-            id: any;
-            title: any;
-            slug: any;
-            flyerUrl: any;
-            category: any;
-            status: any;
-            startDate: any;
-            endDate: any;
-            isPaid: any;
-            price: any;
-            location: any;
-        };
-    }[]>;
-    myEvents(user: any): Promise<any[]>;
-    registrations(user: any, eventId: string): Promise<any[]>;
+    myTickets(user: any): Promise<any>;
+    myEvents(user: any): Promise<any>;
+    registrations(user: any, eventId: string): Promise<any>;
     analytics(user: any, eventId: string): Promise<{
         eventId: any;
         title: any;

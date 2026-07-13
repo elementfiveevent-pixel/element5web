@@ -58,30 +58,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return null;
       }
-      if (token === "mock-jwt-token") {
-        const cached = localStorage.getItem("e5_mock_user");
-        if (cached) {
-          const u = normalizeUser(JSON.parse(cached));
-          setUser(u);
-          setLoading(false);
-          return u;
-        }
-      }
       const data = await api.get("/auth/me");
       const u = normalizeUser(data);
       setUser(u);
       return u;
     } catch {
-      const token = localStorage.getItem("e5_auth_token");
-      if (token === "mock-jwt-token") {
-        const cached = localStorage.getItem("e5_mock_user");
-        if (cached) {
-          const u = normalizeUser(JSON.parse(cached));
-          setUser(u);
-          setLoading(false);
-          return u;
-        }
-      }
       localStorage.removeItem("e5_auth_token");
       setUser(null);
       return null;
@@ -114,20 +95,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, mode: "live" as const, message: "Invalid credentials received from server." };
     } catch (err: any) {
-      console.warn("Backend login failed, falling back to local simulation:", err);
-      const mockName = email.split("@")[0].toUpperCase();
-      const mockUser = {
-        id: "mock-user-id",
-        email,
-        fullName: mockName,
-        role: email.includes("admin") ? "SUPER_ADMIN" : email.includes("organizer") ? "ORG_ADMIN" : email.includes("artist") ? "ARTIST" : "AUDIENCE",
-        reputationXp: 120,
-      };
-      setTokens("mock-jwt-token");
-      const u = normalizeUser(mockUser);
-      setUser(u);
-      localStorage.setItem("e5_mock_user", JSON.stringify(mockUser));
-      return { success: true, mode: "local" as const, user: u, message: err?.message || "Server offline, signed in locally." };
+      console.error("Backend login failed:", err);
+      return { success: false, mode: "live" as const, message: err?.message || "Server connection failed. Please make sure the backend is running." };
     }
   };
 
@@ -141,18 +110,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, mode: "live" as const, message: "Failed to register on production server." };
     } catch (err: any) {
-      console.warn("Backend registration failed, falling back to local simulation:", err);
-      const mockUser = {
-        id: `mock-user-${Date.now()}`,
-        email,
-        fullName,
-        role: role as any,
-        reputationXp: 50,
-      };
-      setTokens("mock-jwt-token");
-      setUser(normalizeUser(mockUser));
-      localStorage.setItem("e5_mock_user", JSON.stringify(mockUser));
-      return { success: true, mode: "local" as const, message: err?.message || "Server offline, registered profile locally." };
+      console.error("Backend registration failed:", err);
+      return { success: false, mode: "live" as const, message: err?.message || "Server connection failed. Please make sure the backend is running." };
     }
   };
 
@@ -169,25 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, mode: "live" as const, message: "Failed to authenticate Google user on backend." };
     } catch (err: any) {
-      console.warn("Google login failed, falling back to local simulation:", err);
-      // Fallback local simulation
-      const mockUser = {
-        id: "mock-google-user-id",
-        email: "google-user@example.com",
-        fullName: "Google Creator User",
-        role: "AUDIENCE",
-        reputationXp: 10,
-      };
-      setTokens("mock-jwt-token");
-      setUser(normalizeUser(mockUser));
-      localStorage.setItem("e5_mock_user", JSON.stringify(mockUser));
-      return { success: true, mode: "local" as const, message: err?.message || "Server offline, signed in locally via Google mockup." };
+      console.error("Google login failed:", err);
+      return { success: false, mode: "live" as const, message: err?.message || "Google authentication failed or backend server offline." };
     }
   };
 
   const logout = () => {
     clearTokens();
-    localStorage.removeItem("e5_mock_user");
     setUser(null);
   };
 

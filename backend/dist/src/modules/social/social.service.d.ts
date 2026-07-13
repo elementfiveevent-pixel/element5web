@@ -15,5 +15,5 @@ export declare class SocialService {
     }>;
     addComment(authorId: string, postId: string, content: string): Promise<any>;
     sendMessage(senderId: string, recipientId: string, content: string): Promise<any>;
-    getMessages(userId: string, contactId: string): Promise<any[]>;
+    getMessages(userId: string, contactId: string): Promise<any>;
 }

@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../prisma-stub.ts";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { RegisterEventDto } from "./dto/register-event.dto";
@@ -17,36 +17,13 @@ export declare class EventService {
         total: any;
         limit: number;
         offset: number;
-        data: any[];
+        data: any;
     }>;
     getEvent(idOrSlug: string): Promise<any>;
     register(userId: string, eventId: string, dto: RegisterEventDto): Promise<any>;
-    getMyTickets(userId: string): Promise<{
-        ticketId: any;
-        qrCode: any;
-        isUsed: any;
-        usedAt: any;
-        createdAt: any;
-        paymentStatus: any;
-        registrationId: any;
-        totalAmount: any;
-        ticketCategoryName: string | undefined;
-        event: {
-            id: any;
-            title: any;
-            slug: any;
-            flyerUrl: any;
-            category: any;
-            status: any;
-            startDate: any;
-            endDate: any;
-            isPaid: any;
-            price: any;
-            location: any;
-        };
-    }[]>;
-    getOrganizerEvents(organizerId: string, roles?: UserRole[]): Promise<any[]>;
-    getEventRegistrations(eventId: string, organizerId: string, roles?: UserRole[]): Promise<any[]>;
+    getMyTickets(userId: string): Promise<any>;
+    getOrganizerEvents(organizerId: string, roles?: UserRole[]): Promise<any>;
+    getEventRegistrations(eventId: string, organizerId: string, roles?: UserRole[]): Promise<any>;
     getEventAnalytics(eventId: string, organizerId: string, roles?: UserRole[]): Promise<{
         eventId: any;
         title: any;

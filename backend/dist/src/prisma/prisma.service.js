@@ -120,8 +120,9 @@ class PostgresModel {
         if (this.tableColumns)
             return this.tableColumns;
         const res = await this.pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name = $1`, [this.tableName]);
-        this.tableColumns = res.rows.map((r) => r.column_name);
-        return this.tableColumns;
+        const cols = res.rows.map((r) => r.column_name);
+        this.tableColumns = cols;
+        return cols;
     }
     buildWhere(where) {
         if (!where || Object.keys(where).length === 0) {
@@ -545,9 +546,13 @@ let PrismaService = PrismaService_1 = class PrismaService {
     checkInAuditLog;
     leaderboardStanding;
     constructor() {
+        const useSsl = process.env.DATABASE_URL?.includes("supabase.co") ||
+            process.env.DATABASE_URL?.includes("supabase.com") ||
+            process.env.NODE_ENV === "production";
         this.pool = new pg_1.Pool({
             connectionString: process.env.DATABASE_URL,
             connectionTimeoutMillis: 5000,
+            ssl: useSsl ? { rejectUnauthorized: false } : undefined,
         });
         this.user = new PostgresModel(this.pool, "User", this);
         this.roleAssignment = new PostgresModel(this.pool, "RoleAssignment", this);

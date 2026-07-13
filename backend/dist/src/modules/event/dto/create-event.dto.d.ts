@@ -1,4 +1,4 @@
-import { EventCategory } from "@prisma/client";
+import { EventCategory } from "../../../prisma-stub.ts";
 export declare class CreateEventDto {
     title: string;
     description?: string;

@@ -29,7 +29,7 @@ export class StageVerseService {
       where: { eventId },
       select: { id: true },
     });
-    const subIds = submissions.map((s) => s.id);
+    const subIds = submissions.map((s: any) => s.id);
     await this.prisma.vote.deleteMany({
       where: { submissionId: { in: subIds } },
     });
@@ -181,7 +181,7 @@ export class StageVerseService {
       },
     });
 
-    const standings = submissions.map((sub) => {
+    const standings = submissions.map((sub: any) => {
       const votesCount = sub.votes.reduce((acc: number, v: any) => acc + v.weight, 0);
 
       // Compute judge average score
@@ -210,6 +210,6 @@ export class StageVerseService {
     });
 
     // Sort descending
-    return standings.sort((a, b) => b.totalScore - a.totalScore);
+    return standings.sort((a: any, b: any) => b.totalScore - a.totalScore);
   }
 }

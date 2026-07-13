@@ -15,5 +15,5 @@ export declare class SocialController {
     }>;
     addComment(user: any, postId: string, content: string): Promise<any>;
     sendMessage(user: any, recipientId: string, content: string): Promise<any>;
-    getMessages(user: any, contactId: string): Promise<any[]>;
+    getMessages(user: any, contactId: string): Promise<any>;
 }

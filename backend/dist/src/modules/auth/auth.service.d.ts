@@ -2,7 +2,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
-import { UserRole } from "@prisma/client";
+import { UserRole } from "../../prisma-stub.ts";
 export declare class AuthService {
     private prisma;
     private jwtService;

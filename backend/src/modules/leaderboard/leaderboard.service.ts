@@ -41,7 +41,7 @@ export class LeaderboardService {
       });
 
       // Map to consistent standings format
-      standings = standings.map((item, idx) => ({
+      standings = standings.map((item: any, idx: number) => ({
         rank: idx + 1,
         artistId: item.id,
         performer: item.stageName,
@@ -65,7 +65,7 @@ export class LeaderboardService {
       const profileMap = new Map(profiles.map((p: any) => [p.id, p]));
 
       standings = dbStandings.map((s: any, idx: number) => {
-        const profile = profileMap.get(s.artistProfileId);
+        const profile = profileMap.get(s.artistProfileId) as any;
         return {
           rank: idx + 1,
           artistId: s.artistProfileId,

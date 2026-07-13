@@ -301,7 +301,7 @@ export class EventService {
       orderBy: { createdAt: "desc" },
     });
 
-    return tickets.map((ticket) => ({
+    return tickets.map((ticket: any) => ({
       ticketId: ticket.id,
       qrCode: ticket.qrCode,
       isUsed: ticket.isUsed,

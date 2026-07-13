@@ -111,8 +111,9 @@ export class PostgresModel {
       `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
       [this.tableName]
     );
-    this.tableColumns = res.rows.map((r: any) => r.column_name);
-    return this.tableColumns;
+    const cols = res.rows.map((r: any) => r.column_name);
+    this.tableColumns = cols;
+    return cols;
   }
 
   private buildWhere(where: any) {
@@ -613,9 +614,13 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   leaderboardStanding: PostgresModel;
 
   constructor() {
+    const useSsl = process.env.DATABASE_URL?.includes("supabase.co") || 
+                    process.env.DATABASE_URL?.includes("supabase.com") ||
+                    process.env.NODE_ENV === "production";
     this.pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       connectionTimeoutMillis: 5000,
+      ssl: useSsl ? { rejectUnauthorized: false } : undefined,
     });
 
     this.user = new PostgresModel(this.pool, "User", this);
