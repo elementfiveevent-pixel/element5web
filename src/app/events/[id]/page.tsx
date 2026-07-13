@@ -144,12 +144,13 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
   };
 
   const confirmRegistration = async () => {
+    if (!event) return;
     setRegistering(true); 
     setRegError(null);
     try {
-      const isEventPaid = event?.isPaid ?? false;
-      const audiencePrice = event?.audiencePrice !== undefined ? Number(event.audiencePrice) : (isEventPaid ? Number(event.price || 0) : 0);
-      const artistPrice = event?.artistPrice !== undefined ? Number(event.artistPrice) : (isEventPaid ? Number(event.price || 0) + 150 : 99);
+      const isEventPaid = event.isPaid ?? false;
+      const audiencePrice = event.audiencePrice !== undefined ? Number(event.audiencePrice) : (isEventPaid ? Number(event.price || 0) : 0);
+      const artistPrice = event.artistPrice !== undefined ? Number(event.artistPrice) : (isEventPaid ? Number(event.price || 0) + 150 : 99);
       const selectedPrice = registrationType === "AUDIENCE" ? audiencePrice : artistPrice;
 
       const payload: Record<string,any> = {
