@@ -144,13 +144,14 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
   };
 
   const confirmRegistration = async () => {
-    if (!event) return;
+    const currentEvent = event;
+    if (!currentEvent) return;
     setRegistering(true); 
     setRegError(null);
     try {
-      const isEventPaid = event.isPaid ?? false;
-      const audiencePrice = event.audiencePrice !== undefined ? Number(event.audiencePrice) : (isEventPaid ? Number(event.price || 0) : 0);
-      const artistPrice = event.artistPrice !== undefined ? Number(event.artistPrice) : (isEventPaid ? Number(event.price || 0) + 150 : 99);
+      const isEventPaid = currentEvent.isPaid ?? false;
+      const audiencePrice = currentEvent.audiencePrice !== undefined ? Number(currentEvent.audiencePrice) : (isEventPaid ? Number(currentEvent.price || 0) : 0);
+      const artistPrice = currentEvent.artistPrice !== undefined ? Number(currentEvent.artistPrice) : (isEventPaid ? Number(currentEvent.price || 0) + 150 : 99);
       const selectedPrice = registrationType === "AUDIENCE" ? audiencePrice : artistPrice;
 
       const payload: Record<string,any> = {
@@ -162,14 +163,14 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
       };
       if (selectedCategory) payload.ticketCategoryId = selectedCategory;
       
-      const result = await api.post(`/events/${event?.id ?? id}/register`, payload);
+      const result = await api.post(`/events/${currentEvent.id}/register`, payload);
       const ticket = result.ticket ?? result.tickets?.[0];
       if (ticket) {
         setMyTickets([{ id: ticket.id, qrCode: ticket.qrCode, isUsed: ticket.isUsed ?? false, usedAt: ticket.usedAt, paymentStatus: result.registration?.paymentStatus ?? "APPROVED" }]);
       }
       triggerConfetti(); 
       addUserXP(50);
-      if (event) setEvent({ ...event, registrationsCount: event.registrationsCount + 1 });
+      setEvent({ ...currentEvent, registrationsCount: currentEvent.registrationsCount + 1 });
       setShowRegisterModal(false);
     } catch (err: any) {
       const msg = err.message ?? "";
