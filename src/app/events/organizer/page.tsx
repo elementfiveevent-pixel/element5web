@@ -26,7 +26,7 @@ interface OrgEvent {
 interface Registration {
   id: string; paymentStatus: string; createdAt: string; totalAmount: string;
   customData?: Record<string, any>;
-  user: { id: string; fullName: string; email: string; mobileNumber?: string; profilePhotoUrl?: string };
+  user: { id: string; fullName: string; email: string; mobileNumber?: string; profilePhotoUrl?: string; role?: string; artistProfile?: any };
   tickets: { id: string; qrCode: string; isUsed: boolean; usedAt?: string }[];
 }
 interface Analytics {
