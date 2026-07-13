@@ -21,6 +21,8 @@ interface BackendEvent {
   status: string; startDate: string; endDate?: string; flyerUrl?: string;
   isPaid: boolean; price: string; maxCapacity?: number; registrationsCount: number;
   termsConditions?: string; viewsCount?: number;
+  audiencePrice?: number; artistPrice?: number;
+  upiVpa?: string; upiId?: string; upiQrUrl?: string; artistQrUrl?: string; audienceQrUrl?: string;
   organizer?: { id: string; fullName: string; email: string };
   location?: EventLocation;
   ticketCategories: TicketCategory[];
