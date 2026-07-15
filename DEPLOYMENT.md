@@ -42,6 +42,24 @@ graph TD
    * Name the bucket exactly **`media`** (must be lowercase).
    * **Crucial**: Turn **ON** the **Public bucket** toggle. This allows the public URLs of event flyer images and payment receipts to load correctly in browsers.
    * *Note: All assets share this single bucket and are organized automatically into subdirectories (`media/flyers/...`, `media/qrs/...`, and `media/payments/...`).*
+   * **Set Up Upload Policies (RLS)**:
+     To allow users to upload payment screenshots and QR codes anonymously (since they log in via NestJS custom auth and are seen as public/anonymous by Supabase storage):
+     * Go to the **SQL Editor** in the Supabase Dashboard.
+     * Click **New Query** and run the following commands:
+       ```sql
+       -- Allow anyone to upload (insert) files into the "media" bucket
+       CREATE POLICY "Allow public upload" 
+       ON storage.objects 
+       FOR INSERT 
+       WITH CHECK (bucket_id = 'media');
+
+       -- Allow anyone to read (select) files from the "media" bucket
+       CREATE POLICY "Allow public read" 
+       ON storage.objects 
+       FOR SELECT 
+       USING (bucket_id = 'media');
+       ```
+     * *Alternatively, in the Storage -> Policies tab, add two custom policies for the `media` bucket: one allowing `INSERT` for everyone, and one allowing `SELECT` for everyone.*
 
 ---
 

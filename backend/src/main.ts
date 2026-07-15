@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { PrismaExceptionFilter } from "./common/filters/prisma-exception.filter";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
+import { json, urlencoded } from "express";
 
 async function bootstrap() {
   if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
@@ -14,6 +15,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // 1. Global Security Middleware
+  app.use(json({ limit: "50mb" }));
+  app.use(urlencoded({ limit: "50mb", extended: true }));
   app.use(helmet());
   app.use(cookieParser());
 
