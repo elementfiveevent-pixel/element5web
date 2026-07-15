@@ -21,6 +21,11 @@
     "db:migrate": "node scripts/migrate.js"
   },
   "dependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "typescript": "^5.7.3",
+    "ts-loader": "^9.5.2",
+    "tsconfig-paths": "^4.2.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
