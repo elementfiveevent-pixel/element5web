@@ -83,7 +83,42 @@ export default function ArtistNetwork() {
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>("");
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
   
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
 
+  // ── Fetch contacts from backend ──
+  useEffect(() => {
+    if (!user) {
+      setContacts([]);
+      return;
+    }
+
+    async function fetchContacts() {
+      setContactsLoading(true);
+      try {
+        const data = await api.get("/social/contacts");
+        if (Array.isArray(data)) {
+          const mappedContacts = data.map((c: any) => ({
+            id: c.id,
+            name: c.fullName || "Verified Creator",
+            genre: c.role || "Creator",
+            avatar: c.profilePhotoUrl || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300"
+          }));
+          setContacts(mappedContacts);
+          
+          if (mappedContacts.length > 0 && !selectedRecipientId) {
+            setSelectedRecipientId(mappedContacts[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load contacts:", err);
+      } finally {
+        setContactsLoading(false);
+      }
+    }
+
+    fetchContacts();
+  }, [user]);
 
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [newPostTitle, setNewPostTitle] = useState("");
@@ -99,19 +134,27 @@ export default function ArtistNetwork() {
   useEffect(() => {
     if (!user || !selectedRecipientId) return;
 
+    let isInitial = true;
+
     async function fetchMessages() {
-      setMessagesLoading(true);
+      if (isInitial) setMessagesLoading(true);
       try {
         const data = await api.get(`/social/messages/${selectedRecipientId}`);
         if (Array.isArray(data)) setBackendMessages(data);
       } catch {
-        setBackendMessages([]); // fall through to local context messages
+        setBackendMessages([]);
       } finally {
-        setMessagesLoading(false);
+        if (isInitial) {
+          setMessagesLoading(false);
+          isInitial = false;
+        }
       }
     }
 
     fetchMessages();
+    const interval = setInterval(fetchMessages, 3000);
+
+    return () => clearInterval(interval);
   }, [selectedRecipientId, user]);
 
   // ── Auto-scroll chat to bottom ──
@@ -341,7 +384,8 @@ export default function ArtistNetwork() {
 
 
 
-  const activeChatArtist = artists.find((a) => a.id === selectedRecipientId);
+  const activeContactsList = user ? contacts : artists;
+  const activeChatArtist = activeContactsList.find((a) => a.id === selectedRecipientId);
 
   // Merge backend + local messages for display
   const localThreadMessages = localMessages.filter(
@@ -445,81 +489,20 @@ export default function ArtistNetwork() {
                     Active Collaboration Feed
                   </h2>
                   <p className="font-space text-xs text-gray-500 font-bold">
-                    Participate in community groups and share discussion posts.
+                    Share collaboration requests, questions, or ideas directly with the creator community.
                   </p>
                 </div>
+                
+                <button
+                  onClick={() => setShowCreatePostModal(true)}
+                  className="bg-yellow-festival border-2 border-[#121212] font-black uppercase text-[10px] tracking-wider px-3.5 py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus size={12} /> WRITE POST
+                </button>
               </div>
 
-              {/* Communities list / selector */}
-              <div className="space-y-3">
-                <span className="font-display font-black text-xs uppercase text-gray-500 tracking-wider block">
-                  👥 CREATOR COMMUNITY HUBS
-                </span>
-
-                {communitiesLoading ? (
-                  <div className="flex gap-2 animate-pulse">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-10 w-28 bg-gray-200 border-2 border-[#121212] rounded" />
-                    ))}
-                  </div>
-                ) : communities.length === 0 ? (
-                  <div className="border-3 border-dashed border-[#121212] bg-white rounded p-8 text-center">
-                    <p className="font-space text-xs font-bold text-gray-400">No active community hubs found. Please contact an admin to start a new hub.</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {communities.map((comm) => (
-                      <button
-                        key={comm.id}
-                        onClick={() => setSelectedCommunityId(comm.id)}
-                        className={`px-4 py-2 border-2 border-[#121212] rounded font-display font-black text-xs uppercase tracking-wider transition-all shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none cursor-pointer ${
-                          selectedCommunityId === comm.id
-                            ? "bg-yellow-festival text-[#121212]"
-                            : "bg-white text-gray-500 hover:bg-[#FAF8F5]"
-                        }`}
-                      >
-                        {comm.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Selected Community Hub Feed */}
               {selectedCommunityId && (
                 <div className="border-3 border-[#121212] bg-[#FAF8F5] p-5 rounded shadow-brutal space-y-4">
-                  {(() => {
-                    const currentComm = communities.find((c) => c.id === selectedCommunityId);
-                    if (!currentComm) return null;
-                    return (
-                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-[#121212]/15 pb-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-display font-black text-lg uppercase text-red-stage">
-                              {currentComm.name}
-                            </h3>
-                            <button
-                              onClick={() => handleJoinCommunity(currentComm.id)}
-                              disabled={joiningCommunity === currentComm.id}
-                              className="text-[9px] font-black bg-green-100 hover:bg-green-200 text-green-800 px-2 py-0.5 border border-green-300 rounded uppercase tracking-widest cursor-pointer disabled:opacity-50"
-                            >
-                              {joiningCommunity === currentComm.id ? "JOINING..." : "JOIN HUB"}
-                            </button>
-                          </div>
-                          <p className="font-space text-xs text-gray-600 italic">
-                            {currentComm.description || "Active community hub for creator discussions."}
-                          </p>
-                        </div>
-                        
-                        <button
-                          onClick={() => setShowCreatePostModal(true)}
-                          className="bg-[#121212] text-[#FAF8F5] font-black uppercase text-[10px] tracking-wider px-3 py-2 border border-[#121212] rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none cursor-pointer"
-                        >
-                          + Write Post
-                        </button>
-                      </div>
-                    );
-                  })()}
 
                   {postsLoading ? (
                     <div className="space-y-3 py-6">
@@ -626,12 +609,12 @@ export default function ArtistNetwork() {
                   <h4 className="font-display font-black text-xs text-yellow-festival uppercase tracking-wider select-none">
                     CREATOR DIRECTORY
                   </h4>
-                  {messagesLoading && (
+                  {(messagesLoading || contactsLoading) && (
                     <RefreshCw size={12} className="text-white/40 animate-spin" />
                   )}
                 </div>
                 <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
-                  {artists.map((artist) => (
+                  {activeContactsList.map((artist) => (
                     <div
                       key={artist.id}
                       onClick={() => setSelectedRecipientId(artist.id)}

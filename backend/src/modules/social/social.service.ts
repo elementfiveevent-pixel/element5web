@@ -80,9 +80,32 @@ export class SocialService {
   }
 
   async getCommunities() {
-    return this.prisma.community.findMany({
+    let list = await this.prisma.community.findMany({
       orderBy: { name: "asc" }
     });
+
+    if (list.length === 0) {
+      const defaults = [
+        { name: "General Chat", description: "General discussion for all creators." },
+        { name: "Collaborations", description: "Find other creators to work with." },
+        { name: "Showcase & Feedback", description: "Share your latest work and get feedback." }
+      ];
+
+      for (const d of defaults) {
+        await this.prisma.community.create({
+          data: {
+            name: d.name,
+            description: d.description,
+          }
+        });
+      }
+
+      list = await this.prisma.community.findMany({
+        orderBy: { name: "asc" }
+      });
+    }
+
+    return list;
   }
 
   async getCommunityPosts(communityId: string) {
@@ -195,6 +218,21 @@ export class SocialService {
         ],
       },
       orderBy: { createdAt: "asc" },
+    });
+  }
+
+  async getContacts(currentUserId: string) {
+    return this.prisma.user.findMany({
+      where: {
+        id: { not: currentUserId }
+      },
+      select: {
+        id: true,
+        fullName: true,
+        profilePhotoUrl: true,
+        role: true
+      },
+      orderBy: { fullName: "asc" }
     });
   }
 }

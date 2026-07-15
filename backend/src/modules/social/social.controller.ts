@@ -99,4 +99,10 @@ export class SocialController {
   async getMessages(@CurrentUser() user: any, @Param("contactId") contactId: string) {
     return this.socialService.getMessages(user.id, contactId);
   }
+
+  @Get("contacts")
+  @ApiOperation({ summary: "Get all registered users as contacts for DMs" })
+  async getContacts(@CurrentUser() user: any) {
+    return this.socialService.getContacts(user.id);
+  }
 }
