@@ -611,19 +611,6 @@ export default function ArtistNetwork() {
                     </div>
                   )}
                 </div>
-              )}           onClick={() => handleSubmitComment(post.id)}
-                                disabled={submittingComment}
-                                className="px-3 py-2 bg-yellow-festival border-2 border-[#121212] rounded font-black text-xs uppercase disabled:opacity-50 cursor-pointer"
-                              >
-                                {submittingComment ? "..." : "POST"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
               )}
 
             </div>
