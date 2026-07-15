@@ -34,7 +34,7 @@ graph TD
    * Retrieve the connection strings:
      * **Connection String (Transaction/Session)**: Used for `DATABASE_URL` (usually port `6543`).
      * **Connection String (Direct)**: Used for `DIRECT_URL` (usually port `5432`).
-   * Open your SQL Editor in Supabase, copy the contents of the database schema script ([`backend/scripts/schema.sql`](file:///d:/All%20Project/element%20five%20website/Element5website/backend/scripts/schema.sql)), and run it to create tables, schemas, and initial test credentials.
+    * Open your SQL Editor in Supabase, copy the contents of the database schema script ([`backend/scripts/schema.sql`](file:///d:/All%20Project/element%20five%20website/backend/scripts/schema.sql)), and run it to create tables and database schemas.
 
 2. **Storage Bucket Configuration**:
    * Go to your **Supabase Dashboard** -> **Storage** (on the left menu).
@@ -86,7 +86,7 @@ We recommend **Render** or **Railway** for NestJS because they support long-runn
 3. Select your repository.
 4. In the configuration settings:
    * **Framework Preset**: `Next.js`
-   * **Root Directory**: `Element5website`
+   * **Root Directory**: `frontend`
 5. Open **Environment Variables** and add:
    * `NEXT_PUBLIC_API_URL` = *[The public URL of your deployed NestJS backend on Render or Railway]*
 6. Click **Deploy**.
