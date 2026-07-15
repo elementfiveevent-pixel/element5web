@@ -69,14 +69,29 @@ Use this testing scenario checklist to verify that all routing, authentication g
 
 ### Scenario 3: Admin CMS & Organizer Verification
 * **Login URL**: [http://localhost:3000/admin/login](http://localhost:3000/admin/login)
-1. Navigate to `/admin/login`.
-2. Verify that **only** the **SECURE SIGN IN** button is displayed (email and password inputs are hidden, credentials are pre-filled safely).
-3. Click the button to log in as Super Admin.
-4. Go to the **Creators** tab in the dashboard.
-5. Locate the newly registered Artist (from Scenario 1):
+1. Run the following SQL queries directly in your Supabase SQL Editor to securely create your system administrator account without committing any plain-text credentials in the repository:
+   ```sql
+   -- 1. Create the User (Replace with your custom email and a hashed bcrypt password)
+   -- (e.g. generate a bcrypt hash for your password and replace the hash below)
+   INSERT INTO "User" (email, "passwordHash", "fullName", status)
+   VALUES ('admin@element5.com', '$2b$10$Q7w...YOUR_HASH...', 'System Administrator', 'ACTIVE')
+   RETURNING id;
+
+   -- 2. Assign the SUPER_ADMIN role (Replace 'USER_UUID' with the ID returned above)
+   INSERT INTO "RoleAssignment" ("userId", role)
+   VALUES ('USER_UUID', 'SUPER_ADMIN');
+   ```
+2. Navigate to `/admin/login`.
+3. Enter the email and password you created.
+4. Click **SECURE SIGN IN**. Verify that the form dynamically transitions and requests a **Google Authenticator / 2FA Code**.
+5. Enter the active 6-digit TOTP token:
+   * *Note: The default Base32 2FA secret is `ELEMENT5ADMINSECRET` (you can configure a custom key via the `ADMIN_TOTP_SECRET` environment variable in Render/Railway). Add this secret to your Authenticator app to get the current code.*
+6. Enter the code and click **VERIFY & SIGN IN**. Verify you are redirected to `/admin` successfully.
+7. Go to the **Creators** tab in the dashboard.
+8. Locate the newly registered Artist (from Scenario 1):
    * Verify they display an `UNVERIFIED` label.
    * Click **VERIFY CREATOR**. Verify that their badge changes to `✓ VERIFIED`.
-6. Navigate to the **Audit Stream** under the **Overview** tab:
+9. Navigate to the **Audit Stream** under the **Overview** tab:
    * Verify that the audit log stream displays the verification action in real time.
 
 ---

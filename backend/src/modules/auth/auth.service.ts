@@ -6,6 +6,7 @@ import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { UserRole } from "@prisma/client";
 import { SetupArtistProfileDto } from "./dto/setup-artist-profile.dto";
+import { verifyTOTP } from "../../common/utils/totp.util";
 
 @Injectable()
 export class AuthService {
@@ -123,6 +124,19 @@ export class AuthService {
     const validPassword = await bcrypt.compare(dto.password, user.passwordHash);
     if (!validPassword) {
       throw new UnauthorizedException("Invalid email or password");
+    }
+
+    // Verify TOTP if the user is a SUPER_ADMIN
+    const userRoles = user.roles.map((r: any) => r.role);
+    if (userRoles.includes(UserRole.SUPER_ADMIN)) {
+      const totpSecret = process.env.ADMIN_TOTP_SECRET || "ELEMENT5ADMINSECRET";
+      if (!dto.totpToken) {
+        throw new UnauthorizedException("2FA_REQUIRED");
+      }
+      const isValidTotp = verifyTOTP(dto.totpToken, totpSecret);
+      if (!isValidTotp) {
+        throw new UnauthorizedException("Invalid 2FA verification code");
+      }
     }
 
     return this.generateTokens(user.id, user.email, user.roles.map((r: any) => r.role));

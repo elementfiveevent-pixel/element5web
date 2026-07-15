@@ -19,7 +19,7 @@ export interface User {
 interface AuthContextProps {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string; user?: User | null }>;
+  login: (email: string, password: string, totpToken?: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string; user?: User | null }>;
   register: (fullName: string, email: string, password: string, role: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
   logout: () => void;
@@ -88,9 +88,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshUser();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, totpToken?: string) => {
     try {
-      const data = await api.post("/auth/login", { email, password });
+      const data = await api.post("/auth/login", { email, password, totpToken });
       if (data.accessToken) {
         setTokens(data.accessToken);
         const userProfile = await refreshUser();
