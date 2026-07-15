@@ -628,7 +628,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
     if (!code) return;
     setCheckingInScan(true);
     setScanFeedback(null);
-    const targetCode = code.trim().toUpperCase();
+    const targetCode = code.trim().toLowerCase();
     try {
       await api.post("/events/tickets/checkin", {
         qrCode: targetCode,
@@ -639,7 +639,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
         prev.map((r) => ({
           ...r,
           tickets: (r.tickets || []).map((t) =>
-            t.qrCode.toUpperCase() === targetCode ? { ...t, isUsed: true, usedAt: new Date().toISOString() } : t
+            t.qrCode.toLowerCase() === targetCode ? { ...t, isUsed: true, usedAt: new Date().toISOString() } : t
           ),
         }))
       );
