@@ -618,16 +618,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
       );
       import("canvas-confetti").then(({ default: c }) => c({ particleCount: 30, spread: 40, colors: ["#50C878", "#FFDE4D"] }));
     } catch (err: any) {
-      console.warn("Backend offline. Simulating ticket check-in locally.");
-      setRegs((prev) =>
-        prev.map((r) => ({
-          ...r,
-          tickets: (r.tickets || []).map((t) =>
-            t.id === ticketId ? { ...t, isUsed: true, usedAt: new Date().toISOString() } : t
-          ),
-        }))
-      );
-      import("canvas-confetti").then(({ default: c }) => c({ particleCount: 30, spread: 40, colors: ["#50C878", "#FFDE4D"] }));
+      alert(err.message || "Failed to check in ticket.");
     } finally {
       setCheckingIn(null);
     }
@@ -655,32 +646,8 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
       setScanFeedback({ type: "success", message: `Successfully checked in ticket ${targetCode}!` });
       import("canvas-confetti").then(({ default: c }) => c({ particleCount: 40, spread: 50, colors: ["#50C878", "#FFDE4D"] }));
     } catch (err: any) {
-      // Fallback local simulation if backend throws
       console.warn("Check-in error:", err);
-      // Let's check if the ticket exists in our local registrations list
-      let foundTicket = false;
-      regs.forEach(r => {
-        (r.tickets || []).forEach(t => {
-          if (t.qrCode.toUpperCase() === targetCode) {
-            foundTicket = true;
-          }
-        });
-      });
-      
-      if (foundTicket) {
-        setRegs((prev) =>
-          prev.map((r) => ({
-            ...r,
-            tickets: (r.tickets || []).map((t) =>
-              t.qrCode.toUpperCase() === targetCode ? { ...t, isUsed: true, usedAt: new Date().toISOString() } : t
-            ),
-          }))
-        );
-        setScanFeedback({ type: "success", message: `[Simulated] Checked in ticket ${targetCode}!` });
-        import("canvas-confetti").then(({ default: c }) => c({ particleCount: 40, spread: 50, colors: ["#50C878", "#FFDE4D"] }));
-      } else {
-        setScanFeedback({ type: "error", message: err?.message || "Invalid or already used ticket code." });
-      }
+      setScanFeedback({ type: "error", message: err?.message || "Invalid or already used ticket code." });
     } finally {
       setCheckingInScan(false);
     }

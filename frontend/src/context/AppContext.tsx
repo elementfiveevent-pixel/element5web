@@ -317,20 +317,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedMsgs = [...messages, newMsg];
     setMessages(updatedMsgs);
     addUserXP(10); // 10 XP for communicating
-
-    // Simulate mock responder after 2 seconds
-    setTimeout(() => {
-      const recipient = artists.find((a) => a.id === receiverId);
-      const recipientName = recipient ? recipient.name : "Artist";
-      const replyMsg: Message = {
-        id: `msg-reply-${Date.now()}`,
-        senderId: receiverId,
-        receiverId: "currentUser",
-        text: `Hey there! This is ${recipientName}. Thanks for reaching out! Let's check schedules soon and hook up for a jam. Send me your work links!`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages((prev) => [...prev, replyMsg]);
-    }, 2000);
   };
 
   const createCollabRequest = async (category: CollabRequest["category"], title: string, description: string) => {

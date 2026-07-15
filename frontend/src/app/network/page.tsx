@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useApp, CollabRequest } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { Send, Check, Users, MessageSquare, Plus, Award, User, Sparkles, RefreshCw, AlertCircle } from "lucide-react";
@@ -53,9 +53,7 @@ export default function ArtistNetwork() {
   const {
     artists,
     messages: localMessages,
-    collabRequests,
     sendMessage,
-    createCollabRequest,
     userXP,
     userLevel,
     userBadges,
@@ -85,11 +83,7 @@ export default function ArtistNetwork() {
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>("");
   const [communitiesLoading, setCommunitiesLoading] = useState(false);
   
-  const [showCreateCommunityModal, setShowCreateCommunityModal] = useState(false);
-  const [newCommunityName, setNewCommunityName] = useState("");
-  const [newCommunityDesc, setNewCommunityDesc] = useState("");
-  const [creatingCommunity, setCreatingCommunity] = useState(false);
-  const [communityError, setCommunityError] = useState<string | null>(null);
+
 
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [newPostTitle, setNewPostTitle] = useState("");
@@ -99,12 +93,7 @@ export default function ArtistNetwork() {
 
   const [joiningCommunity, setJoiningCommunity] = useState<string | null>(null);
 
-  // ── Collab Form ──
-  const [collabTitle, setCollabTitle] = useState("");
-  const [collabCategory, setCollabCategory] = useState<CollabRequest["category"]>("Need Guitarist");
-  const [collabDescription, setCollabDescription] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [postSuccess, setPostSuccess] = useState(false);
+
 
   // ── Fetch DM history when recipient changes ──
   useEffect(() => {
@@ -179,30 +168,7 @@ export default function ArtistNetwork() {
     fetchPosts();
   }, [selectedCommunityId]);
 
-  const handleCreateCommunity = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCommunityName.trim()) return;
-    setCreatingCommunity(true);
-    setCommunityError(null);
-    try {
-      const created = await api.post("/social/communities", {
-        name: newCommunityName,
-        description: newCommunityDesc
-      });
-      confetti({ particleCount: 50, spread: 60, colors: ["#FFDE4D", "#50C878"] });
-      
-      setCommunities(prev => [...prev, created]);
-      setSelectedCommunityId(created.id);
-      setNewCommunityName("");
-      setNewCommunityDesc("");
-      setShowCreateCommunityModal(false);
-      addUserXP(50);
-    } catch (err: any) {
-      setCommunityError(err.message || "Failed to create community hub.");
-    } finally {
-      setCreatingCommunity(false);
-    }
-  };
+
 
   const handleJoinCommunity = async (communityId: string) => {
     setJoiningCommunity(communityId);
@@ -275,6 +241,18 @@ export default function ArtistNetwork() {
       }
     } finally {
       setCreatingPost(false);
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!confirm("Are you sure you want to delete this post?")) return;
+    try {
+      await api.delete(`/social/posts/${postId}`);
+      setPosts(prev => prev.filter(p => p.id !== postId));
+      addUserXP(-30);
+      alert("Post deleted successfully!");
+    } catch (err: any) {
+      alert(err.message || "Failed to delete post.");
     }
   };
 
@@ -361,17 +339,7 @@ export default function ArtistNetwork() {
     }
   };
 
-  // ── Post collab request ──
-  const handlePostCollab = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!collabTitle.trim() || !collabDescription.trim()) return;
-    createCollabRequest(collabCategory, collabTitle, collabDescription);
-    setCollabTitle("");
-    setCollabDescription("");
-    setPostSuccess(true);
-    confetti({ particleCount: 60, spread: 50, colors: ["#FFDE4D", "#D80032"] });
-    setTimeout(() => { setPostSuccess(false); setFormOpen(false); }, 2000);
-  };
+
 
   const activeChatArtist = artists.find((a) => a.id === selectedRecipientId);
 
@@ -381,7 +349,7 @@ export default function ArtistNetwork() {
       (m.senderId === "currentUser" && m.receiverId === selectedRecipientId) ||
       (m.senderId === selectedRecipientId && m.receiverId === "currentUser")
   );
-  const allMessages = backendMessages.length > 0 ? backendMessages : localThreadMessages;
+  const allMessages = user ? backendMessages : localThreadMessages;
 
   return (
     <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-16 px-6">
@@ -477,89 +445,17 @@ export default function ArtistNetwork() {
                     Active Collaboration Feed
                   </h2>
                   <p className="font-space text-xs text-gray-500 font-bold">
-                    Participate in community groups or create a pin for specific artist requests.
+                    Participate in community groups and share discussion posts.
                   </p>
                 </div>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowCreateCommunityModal(true)}
-                    className="bg-[#121212] text-[#FAF8F5] border-2 border-[#121212] font-black uppercase text-[10px] tracking-wider px-3.5 py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus size={12} /> CREATE HUB
-                  </button>
-                  <button
-                    onClick={() => setFormOpen(!formOpen)}
-                    className="bg-yellow-festival border-2 border-[#121212] font-black uppercase text-[10px] tracking-wider px-3.5 py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus size={12} /> POST REQUEST
-                  </button>
-                </div>
               </div>
-
-              {/* Collab Pins creation form */}
-              {formOpen && (
-                <form
-                  onSubmit={handlePostCollab}
-                  className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4 animate-fade-in"
-                >
-                  <h3 className="font-display font-bold text-lg">Create Collaboration Pin</h3>
-                  {postSuccess ? (
-                    <div className="bg-green-500 text-white font-bold p-4 rounded text-center border-2 border-[#121212] text-xs flex items-center justify-center gap-2 animate-pulse">
-                      <Check size={18} /> REQUEST PINNED TO CIRCLES FEED
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-xs font-black uppercase text-gray-500 block">Category</label>
-                          <select
-                            value={collabCategory}
-                            onChange={(e) => setCollabCategory(e.target.value as CollabRequest["category"])}
-                            className="w-full p-2.5 border-2 border-[#121212] bg-white rounded font-space font-bold focus:outline-none"
-                          >
-                            {["Need Guitarist","Need Singer","Need Rapper","Need Host","Need Photographer","Need Videographer","Need Dancer"].map(c => (
-                              <option key={c} value={c}>{c}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-black uppercase text-gray-500 block">Hook Title</label>
-                          <input
-                            type="text"
-                            placeholder="e.g. Lead Vocals for Sufi Fusion"
-                            value={collabTitle}
-                            onChange={(e) => setCollabTitle(e.target.value)}
-                            className="w-full p-2 border-2 border-[#121212] bg-white rounded font-space font-bold placeholder-gray-400 focus:outline-none"
-                            required
-                          />
-                        </div>
-                      </div>
-                      <textarea
-                        placeholder="List dates, locations, goals..."
-                        value={collabDescription}
-                        onChange={(e) => setCollabDescription(e.target.value)}
-                        rows={3}
-                        className="w-full p-3 border-2 border-[#121212] bg-white rounded font-space placeholder-gray-400 focus:outline-none"
-                        required
-                      />
-                      <button
-                        type="submit"
-                        className="w-full bg-[#121212] text-[#FAF8F5] font-black uppercase text-xs tracking-widest py-3 border-2 border-[#121212] rounded hover:bg-[#121212]/80 cursor-pointer"
-                      >
-                        SUBMIT REQUEST
-                      </button>
-                    </>
-                  )}
-                </form>
-              )}
 
               {/* Communities list / selector */}
               <div className="space-y-3">
                 <span className="font-display font-black text-xs uppercase text-gray-500 tracking-wider block">
                   👥 CREATOR COMMUNITY HUBS
                 </span>
-                
+
                 {communitiesLoading ? (
                   <div className="flex gap-2 animate-pulse">
                     {[1, 2, 3].map((i) => (
@@ -567,15 +463,8 @@ export default function ArtistNetwork() {
                     ))}
                   </div>
                 ) : communities.length === 0 ? (
-                  <div className="border-3 border-dashed border-[#121212] bg-white rounded p-8 text-center space-y-3">
-                    <p className="font-space text-xs font-bold text-gray-400">No active community hubs found.</p>
-                    <button
-                      type="button"
-                      onClick={() => setShowCreateCommunityModal(true)}
-                      className="bg-yellow-festival border-2 border-[#121212] font-black uppercase text-xs px-4 py-2 rounded shadow-brutal-sm cursor-pointer"
-                    >
-                      Start the First Hub!
-                    </button>
+                  <div className="border-3 border-dashed border-[#121212] bg-white rounded p-8 text-center">
+                    <p className="font-space text-xs font-bold text-gray-400">No active community hubs found. Please contact an admin to start a new hub.</p>
                   </div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -657,7 +546,7 @@ export default function ArtistNetwork() {
                   ) : (
                     <div className="space-y-4">
                       {posts.map((post) => (
-                        <div key={post.id} className="bg-white border-3 border-[#121212] p-5 rounded shadow-brutal space-y-3">
+                        <div key={post.id} className="bg-white border-3 border-[#121212] p-5 rounded shadow-brutal space-y-3 animate-fade-in">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-red-stage/10 flex items-center justify-center font-display font-black text-[10px] border border-[#121212]/10">
                               {(post.author?.fullName || "?")[0]}
@@ -688,6 +577,15 @@ export default function ArtistNetwork() {
                             >
                               💬 {post._count?.comments || 0} Comments
                             </button>
+
+                            {post.authorId === user?.id && (
+                              <button
+                                onClick={() => handleDeletePost(post.id)}
+                                className="text-[9px] font-black uppercase flex items-center gap-1 px-2.5 py-1 rounded border-2 border-red-500 bg-red-50 text-red-600 hover:bg-red-100 transition-all cursor-pointer ml-auto"
+                              >
+                                🗑 Delete
+                              </button>
+                            )}
                           </div>
 
                           {commentingOn === post.id && (
@@ -713,44 +611,21 @@ export default function ArtistNetwork() {
                     </div>
                   )}
                 </div>
+              )}           onClick={() => handleSubmitComment(post.id)}
+                                disabled={submittingComment}
+                                className="px-3 py-2 bg-yellow-festival border-2 border-[#121212] rounded font-black text-xs uppercase disabled:opacity-50 cursor-pointer"
+                              >
+                                {submittingComment ? "..." : "POST"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
-              {/* Collab Requests (local context) */}
-              <div className="space-y-4">
-                <span className="font-display font-black text-xs uppercase text-gray-500 tracking-wider block">
-                  📌 SPECIFIC COLLABORATION PINS
-                </span>
-                {collabRequests.map((req) => (
-                  <div
-                    key={req.id}
-                    className="bg-white border-3 border-[#121212] p-6 rounded shadow-brutal space-y-4 hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-brutal-red transition-all"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <span className="inline-block bg-yellow-festival font-black text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border border-[#121212]">
-                          {req.category}
-                        </span>
-                        <h4 className="font-display font-extrabold text-xl">{req.title}</h4>
-                      </div>
-                      <span className="text-[10px] font-bold text-gray-400">{req.date}</span>
-                    </div>
-                    <p className="font-space text-sm text-gray-600">{req.description}</p>
-                    <div className="border-t border-[#121212]/10 pt-4 flex items-center justify-between">
-                      <span className="text-xs font-bold text-gray-500">
-                        Posted by: <span className="font-black text-[#121212]">{req.authorName}</span>
-                      </span>
-                      {req.authorId !== "currentUser" && (
-                        <button
-                          onClick={() => { setSelectedRecipientId(req.authorId); setActiveTab("messages"); }}
-                          className="text-xs font-display font-black text-red-stage uppercase hover:underline cursor-pointer"
-                        >
-                          CONNECT & MESSAGE →
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
 
@@ -872,68 +747,7 @@ export default function ArtistNetwork() {
         </div>
       </div>
 
-      {/* Create Community Hub Modal */}
-      {showCreateCommunityModal && (
-        <div className="fixed inset-0 z-[9999] bg-[#121212]/80 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <form 
-            onSubmit={handleCreateCommunity}
-            className="bg-[#FAF8F5] border-4 border-[#121212] p-6 max-w-md w-full rounded shadow-brutal space-y-4 text-[#121212] font-space relative my-8"
-          >
-            <button 
-              type="button"
-              onClick={() => setShowCreateCommunityModal(false)}
-              className="absolute top-4 right-4 w-8 h-8 border-2 border-[#121212] bg-white rounded flex items-center justify-center hover:bg-gray-100 font-black shadow-brutal-sm cursor-pointer"
-            >
-              ✕
-            </button>
 
-            <div>
-              <span className="bg-red-stage text-white text-[9px] font-black uppercase px-2 py-0.5 rounded">COMMUNITY GRAPH</span>
-              <h3 className="font-display font-black text-2xl uppercase tracking-tight mt-1">START A NEW HUB</h3>
-              <p className="text-[11px] text-gray-500 font-bold">Create a group for jamming, local events, or discussion boards.</p>
-            </div>
-
-            {communityError && (
-              <div className="bg-red-100 text-red-800 border-2 border-red-300 p-2.5 rounded text-xs font-bold flex items-center gap-1">
-                <AlertCircle size={14} />
-                <span>{communityError}</span>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-gray-500">Hub Name (Unique)</label>
-                <input 
-                  className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded"
-                  placeholder="e.g. Pune Sufi Fusion"
-                  value={newCommunityName}
-                  onChange={(e) => setNewCommunityName(e.target.value)}
-                  required 
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-gray-500">Description</label>
-                <textarea 
-                  rows={3} 
-                  className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded resize-none"
-                  placeholder="What is this community group about?..."
-                  value={newCommunityDesc}
-                  onChange={(e) => setNewCommunityDesc(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={creatingCommunity}
-              className="w-full bg-yellow-festival text-[#121212] border-3 border-[#121212] font-display font-black text-xs uppercase py-3 rounded shadow-brutal hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
-            >
-              {creatingCommunity ? "Creating..." : "Create Hub (+50 XP)"}
-            </button>
-          </form>
-        </div>
-      )}
 
       {/* Create Discussion Post Modal */}
       {showCreatePostModal && (
