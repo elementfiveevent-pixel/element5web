@@ -23,6 +23,18 @@ export class SocialController {
     return this.socialService.unfollow(user.id, followingId);
   }
 
+  @Get("communities")
+  @ApiOperation({ summary: "Get all community hubs" })
+  async getCommunities() {
+    return this.socialService.getCommunities();
+  }
+
+  @Get("communities/:communityId/posts")
+  @ApiOperation({ summary: "Get posts of a community" })
+  async getCommunityPosts(@Param("communityId") communityId: string) {
+    return this.socialService.getCommunityPosts(communityId);
+  }
+
   @Post("communities")
   @ApiOperation({ summary: "Create a new guild or community hub" })
   async createCommunity(
@@ -48,6 +60,12 @@ export class SocialController {
     @Body("content") content: string,
   ) {
     return this.socialService.createPost(user.id, communityId, title, content);
+  }
+
+  @Delete("posts/:postId")
+  @ApiOperation({ summary: "Delete your post" })
+  async deletePost(@CurrentUser() user: any, @Param("postId") postId: string) {
+    return this.socialService.deletePost(user.id, postId);
   }
 
   @Post("posts/:postId/like")

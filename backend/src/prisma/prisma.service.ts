@@ -370,6 +370,12 @@ export class PostgresModel {
             [row.registrationId]
           );
           row.registration = regRes.rows[0] || null;
+        } else if (relation === "user" && this.tableName === "EventTicket") {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = $1`,
+            [row.userId]
+          );
+          row.user = userRes.rows[0] || null;
         }
         // Gracefully skip unknown relations (sponsors, partners, announcements, media, etc.)
         // so callers don't crash when querying relations not yet modeled
@@ -725,9 +731,22 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     try {
       const client = await this.pool.connect();
-      client.release();
       this.dbConnected = true;
       this.logger.log("✅ PostgreSQL connected directly using pg.Pool");
+
+      // Auto-run schema migrations/alterations for social hub features
+      try {
+        await client.query(`
+          ALTER TABLE "Community" ADD COLUMN IF NOT EXISTS "createdById" UUID REFERENCES "User"("id") ON DELETE SET NULL;
+          ALTER TABLE "CommunityMember" ADD COLUMN IF NOT EXISTS "role" TEXT DEFAULT 'MEMBER';
+          ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "title" TEXT;
+        `);
+        this.logger.log("✅ PostgreSQL schema updated with missing Community, Member, and Post columns");
+      } catch (migrationErr: any) {
+        this.logger.warn(`⚠ PostgreSQL migration check failed: ${migrationErr.message}`);
+      }
+
+      client.release();
     } catch (err: any) {
       this.logger.warn(
         `⚠ PostgreSQL unavailable: ${err?.message ?? err}. Running without database.`

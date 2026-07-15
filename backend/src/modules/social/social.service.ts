@@ -79,7 +79,48 @@ export class SocialService {
     });
   }
 
-  // 3. Posts & Comments
+  async getCommunities() {
+    return this.prisma.community.findMany({
+      orderBy: { name: "asc" }
+    });
+  }
+
+  async getCommunityPosts(communityId: string) {
+    const posts = await this.prisma.post.findMany({
+      where: { communityId },
+      orderBy: { createdAt: "desc" }
+    });
+
+    const enrichedPosts = await Promise.all(posts.map(async (post: any) => {
+      const author = await this.prisma.user.findUnique({
+        where: { id: post.authorId }
+      });
+      
+      const likesCount = await this.prisma.like.count({
+        where: { postId: post.id }
+      });
+
+      const commentsCount = await this.prisma.comment.count({
+        where: { postId: post.id }
+      });
+
+      return {
+        ...post,
+        author: author ? {
+          id: author.id,
+          fullName: author.fullName,
+          profilePhotoUrl: author.profilePhotoUrl
+        } : null,
+        _count: {
+          likes: likesCount,
+          comments: commentsCount
+        }
+      };
+    }));
+
+    return enrichedPosts;
+  }
+
   async createPost(authorId: string, communityId: string, title: string, content: string) {
     const isMember = await this.prisma.communityMember.findUnique({
       where: { communityId_userId: { communityId, userId: authorId } },
@@ -91,6 +132,26 @@ export class SocialService {
     return this.prisma.post.create({
       data: { communityId, authorId, title, content },
     });
+  }
+
+  async deletePost(userId: string, postId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId }
+    });
+
+    if (!post) {
+      throw new NotFoundException("Post not found");
+    }
+
+    if (post.authorId !== userId) {
+      throw new ConflictException("You are not authorized to delete this post");
+    }
+
+    await this.prisma.post.delete({
+      where: { id: postId }
+    });
+
+    return { success: true, message: "Post deleted successfully" };
   }
 
   async likePost(userId: string, postId: string) {

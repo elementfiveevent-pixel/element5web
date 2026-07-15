@@ -648,7 +648,7 @@ export class EventService {
     return {
       success: true,
       message: "Check-in successful",
-      attendee: ticket.user.fullName,
+      attendee: ticket.user?.fullName || "Attendee",
       eventName: ticket.event.title,
       checkedInAt: updatedTicket.usedAt,
     };
@@ -694,7 +694,7 @@ export class EventService {
     return {
       success: true,
       message: "Check-out successful",
-      attendee: ticket.user.fullName,
+      attendee: ticket.user?.fullName || "Attendee",
       eventName: ticket.event.title,
       checkedOutAt: new Date(),
     };
