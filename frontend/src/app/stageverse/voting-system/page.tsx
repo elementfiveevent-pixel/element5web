@@ -55,7 +55,8 @@ export default function AudienceVotingSystem() {
     fetchStatusAndSubmissions();
 
     // Connect to live namespace for real-time toggle notifications
-    const socketInstance = io("http://localhost:4000/live", {
+    const socketUrl = api.baseUrl.replace(/\/$/, "");
+    const socketInstance = io(`${socketUrl}/live`, {
       transports: ["websocket"],
       autoConnect: true
     });

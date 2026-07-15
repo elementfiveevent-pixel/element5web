@@ -36,7 +36,8 @@ export default function StageVerseArena() {
 
   useEffect(() => {
     // Connect to NestJS live namespace
-    const socketInstance = io("http://localhost:4000/live", {
+    const socketUrl = api.baseUrl.replace(/\/$/, "");
+    const socketInstance = io(`${socketUrl}/live`, {
       transports: ["websocket"],
       autoConnect: true
     });
