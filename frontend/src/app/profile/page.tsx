@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Shield, Award, Mail, User, Ticket, Share2, Video, Globe, Star, Music, Edit2, Play, MapPin } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
+import { api } from "@/lib/api";
 
 function getYoutubeEmbedUrl(url: string) {
   if (!url) return null;
@@ -357,7 +358,12 @@ export default function ProfilePage() {
                     </div>
                   )}
                 </>
-          {/* ── Lower Section: Videos Reel (Left) & Badge Cabinet / Tickets (Right) ── */}
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Lower Section: Videos Reel (Left) & Badge Cabinet / Tickets (Right) ── */}
         {isArtist && (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
             
