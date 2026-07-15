@@ -61,4 +61,14 @@ export class SetupArtistProfileDto {
   @IsString()
   @IsOptional()
   profilePhotoUrl?: string;
+
+  @ApiProperty({ example: "Rajkot", required: false })
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  @ApiProperty({ example: "Gujarat", required: false })
+  @IsString()
+  @IsOptional()
+  state?: string;
 }

@@ -58,6 +58,12 @@ export class AdminController {
     return this.adminService.verifyUser(userId, action);
   }
 
+  @Get("users/organizers")
+  @ApiOperation({ summary: "List all organizer accounts" })
+  async getAllOrganizers() {
+    return this.adminService.listAllOrganizers();
+  }
+
   @Put("artists/:artistId/verify")
   @ApiOperation({ summary: "Verify or unverify a creator/artist profile" })
   async verifyArtist(

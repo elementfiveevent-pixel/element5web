@@ -198,12 +198,6 @@ export default function LoginPage() {
               REGISTER AS CREATOR
             </Link>
           </p>
-          <p className="font-space text-xs font-bold text-gray-400 mt-2">
-            Are you an admin?{" "}
-            <Link href="/admin/login" className="text-[#121212] hover:underline font-black">
-              SIGN IN TO PORTAL
-            </Link>
-          </p>
         </div>
       </div>
     </div>

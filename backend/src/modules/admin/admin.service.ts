@@ -7,11 +7,12 @@ export class AdminService {
   constructor(private prisma: PrismaService) {}
 
   async getDashboardStats() {
-    const [totalUsers, totalArtists, totalEvents, totalVotes] = await Promise.all([
+    const [totalUsers, totalArtists, totalEvents, totalVotes, totalOrganizers] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.artistProfile.count(),
       this.prisma.event.count(),
       this.prisma.vote.count(),
+      this.prisma.roleAssignment.count({ where: { role: "ORG_ADMIN" } }),
     ]);
 
     // Simple event attendance and ticket reconciliations
@@ -22,6 +23,7 @@ export class AdminService {
     return {
       users: totalUsers,
       creators: totalArtists,
+      organizers: totalOrganizers,
       events: totalEvents,
       votesCast: totalVotes,
       ticketsCheckedIn,
@@ -104,6 +106,28 @@ export class AdminService {
     return this.prisma.artistProfile.update({
       where: { id: artistId },
       data: { isVerified },
+    });
+  }
+
+  async listAllOrganizers() {
+    return this.prisma.user.findMany({
+      where: {
+        roles: {
+          some: {
+            role: "ORG_ADMIN",
+          },
+        },
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        mobileNumber: true,
+        profilePhotoUrl: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
     });
   }
 }

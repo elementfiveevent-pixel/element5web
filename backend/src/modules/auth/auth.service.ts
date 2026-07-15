@@ -93,6 +93,8 @@ export class AuthService {
         skills,
         portfolioUrls,
         availabilityStatus,
+        city: dto.city,
+        state: dto.state,
       },
       create: {
         userId,
@@ -103,6 +105,8 @@ export class AuthService {
         skills,
         portfolioUrls,
         availabilityStatus,
+        city: dto.city,
+        state: dto.state,
       },
     });
   }

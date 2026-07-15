@@ -14,8 +14,12 @@ import SupabaseUpload from "@/components/ui/SupabaseUpload";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface BackendStats {
-  totalUsers?: number; totalEvents?: number; totalArtists?: number;
-  totalVotes?: number; totalRegistrations?: number; totalRevenue?: number; activeUsers?: number;
+  users?: number;
+  creators?: number;
+  organizers?: number;
+  events?: number;
+  votesCast?: number;
+  ticketsCheckedIn?: number;
 }
 interface ModerationReport {
   id: string; targetType: string; reason: string; status: string; createdAt: string;
@@ -75,7 +79,7 @@ export default function AdminDashboard() {
   const [creatorsLoading, setCreatorsLoading] = useState(false);
   const [verifyingCreatorId, setVerifyingCreatorId] = useState<string | null>(null);
 
-  const [pendingOrganizers, setPendingOrganizers] = useState<any[]>([]);
+  const [allOrganizers, setAllOrganizers] = useState<any[]>([]);
   const [organizersLoading, setOrganizersLoading] = useState(false);
   const [verifyingOrganizerId, setVerifyingOrganizerId] = useState<string | null>(null);
 
@@ -107,7 +111,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab === "health") fetchHealth();
     if (activeTab === "creators") fetchCreators();
-    if (activeTab === "organizers") fetchPendingOrganizers();
+    if (activeTab === "organizers") fetchAllOrganizers();
   }, [activeTab]);
 
   async function fetchHealth() {
@@ -135,13 +139,13 @@ export default function AdminDashboard() {
     }
   }
 
-  async function fetchPendingOrganizers() {
+  async function fetchAllOrganizers() {
     setOrganizersLoading(true);
     try {
-      const data = await api.get("/admin/users/pending");
-      setPendingOrganizers(Array.isArray(data) ? data : []);
+      const data = await api.get("/admin/users/organizers");
+      setAllOrganizers(Array.isArray(data) ? data : []);
     } catch {
-      setPendingOrganizers([]);
+      setAllOrganizers([]);
     } finally {
       setOrganizersLoading(false);
     }
@@ -151,9 +155,13 @@ export default function AdminDashboard() {
     setVerifyingOrganizerId(userId);
     try {
       await api.put(`/admin/users/${userId}/verify`, { action });
-      setPendingOrganizers(prev => prev.filter(org => org.id !== userId));
       if (action === "APPROVE") {
+        setAllOrganizers(prev =>
+          prev.map(org => org.id === userId ? { ...org, status: "ACTIVE" } : org)
+        );
         import("canvas-confetti").then(({ default: c }) => c({ particleCount: 40, spread: 30, colors: ["#FFDE4D", "#D80032"] }));
+      } else {
+        setAllOrganizers(prev => prev.filter(org => org.id !== userId));
       }
     } catch (err) {
       console.error("Failed to verify organizer:", err);
@@ -183,12 +191,13 @@ export default function AdminDashboard() {
   const totalVotes = artists.reduce((a, c) => a + c.votes, 0);
   const totalReg = events.reduce((a, c) => a + c.audienceCount, 0);
   const stats = {
-    users: backendStats?.totalUsers ?? totalReg,
-    votes: backendStats?.totalVotes ?? totalVotes,
-    artists: backendStats?.totalArtists ?? artists.length,
-    events: backendStats?.totalEvents ?? events.length,
-    revenue: backendStats?.totalRevenue ?? totalReg * 150,
-    active: backendStats?.activeUsers ?? Math.floor(totalReg * 0.6),
+    users: backendStats?.users ?? totalReg,
+    votes: backendStats?.votesCast ?? totalVotes,
+    artists: backendStats?.creators ?? artists.length,
+    organizers: backendStats?.organizers ?? 0,
+    events: backendStats?.events ?? events.length,
+    revenue: (backendStats?.ticketsCheckedIn ?? totalReg) * 150,
+    active: Math.floor((backendStats?.users ?? totalReg) * 0.6),
   };
 
   const handleToggleEvent = (id: string) => {
@@ -240,10 +249,11 @@ export default function AdminDashboard() {
         {/* ── OVERVIEW ── */}
         {activeTab === "overview" && (
           <div className="space-y-12">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-6">
               <StatCard label="Registrations" value={stats.users} icon={Users} color="text-yellow-festival" />
               <StatCard label="Total Votes" value={stats.votes} icon={Vote} color="text-red-stage" />
               <StatCard label="Creators" value={stats.artists} icon={Award} color="text-orange-burnt" />
+              <StatCard label="Organizers" value={stats.organizers} icon={Users} color="text-teal-500" />
               <StatCard label="Events" value={stats.events} icon={Calendar} color="text-blue-500" />
               <StatCard label="Revenue" value={`₹${Number(stats.revenue).toLocaleString()}`} icon={TrendingUp} color="text-green-500" />
               <StatCard label="Active Now" value={stats.active} icon={Activity} color="text-purple-500" />
@@ -429,9 +439,9 @@ export default function AdminDashboard() {
         {activeTab === "organizers" && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h3 className="font-display font-black text-xl uppercase">Organizer Approval Panel</h3>
+              <h3 className="font-display font-black text-xl uppercase">Organizer Profiles</h3>
               <button 
-                onClick={fetchPendingOrganizers}
+                onClick={fetchAllOrganizers}
                 disabled={organizersLoading}
                 className="flex items-center gap-1.5 border-2 border-[#121212] font-black text-[10px] uppercase px-3 py-1.5 rounded hover:bg-[#121212]/5 transition-colors cursor-pointer disabled:opacity-50"
               >
@@ -440,11 +450,11 @@ export default function AdminDashboard() {
             </div>
             {organizersLoading ? (
               <div className="text-center font-space font-bold py-16 animate-pulse text-gray-500 uppercase">
-                Loading pending organizers...
+                Loading organizers...
               </div>
-            ) : pendingOrganizers.length > 0 ? (
+            ) : allOrganizers.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {pendingOrganizers.map((org) => (
+                {allOrganizers.map((org) => (
                   <div key={org.id} className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
                     <div className="flex justify-between items-start gap-4">
                       <div className="flex items-center gap-3">
@@ -459,33 +469,37 @@ export default function AdminDashboard() {
                           <p className="font-space text-xs text-gray-400 font-bold mt-0.5">Mobile: {org.mobileNumber || "N/A"}</p>
                         </div>
                       </div>
-                      <span className="border-2 border-[#121212] text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-brutal-sm bg-yellow-300 text-[#121212]">
-                        PENDING APPROVAL
+                      <span className={`border-2 border-[#121212] text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-brutal-sm ${
+                        org.status === "ACTIVE" ? "bg-green-500 text-white" : "bg-yellow-300 text-[#121212]"
+                      }`}>
+                        {org.status === "ACTIVE" ? "✓ ACTIVE" : "PENDING APPROVAL"}
                       </span>
                     </div>
 
-                    <div className="pt-4 border-t border-[#121212]/10 flex gap-4">
-                      <button
-                        onClick={() => handleVerifyOrganizer(org.id, "APPROVE")}
-                        disabled={verifyingOrganizerId === org.id}
-                        className="flex-1 bg-green-500 text-white border-2 border-[#121212] font-display font-black text-xs uppercase py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {verifyingOrganizerId === org.id ? "PROCESSING..." : "APPROVE ORGANIZER"}
-                      </button>
-                      <button
-                        onClick={() => handleVerifyOrganizer(org.id, "REJECT")}
-                        disabled={verifyingOrganizerId === org.id}
-                        className="flex-1 bg-[#D80032] text-white border-2 border-[#121212] font-display font-black text-xs uppercase py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {verifyingOrganizerId === org.id ? "PROCESSING..." : "REJECT / DELETE"}
-                      </button>
-                    </div>
+                    {org.status !== "ACTIVE" && (
+                      <div className="pt-4 border-t border-[#121212]/10 flex gap-4">
+                        <button
+                          onClick={() => handleVerifyOrganizer(org.id, "APPROVE")}
+                          disabled={verifyingOrganizerId === org.id}
+                          className="flex-1 bg-green-500 text-white border-2 border-[#121212] font-display font-black text-xs uppercase py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {verifyingOrganizerId === org.id ? "PROCESSING..." : "APPROVE ORGANIZER"}
+                        </button>
+                        <button
+                          onClick={() => handleVerifyOrganizer(org.id, "REJECT")}
+                          disabled={verifyingOrganizerId === org.id}
+                          className="flex-1 bg-[#D80032] text-white border-2 border-[#121212] font-display font-black text-xs uppercase py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {verifyingOrganizerId === org.id ? "PROCESSING..." : "REJECT / DELETE"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             ) : (
               <div className="border-3 border-dashed border-gray-300 p-12 text-center rounded bg-white font-space">
-                <p className="text-sm font-bold text-gray-500">No pending organizers awaiting approval.</p>
+                <p className="text-sm font-bold text-gray-500">No organizer profiles found on the platform.</p>
               </div>
             )}
           </div>

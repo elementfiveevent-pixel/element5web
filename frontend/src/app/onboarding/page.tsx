@@ -22,6 +22,8 @@ export default function OnboardingPage() {
   const [pastAchievement, setPastAchievement] = useState("");
   const [youtubeLink, setYoutubeLink] = useState("");
   const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -44,6 +46,8 @@ export default function OnboardingPage() {
       setPastAchievement(artProfile.pastAchievement || "");
       setYoutubeLink(artProfile.youtubeLink || "");
       setProfilePhotoUrl(user.profilePhotoUrl || artProfile.profilePhotoUrl || "");
+      setCity(artProfile.city || "");
+      setState(artProfile.state || "");
     }
   }, [user, loading, router]);
 
@@ -66,6 +70,12 @@ export default function OnboardingPage() {
       return;
     }
 
+    if (!instagramHandle.trim()) {
+      setError("Instagram Handle is required.");
+      setSaving(false);
+      return;
+    }
+
     try {
       // Build artist profile object
       const artistProfile = {
@@ -81,6 +91,8 @@ export default function OnboardingPage() {
         pastAchievement,
         youtubeLink,
         profilePhotoUrl,
+        city,
+        state,
       };
 
       // Attempt API update
@@ -124,7 +136,9 @@ export default function OnboardingPage() {
         <form onSubmit={handleSubmit} className="space-y-5 font-space text-left">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs font-black uppercase text-gray-600 block">Stage / Artist Name</label>
+              <label className="text-xs font-black uppercase text-gray-600 block">
+                Stage / Artist Name <span className="text-red-500 font-black">*</span>
+              </label>
               <input
                 type="text"
                 placeholder="e.g. MC Kavyo"
@@ -136,7 +150,9 @@ export default function OnboardingPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-black uppercase text-gray-600 block">Instagram Handle</label>
+              <label className="text-xs font-black uppercase text-gray-600 block">
+                Instagram Handle <span className="text-red-500 font-black">*</span>
+              </label>
               <div className="relative">
                 <span className="absolute left-3 top-3.5 text-xs text-gray-400 font-black">@</span>
                 <input
@@ -145,6 +161,7 @@ export default function OnboardingPage() {
                   value={instagramHandle}
                   onChange={(e) => setInstagramHandle(e.target.value.replace("@", ""))}
                   className="w-full pl-7 pr-3 py-3 border-2 border-[#121212] bg-white rounded font-bold placeholder-gray-400 focus:outline-none"
+                  required
                 />
               </div>
             </div>
@@ -191,7 +208,9 @@ export default function OnboardingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs font-black uppercase text-gray-600 block">Genre / Medium</label>
+              <label className="text-xs font-black uppercase text-gray-600 block">
+                Genre / Medium <span className="text-red-500 font-black">*</span>
+              </label>
               <select
                 value={genre}
                 onChange={(e) => setGenre(e.target.value)}
@@ -213,6 +232,30 @@ export default function OnboardingPage() {
                 placeholder="e.g. Gujarati, Hindi, English"
                 value={languages}
                 onChange={(e) => setLanguages(e.target.value)}
+                className="w-full p-3 border-2 border-[#121212] bg-white rounded font-bold placeholder-gray-400 focus:outline-none text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-xs font-black uppercase text-gray-600 block">City</label>
+              <input
+                type="text"
+                placeholder="e.g. Rajkot"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="w-full p-3 border-2 border-[#121212] bg-white rounded font-bold placeholder-gray-400 focus:outline-none text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-black uppercase text-gray-600 block">State</label>
+              <input
+                type="text"
+                placeholder="e.g. Gujarat"
+                value={state}
+                onChange={(e) => setState(e.target.value)}
                 className="w-full p-3 border-2 border-[#121212] bg-white rounded font-bold placeholder-gray-400 focus:outline-none text-xs"
               />
             </div>
@@ -254,7 +297,9 @@ export default function OnboardingPage() {
           </div>
 
           <div className="space-y-2 border-2 border-[#121212] p-4 bg-white rounded">
-            <label className="text-xs font-black uppercase text-gray-600 block mb-2">Experience Level</label>
+            <label className="text-xs font-black uppercase text-gray-600 block mb-2">
+              Experience Level <span className="text-red-500 font-black">*</span>
+            </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { id: "NEWBIE", title: "First Timer / Newbie", desc: "Just starting out on stage" },
