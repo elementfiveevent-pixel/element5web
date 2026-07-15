@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useApp, CollabRequest } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
-import { Send, Check, Users, MessageSquare, Plus, Award, User, Sparkles, RefreshCw } from "lucide-react";
+import { Send, Check, Users, MessageSquare, Plus, Award, User, Sparkles, RefreshCw, AlertCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 
 // ─────────────────────────────────────────────
@@ -28,6 +28,11 @@ interface BackendPost {
   mediaUrls: string[];
   createdAt: string;
   _count?: { likes: number; comments: number };
+  author?: {
+    id: string;
+    fullName: string;
+    profilePhotoUrl?: string;
+  } | null;
 }
 
 // ─────────────────────────────────────────────
@@ -68,14 +73,31 @@ export default function ArtistNetwork() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // ── Community Posts ──
+  // ── Community Hubs & Posts ──
   const [posts, setPosts] = useState<BackendPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
-  const [communityId] = useState<string>(""); // populated once communities API is wired
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [commentingOn, setCommentingOn] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+
+  const [communities, setCommunities] = useState<any[]>([]);
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string>("");
+  const [communitiesLoading, setCommunitiesLoading] = useState(false);
+  
+  const [showCreateCommunityModal, setShowCreateCommunityModal] = useState(false);
+  const [newCommunityName, setNewCommunityName] = useState("");
+  const [newCommunityDesc, setNewCommunityDesc] = useState("");
+  const [creatingCommunity, setCreatingCommunity] = useState(false);
+  const [communityError, setCommunityError] = useState<string | null>(null);
+
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [newPostTitle, setNewPostTitle] = useState("");
+  const [newPostContent, setNewPostContent] = useState("");
+  const [creatingPost, setCreatingPost] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+
+  const [joiningCommunity, setJoiningCommunity] = useState<string | null>(null);
 
   // ── Collab Form ──
   const [collabTitle, setCollabTitle] = useState("");
@@ -108,27 +130,153 @@ export default function ArtistNetwork() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [backendMessages, localMessages]);
 
-  // ── Fetch community posts ──
+  // Fetch communities from backend
+  const fetchCommunities = useCallback(async () => {
+    setCommunitiesLoading(true);
+    try {
+      const data = await api.get("/social/communities");
+      const list = Array.isArray(data) ? data : [];
+      setCommunities(list);
+      if (list.length > 0 && !selectedCommunityId) {
+        setSelectedCommunityId(list[0].id);
+      }
+    } catch (err) {
+      console.error("Failed to load communities:", err);
+      setCommunities([]);
+    } finally {
+      setCommunitiesLoading(false);
+    }
+  }, [selectedCommunityId]);
+
   useEffect(() => {
+    fetchCommunities();
+  }, []);
+
+  // Fetch posts for the selected community
+  useEffect(() => {
+    if (!selectedCommunityId) {
+      setPosts([]);
+      return;
+    }
+
     async function fetchPosts() {
       setPostsLoading(true);
       try {
-        // Using social controller — get communities first then posts
-        // For now hit a general communities endpoint if it exists
-        const data = await api.get("/social/communities");
-        if (Array.isArray(data) && data.length > 0) {
-          // Fetch posts from first community
-          const postsData = await api.get(`/social/communities/${data[0].id}/posts`);
-          if (Array.isArray(postsData)) setPosts(postsData);
+        const postsData = await api.get(`/social/communities/${selectedCommunityId}/posts`);
+        if (Array.isArray(postsData)) {
+          setPosts(postsData);
+        } else {
+          setPosts([]);
         }
-      } catch {
-        // Silently fall back — show collab requests instead
+      } catch (err) {
+        console.error("Failed to fetch community posts:", err);
+        setPosts([]);
       } finally {
         setPostsLoading(false);
       }
     }
+
     fetchPosts();
-  }, []);
+  }, [selectedCommunityId]);
+
+  const handleCreateCommunity = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommunityName.trim()) return;
+    setCreatingCommunity(true);
+    setCommunityError(null);
+    try {
+      const created = await api.post("/social/communities", {
+        name: newCommunityName,
+        description: newCommunityDesc
+      });
+      confetti({ particleCount: 50, spread: 60, colors: ["#FFDE4D", "#50C878"] });
+      
+      setCommunities(prev => [...prev, created]);
+      setSelectedCommunityId(created.id);
+      setNewCommunityName("");
+      setNewCommunityDesc("");
+      setShowCreateCommunityModal(false);
+      addUserXP(50);
+    } catch (err: any) {
+      setCommunityError(err.message || "Failed to create community hub.");
+    } finally {
+      setCreatingCommunity(false);
+    }
+  };
+
+  const handleJoinCommunity = async (communityId: string) => {
+    setJoiningCommunity(communityId);
+    try {
+      await api.post(`/social/communities/${communityId}/join`);
+      confetti({ particleCount: 30, spread: 40, colors: ["#50C878", "#FAF8F5"] });
+      alert("Joined community successfully!");
+      addUserXP(20);
+    } catch (err: any) {
+      alert(err.message || "Failed to join community.");
+    } finally {
+      setJoiningCommunity(null);
+    }
+  };
+
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPostTitle.trim() || !newPostContent.trim() || !selectedCommunityId) return;
+    setCreatingPost(true);
+    setPostError(null);
+    try {
+      const created = await api.post(`/social/communities/${selectedCommunityId}/posts`, {
+        title: newPostTitle,
+        content: newPostContent
+      });
+      confetti({ particleCount: 40, spread: 50, colors: ["#50C878", "#FFDE4D"] });
+      
+      const newPostEnriched = {
+        ...created,
+        author: {
+          id: user?.id || "currentUser",
+          fullName: user?.fullName || "You",
+          profilePhotoUrl: user?.profilePhotoUrl
+        },
+        _count: { likes: 0, comments: 0 }
+      };
+      setPosts(prev => [newPostEnriched, ...prev]);
+      setNewPostTitle("");
+      setNewPostContent("");
+      setShowCreatePostModal(false);
+      addUserXP(30);
+    } catch (err: any) {
+      if (err.message?.toLowerCase().includes("join") || err.message?.toLowerCase().includes("member")) {
+        try {
+          await api.post(`/social/communities/${selectedCommunityId}/join`);
+          const created = await api.post(`/social/communities/${selectedCommunityId}/posts`, {
+            title: newPostTitle,
+            content: newPostContent
+          });
+          const newPostEnriched = {
+            ...created,
+            author: {
+              id: user?.id || "currentUser",
+              fullName: user?.fullName || "You",
+              profilePhotoUrl: user?.profilePhotoUrl
+            },
+            _count: { likes: 0, comments: 0 }
+          };
+          setPosts(prev => [newPostEnriched, ...prev]);
+          setNewPostTitle("");
+          setNewPostContent("");
+          setShowCreatePostModal(false);
+          addUserXP(30);
+          return;
+        } catch (joinErr: any) {
+          setPostError(joinErr.message || "Must join community before posting.");
+        }
+      } else {
+        setPostError(err.message || "Failed to publish post.");
+      }
+    } finally {
+      setCreatingPost(false);
+    }
+  };
 
   // ── Send DM ──
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -322,27 +470,42 @@ export default function ArtistNetwork() {
           {/* ── TAB 1: COLLAB CIRCLES + COMMUNITY POSTS ── */}
           {activeTab === "circles" && (
             <div className="space-y-6">
-              <div className="flex items-center justify-between border-b-3 border-[#121212] pb-4">
-                <h2 className="font-display font-black text-2xl uppercase tracking-tight">
-                  Active Collaboration Feed
-                </h2>
-                <button
-                  onClick={() => setFormOpen(!formOpen)}
-                  className="bg-yellow-festival border-2 border-[#121212] font-black uppercase text-xs tracking-wider px-4 py-2 flex items-center gap-1.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all"
-                >
-                  <Plus size={14} /> POST REQUEST
-                </button>
+              {/* Header block */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-3 border-[#121212] pb-4">
+                <div className="space-y-1">
+                  <h2 className="font-display font-black text-2xl uppercase tracking-tight">
+                    Active Collaboration Feed
+                  </h2>
+                  <p className="font-space text-xs text-gray-500 font-bold">
+                    Participate in community groups or create a pin for specific artist requests.
+                  </p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowCreateCommunityModal(true)}
+                    className="bg-[#121212] text-[#FAF8F5] border-2 border-[#121212] font-black uppercase text-[10px] tracking-wider px-3.5 py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={12} /> CREATE HUB
+                  </button>
+                  <button
+                    onClick={() => setFormOpen(!formOpen)}
+                    className="bg-yellow-festival border-2 border-[#121212] font-black uppercase text-[10px] tracking-wider px-3.5 py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus size={12} /> POST REQUEST
+                  </button>
+                </div>
               </div>
 
-              {/* New collab form */}
+              {/* Collab Pins creation form */}
               {formOpen && (
                 <form
                   onSubmit={handlePostCollab}
-                  className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4"
+                  className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4 animate-fade-in"
                 >
                   <h3 className="font-display font-bold text-lg">Create Collaboration Pin</h3>
                   {postSuccess ? (
-                    <div className="bg-green-500 text-white font-bold p-4 rounded text-center border-2 border-[#121212] text-xs flex items-center justify-center gap-2">
+                    <div className="bg-green-500 text-white font-bold p-4 rounded text-center border-2 border-[#121212] text-xs flex items-center justify-center gap-2 animate-pulse">
                       <Check size={18} /> REQUEST PINNED TO CIRCLES FEED
                     </div>
                   ) : (
@@ -382,7 +545,7 @@ export default function ArtistNetwork() {
                       />
                       <button
                         type="submit"
-                        className="w-full bg-[#121212] text-[#FAF8F5] font-black uppercase text-xs tracking-widest py-3 border-2 border-[#121212] rounded hover:bg-[#121212]/80"
+                        className="w-full bg-[#121212] text-[#FAF8F5] font-black uppercase text-xs tracking-widest py-3 border-2 border-[#121212] rounded hover:bg-[#121212]/80 cursor-pointer"
                       >
                         SUBMIT REQUEST
                       </button>
@@ -391,66 +554,172 @@ export default function ArtistNetwork() {
                 </form>
               )}
 
-              {/* Community Posts (from backend) */}
-              {posts.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="font-display font-black text-sm uppercase text-gray-500 tracking-wider flex items-center gap-2">
-                    <Sparkles size={14} className="text-yellow-festival" /> COMMUNITY POSTS
-                  </h3>
-                  {posts.map((post) => (
-                    <div key={post.id} className="bg-white border-3 border-[#121212] p-5 rounded shadow-brutal space-y-3">
-                      <div className="space-y-1">
-                        <h4 className="font-display font-extrabold text-lg">{post.title}</h4>
-                        <p className="font-space text-sm text-gray-600">{post.content}</p>
-                      </div>
-                      <div className="flex items-center gap-4 border-t border-[#121212]/10 pt-3">
-                        <button
-                          onClick={() => handleLikePost(post.id)}
-                          className={`text-xs font-black uppercase flex items-center gap-1 px-3 py-1.5 rounded border-2 border-[#121212] transition-all ${
-                            likedPosts.has(post.id) ? "bg-red-stage text-white" : "bg-white hover:bg-red-50"
-                          }`}
-                        >
-                          ♥ {post._count?.likes || 0}
-                        </button>
-                        <button
-                          onClick={() => setCommentingOn(commentingOn === post.id ? null : post.id)}
-                          className="text-xs font-black uppercase flex items-center gap-1 px-3 py-1.5 rounded border-2 border-[#121212] bg-white hover:bg-gray-50 transition-all"
-                        >
-                          💬 {post._count?.comments || 0} COMMENTS
-                        </button>
-                        <span className="ml-auto text-[10px] text-gray-400 font-space">{timeAgo(post.createdAt)}</span>
-                      </div>
+              {/* Communities list / selector */}
+              <div className="space-y-3">
+                <span className="font-display font-black text-xs uppercase text-gray-500 tracking-wider block">
+                  👥 CREATOR COMMUNITY HUBS
+                </span>
+                
+                {communitiesLoading ? (
+                  <div className="flex gap-2 animate-pulse">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-10 w-28 bg-gray-200 border-2 border-[#121212] rounded" />
+                    ))}
+                  </div>
+                ) : communities.length === 0 ? (
+                  <div className="border-3 border-dashed border-[#121212] bg-white rounded p-8 text-center space-y-3">
+                    <p className="font-space text-xs font-bold text-gray-400">No active community hubs found.</p>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateCommunityModal(true)}
+                      className="bg-yellow-festival border-2 border-[#121212] font-black uppercase text-xs px-4 py-2 rounded shadow-brutal-sm cursor-pointer"
+                    >
+                      Start the First Hub!
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {communities.map((comm) => (
+                      <button
+                        key={comm.id}
+                        onClick={() => setSelectedCommunityId(comm.id)}
+                        className={`px-4 py-2 border-2 border-[#121212] rounded font-display font-black text-xs uppercase tracking-wider transition-all shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none cursor-pointer ${
+                          selectedCommunityId === comm.id
+                            ? "bg-yellow-festival text-[#121212]"
+                            : "bg-white text-gray-500 hover:bg-[#FAF8F5]"
+                        }`}
+                      >
+                        {comm.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                      {commentingOn === post.id && (
-                        <div className="flex gap-2 pt-2">
-                          <input
-                            type="text"
-                            value={commentText}
-                            onChange={(e) => setCommentText(e.target.value)}
-                            placeholder="Write a comment..."
-                            className="flex-1 p-2 border-2 border-[#121212] rounded font-space text-xs focus:outline-none"
-                          />
-                          <button
-                            onClick={() => handleSubmitComment(post.id)}
-                            disabled={submittingComment}
-                            className="px-3 py-2 bg-yellow-festival border-2 border-[#121212] rounded font-black text-xs uppercase disabled:opacity-50"
-                          >
-                            {submittingComment ? "..." : "POST"}
-                          </button>
+              {/* Selected Community Hub Feed */}
+              {selectedCommunityId && (
+                <div className="border-3 border-[#121212] bg-[#FAF8F5] p-5 rounded shadow-brutal space-y-4">
+                  {(() => {
+                    const currentComm = communities.find((c) => c.id === selectedCommunityId);
+                    if (!currentComm) return null;
+                    return (
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-[#121212]/15 pb-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-display font-black text-lg uppercase text-red-stage">
+                              {currentComm.name}
+                            </h3>
+                            <button
+                              onClick={() => handleJoinCommunity(currentComm.id)}
+                              disabled={joiningCommunity === currentComm.id}
+                              className="text-[9px] font-black bg-green-100 hover:bg-green-200 text-green-800 px-2 py-0.5 border border-green-300 rounded uppercase tracking-widest cursor-pointer disabled:opacity-50"
+                            >
+                              {joiningCommunity === currentComm.id ? "JOINING..." : "JOIN HUB"}
+                            </button>
+                          </div>
+                          <p className="font-space text-xs text-gray-600 italic">
+                            {currentComm.description || "Active community hub for creator discussions."}
+                          </p>
                         </div>
-                      )}
+                        
+                        <button
+                          onClick={() => setShowCreatePostModal(true)}
+                          className="bg-[#121212] text-[#FAF8F5] font-black uppercase text-[10px] tracking-wider px-3 py-2 border border-[#121212] rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none cursor-pointer"
+                        >
+                          + Write Post
+                        </button>
+                      </div>
+                    );
+                  })()}
+
+                  {postsLoading ? (
+                    <div className="space-y-3 py-6">
+                      {[1, 2].map((i) => (
+                        <div key={i} className="animate-pulse bg-white border-2 border-[#121212] p-4 rounded space-y-2">
+                          <div className="h-4 bg-gray-200 rounded w-1/3" />
+                          <div className="h-3 bg-gray-200 rounded w-full" />
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : posts.length === 0 ? (
+                    <div className="py-12 text-center bg-white border-2 border-dashed border-[#121212]/10 rounded space-y-3">
+                      <Sparkles size={24} className="mx-auto text-gray-300 animate-spin" />
+                      <p className="font-space text-xs font-bold text-gray-400">
+                        No discussion posts here yet. Be the first to write one!
+                      </p>
+                      <button
+                        onClick={() => setShowCreatePostModal(true)}
+                        className="bg-yellow-festival border-2 border-[#121212] font-black uppercase text-[10px] px-3.5 py-1.5 rounded shadow-brutal-sm cursor-pointer"
+                      >
+                        + Write First Post
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {posts.map((post) => (
+                        <div key={post.id} className="bg-white border-3 border-[#121212] p-5 rounded shadow-brutal space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-red-stage/10 flex items-center justify-center font-display font-black text-[10px] border border-[#121212]/10">
+                              {(post.author?.fullName || "?")[0]}
+                            </div>
+                            <div className="leading-none">
+                              <span className="font-display font-bold text-xs block">{post.author?.fullName || "Creator"}</span>
+                              <span className="text-[8px] text-gray-400 font-mono block">{timeAgo(post.createdAt)}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <h4 className="font-display font-extrabold text-sm uppercase">{post.title || "Untitled Discussion"}</h4>
+                            <p className="font-space text-xs text-gray-600 leading-relaxed">{post.content}</p>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 border-t border-[#121212]/10 pt-3">
+                            <button
+                              onClick={() => handleLikePost(post.id)}
+                              className={`text-[9px] font-black uppercase flex items-center gap-1 px-2.5 py-1  rounded border-2 border-[#121212] transition-all cursor-pointer ${
+                                likedPosts.has(post.id) ? "bg-red-stage text-white" : "bg-white hover:bg-red-50"
+                              }`}
+                            >
+                              ♥ {post._count?.likes || 0}
+                            </button>
+                            <button
+                              onClick={() => setCommentingOn(commentingOn === post.id ? null : post.id)}
+                              className="text-[9px] font-black uppercase flex items-center gap-1 px-2.5 py-1  rounded border-2 border-[#121212] bg-white hover:bg-gray-50 transition-all cursor-pointer"
+                            >
+                              💬 {post._count?.comments || 0} Comments
+                            </button>
+                          </div>
+
+                          {commentingOn === post.id && (
+                            <div className="flex gap-2 pt-2">
+                              <input
+                                type="text"
+                                value={commentText}
+                                onChange={(e) => setCommentText(e.target.value)}
+                                placeholder="Write a comment..."
+                                className="flex-1 p-2 border-2 border-[#121212] rounded font-space text-xs focus:outline-none bg-white"
+                              />
+                              <button
+                                onClick={() => handleSubmitComment(post.id)}
+                                disabled={submittingComment}
+                                className="px-3 py-2 bg-yellow-festival border-2 border-[#121212] rounded font-black text-xs uppercase disabled:opacity-50 cursor-pointer"
+                              >
+                                {submittingComment ? "..." : "POST"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Collab Requests (local context) */}
               <div className="space-y-4">
-                {posts.length > 0 && (
-                  <h3 className="font-display font-black text-sm uppercase text-gray-500 tracking-wider">
-                    COLLABORATION PINS
-                  </h3>
-                )}
+                <span className="font-display font-black text-xs uppercase text-gray-500 tracking-wider block">
+                  📌 SPECIFIC COLLABORATION PINS
+                </span>
                 {collabRequests.map((req) => (
                   <div
                     key={req.id}
@@ -473,7 +742,7 @@ export default function ArtistNetwork() {
                       {req.authorId !== "currentUser" && (
                         <button
                           onClick={() => { setSelectedRecipientId(req.authorId); setActiveTab("messages"); }}
-                          className="text-xs font-display font-black text-red-stage uppercase hover:underline"
+                          className="text-xs font-display font-black text-red-stage uppercase hover:underline cursor-pointer"
                         >
                           CONNECT & MESSAGE →
                         </button>
@@ -602,6 +871,133 @@ export default function ArtistNetwork() {
 
         </div>
       </div>
+
+      {/* Create Community Hub Modal */}
+      {showCreateCommunityModal && (
+        <div className="fixed inset-0 z-[9999] bg-[#121212]/80 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <form 
+            onSubmit={handleCreateCommunity}
+            className="bg-[#FAF8F5] border-4 border-[#121212] p-6 max-w-md w-full rounded shadow-brutal space-y-4 text-[#121212] font-space relative my-8"
+          >
+            <button 
+              type="button"
+              onClick={() => setShowCreateCommunityModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 border-2 border-[#121212] bg-white rounded flex items-center justify-center hover:bg-gray-100 font-black shadow-brutal-sm cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div>
+              <span className="bg-red-stage text-white text-[9px] font-black uppercase px-2 py-0.5 rounded">COMMUNITY GRAPH</span>
+              <h3 className="font-display font-black text-2xl uppercase tracking-tight mt-1">START A NEW HUB</h3>
+              <p className="text-[11px] text-gray-500 font-bold">Create a group for jamming, local events, or discussion boards.</p>
+            </div>
+
+            {communityError && (
+              <div className="bg-red-100 text-red-800 border-2 border-red-300 p-2.5 rounded text-xs font-bold flex items-center gap-1">
+                <AlertCircle size={14} />
+                <span>{communityError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-500">Hub Name (Unique)</label>
+                <input 
+                  className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded"
+                  placeholder="e.g. Pune Sufi Fusion"
+                  value={newCommunityName}
+                  onChange={(e) => setNewCommunityName(e.target.value)}
+                  required 
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-500">Description</label>
+                <textarea 
+                  rows={3} 
+                  className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded resize-none"
+                  placeholder="What is this community group about?..."
+                  value={newCommunityDesc}
+                  onChange={(e) => setNewCommunityDesc(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={creatingCommunity}
+              className="w-full bg-yellow-festival text-[#121212] border-3 border-[#121212] font-display font-black text-xs uppercase py-3 rounded shadow-brutal hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
+            >
+              {creatingCommunity ? "Creating..." : "Create Hub (+50 XP)"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Create Discussion Post Modal */}
+      {showCreatePostModal && (
+        <div className="fixed inset-0 z-[9999] bg-[#121212]/80 flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <form 
+            onSubmit={handleCreatePost}
+            className="bg-[#FAF8F5] border-4 border-[#121212] p-6 max-w-md w-full rounded shadow-brutal space-y-4 text-[#121212] font-space relative my-8"
+          >
+            <button 
+              type="button"
+              onClick={() => setShowCreatePostModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 border-2 border-[#121212] bg-white rounded flex items-center justify-center hover:bg-gray-100 font-black shadow-brutal-sm cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div>
+              <span className="bg-yellow-festival text-[#121212] text-[9px] font-black uppercase px-2 py-0.5 rounded">Discussion Board</span>
+              <h3 className="font-display font-black text-2xl uppercase tracking-tight mt-1">WRITE A NEW POST</h3>
+              <p className="text-[11px] text-gray-500 font-bold">Start a thread or share a collaboration query in this hub.</p>
+            </div>
+
+            {postError && (
+              <div className="bg-red-100 text-red-800 border-2 border-red-300 p-2.5 rounded text-xs font-bold flex items-center gap-1">
+                <AlertCircle size={14} />
+                <span>{postError}</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-500">Post Title</label>
+                <input 
+                  className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded"
+                  placeholder="e.g. Seeking Flute Player for next Sunday jam"
+                  value={newPostTitle}
+                  onChange={(e) => setNewPostTitle(e.target.value)}
+                  required 
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-gray-500">Content</label>
+                <textarea 
+                  rows={4} 
+                  className="w-full border-2 border-[#121212] p-2 text-xs font-bold rounded resize-none"
+                  placeholder="Share details, dates, coordinates..."
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={creatingPost}
+              className="w-full bg-[#121212] text-white border-3 border-[#121212] font-display font-black text-xs uppercase py-3 rounded shadow-brutal hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
+            >
+              {creatingPost ? "Publishing..." : "Publish Post (+30 XP)"}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
