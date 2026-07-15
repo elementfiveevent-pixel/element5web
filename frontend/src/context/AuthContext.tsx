@@ -71,6 +71,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
         return null;
       }
+      // Sync cookie if missing to prevent middleware redirects
+      if (typeof document !== "undefined" && !document.cookie.includes("e5_auth_token")) {
+        document.cookie = `e5_auth_token=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      }
       const data = await api.get("/auth/me");
       const u = normalizeUser(data);
       setUser(u);

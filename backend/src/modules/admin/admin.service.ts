@@ -110,24 +110,14 @@ export class AdminService {
   }
 
   async listAllOrganizers() {
-    return this.prisma.user.findMany({
-      where: {
-        roles: {
-          some: {
-            role: "ORG_ADMIN",
-          },
-        },
-      },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        mobileNumber: true,
-        profilePhotoUrl: true,
-        status: true,
-        createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    return this.prisma.$queryRaw`
+      SELECT u.id, u.email, u."fullName", u."mobileNumber", u."profilePhotoUrl", u.status, u."createdAt"
+      FROM "User" u
+      WHERE EXISTS (
+        SELECT 1 FROM "RoleAssignment" ra 
+        WHERE ra."userId" = u.id AND ra.role = 'ORG_ADMIN'
+      )
+      ORDER BY u."createdAt" DESC
+    `;
   }
 }
