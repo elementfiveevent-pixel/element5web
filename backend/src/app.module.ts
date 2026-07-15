@@ -16,7 +16,10 @@ import { StatsModule } from "./modules/stats/stats.module";
 @Module({
   imports: [
     // Global Config Module loading env keys
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ 
+      isGlobal: true,
+      envFilePath: [".env", "backend/.env"]
+    }),
     
     // Core Databases Modules
     PrismaModule,
