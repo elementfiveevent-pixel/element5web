@@ -89,18 +89,24 @@ function mapRowKeys(row: any): any {
 
 export class PostgresModel {
   constructor(
-    private pool: Pool | PoolClient,
+    private pool: any,
     private tableName: string,
     private service: any
   ) {
-    const originalQuery = this.pool.query.bind(this.pool);
-    this.pool.query = (async (sql: any, values: any) => {
-      const res = await originalQuery(sql, values);
-      if (res && res.rows) {
-        res.rows = res.rows.map(mapRowKeys);
-      }
-      return res;
-    }) as any;
+    // Prevent wrapping pool.query multiple times when multiple PostgresModel
+    // instances share the same pool (each constructor call would otherwise
+    // stack another mapRowKeys layer, causing exponential re-mapping).
+    if (!(this.pool as any).__e5_patched) {
+      const originalQuery = this.pool.query.bind(this.pool);
+      this.pool.query = (async (sql: any, values: any) => {
+        const res = await originalQuery(sql, values);
+        if (res && res.rows) {
+          res.rows = res.rows.map(mapRowKeys);
+        }
+        return res;
+      }) as any;
+      (this.pool as any).__e5_patched = true;
+    }
   }
 
   private tableColumns: string[] | null = null;
@@ -279,6 +285,34 @@ export class PostgresModel {
             [row.id]
           );
           row.artistProfile = profileRes.rows[0] || null;
+        } else if (relation === "user" && this.tableName === "ArtistProfile") {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = $1`,
+            [row.userId]
+          );
+          row.user = userRes.rows[0] || null;
+        } else if (relation === "achievements" && this.tableName === "ArtistProfile") {
+          // ArtistAchievement join table — graceful empty array if table doesn't exist
+          try {
+            const achRes = await this.pool.query(
+              `SELECT * FROM "ArtistAchievement" WHERE "artistProfileId" = $1`,
+              [row.id]
+            );
+            row.achievements = achRes.rows;
+          } catch {
+            row.achievements = [];
+          }
+        } else if (relation === "performances" && this.tableName === "ArtistProfile") {
+          // Performance records — graceful empty array if table doesn't exist
+          try {
+            const perfRes = await this.pool.query(
+              `SELECT * FROM "Performance" WHERE "artistProfileId" = $1`,
+              [row.id]
+            );
+            row.performances = perfRes.rows;
+          } catch {
+            row.performances = [];
+          }
         } else if (relation === "submission" && this.tableName === "Vote") {
           const subRes = await this.pool.query(
             `SELECT * FROM "StageVerseSubmission" WHERE "id" = $1`,
@@ -291,12 +325,36 @@ export class PostgresModel {
             [row.id]
           );
           row.votes = votesRes.rows;
-        } else if (relation === "judgeScores" && this.tableName === "StageVerseSubmission") {
+        } else if ((relation === "judgeScores" || relation === "scores") && this.tableName === "StageVerseSubmission") {
           const scoresRes = await this.pool.query(
             `SELECT * FROM "JudgeScore" WHERE "submissionId" = $1`,
             [row.id]
           );
+          // Support both alias names so callers using either "scores" or "judgeScores" work
           row.judgeScores = scoresRes.rows;
+          row.scores = scoresRes.rows;
+        } else if (relation === "reporter" && this.tableName === "ModerationReport") {
+          const reporterRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = $1`,
+            [row.reporterId]
+          );
+          row.reporter = reporterRes.rows[0] || null;
+        } else if (relation === "moderator" && this.tableName === "ModerationReport") {
+          if (row.moderatorId) {
+            const modRes = await this.pool.query(
+              `SELECT * FROM "User" WHERE "id" = $1`,
+              [row.moderatorId]
+            );
+            row.moderator = modRes.rows[0] || null;
+          } else {
+            row.moderator = null;
+          }
+        } else if (relation === "user" && this.tableName === "AuditLog") {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = $1`,
+            [row.userId]
+          );
+          row.user = userRes.rows[0] || null;
         } else if (relation === "event" && this.tableName === "EventTicket") {
           const eventRes = await this.pool.query(
             `SELECT * FROM "Event" WHERE "id" = $1`,
@@ -313,6 +371,8 @@ export class PostgresModel {
           );
           row.registration = regRes.rows[0] || null;
         }
+        // Gracefully skip unknown relations (sponsors, partners, announcements, media, etc.)
+        // so callers don't crash when querying relations not yet modeled
       }
     }
   }
@@ -584,7 +644,7 @@ export class PostgresModel {
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
-  private pool: Pool;
+  private pool: any;
   private dbConnected = false;
 
   user: PostgresModel;

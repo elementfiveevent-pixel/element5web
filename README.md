@@ -13,33 +13,11 @@ To prevent account confusion and enforce strict separation between roles, Elemen
 | **🎤 Artist / Creator** | [/register](http://localhost:3000/register) | Create a profile, showcase video reels, and register to perform. |
 | **👥 Audience / Voter** | [/register](http://localhost:3000/register) | Reserve tickets, vote in live events, and earn XP. |
 | **💼 Event Organizer** | [/register/organizer](http://localhost:3000/register/organizer) | Register to host, schedule events, scan tickets, and view analytics. |
-| **🛡️ System Admin** | [/register/admin](http://localhost:3000/register/admin) | Register as a super administrator to manage CMS, users, and health. |
+| **🛡️ System Admin** | *None (Disabled)* | Admin registration is disabled for security. Login only via `/admin/login`. |
 
 *Note: The roles are completely separated—the public `/register` page does not contain admin/organizer options.*
 
----
 
-## 🔑 Pre-Seeded Test Credentials
-
-Use these pre-seeded accounts in the local database to explore each dashboard and flow immediately:
-
-### 1. Admin & Organizer Portals (URL: [/login](http://localhost:3000/login))
-* **Super Admin**:
-  * **Email**: `admin@element5.com`
-  * **Password**: `Element5AdminSecure2026!`
-  * **URL**: Access via [/admin](http://localhost:3000/admin) after login.
-* **Event Organizer**:
-  * **Email**: `organizer@element5.com`
-  * **Password**: `Element5CreatorPass2026!`
-  * **URL**: Access via [/events/organizer](http://localhost:3000/events/organizer) after login.
-
-### 2. Creator & Audience Portal (URL: [/login](http://localhost:3000/login))
-* **Artist 1 (`DJ Zenith`)**:
-  * **Email**: `artist1@element5.com`
-  * **Password**: `Element5CreatorPass2026!`
-  * **URL**: Onboarding profile redirects to `/profile`.
-
----
 
 ## 🛠️ How to Run the Project Locally
 
@@ -74,15 +52,27 @@ Run the following commands to boot the NestJS backend in hot-reload development 
    npm install
    npm run start:dev
 ```
-The API server will listen on [http://localhost:4000](http://localhost:4000).
+* **API Server Base URL**: [http://localhost:4000](http://localhost:4000)
+* **Swagger API Documentation**: [http://localhost:4000/api/docs](http://localhost:4000/api/docs)
 
 ### Step 3: Start the Frontend App (Next.js)
-Run the following commands in the frontend folder (`Element5website/`) to boot the web client:
+Run the following commands in the `frontend` folder to boot the web client:
 ```bash
+   cd frontend
    npm install
    npm run dev
 ```
 The web application will open on [http://localhost:3000](http://localhost:3000).
+
+---
+
+## 🏛️ Architecture & Custom Database Layer
+
+Element 5 uses a NestJS backend designed around a custom query builder (`PostgresModel` in `backend/src/prisma/prisma.service.ts`) wrapping a standard PostgreSQL `pg.Pool`. 
+
+* **Prisma stub**: The schema is designed similarly to a Prisma schema for migration purposes, but queries are executed directly as raw SQL in `PostgresModel` using a key map (`KEY_MAP`) to translate database column names (snake_case) to application properties (camelCase).
+* **Relations**: Relations are resolved dynamically in `loadIncludes()`. Custom additions can be modeled directly inside the `loadIncludes()` switcher mapping within `prisma.service.ts`.
+* **Caching & Queues**: Redis is utilized for cache storage and BullMQ processor queues for dispatching email and push notification workloads. Ensure Redis is running locally (`localhost:6379`).
 
 ---
 

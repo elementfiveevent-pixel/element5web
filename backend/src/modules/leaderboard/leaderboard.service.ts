@@ -21,32 +21,26 @@ export class LeaderboardService {
 
     if (timeframe === "ALL_TIME") {
       // Return top artists ordered by their reputation XP
+      // PostgresModel doesn't support nested relation ordering,
+      // so we fetch and sort in application code.
       standings = await this.prisma.artistProfile.findMany({
         where: { isVerified: true },
         include: {
-          user: {
-            select: {
-              fullName: true,
-              profilePhotoUrl: true,
-              reputationXp: true,
-            },
-          },
+          user: true,
         },
-        orderBy: {
-          user: {
-            reputationXp: "desc",
-          },
-        },
-        take: limit,
       });
+
+      // Sort by user.reputationXp descending, then take the top N
+      standings.sort((a: any, b: any) => (b.user?.reputationXp ?? 0) - (a.user?.reputationXp ?? 0));
+      standings = standings.slice(0, limit);
 
       // Map to consistent standings format
       standings = standings.map((item: any, idx: number) => ({
         rank: idx + 1,
         artistId: item.id,
         performer: item.stageName,
-        photoUrl: item.user.profilePhotoUrl,
-        score: item.user.reputationXp,
+        photoUrl: item.user?.profilePhotoUrl,
+        score: item.user?.reputationXp ?? 0,
       }));
     } else {
       // Query specific timeframe standings from LeaderboardStanding table

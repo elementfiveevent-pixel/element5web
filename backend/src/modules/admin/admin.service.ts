@@ -67,4 +67,43 @@ export class AdminService {
       take: 100,
     });
   }
+
+  async listPendingUsers() {
+    return this.prisma.user.findMany({
+      where: { status: "PENDING_VERIFICATION" },
+      include: { roles: true },
+    });
+  }
+
+  async verifyUser(userId: string, action: "APPROVE" | "REJECT") {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+
+    const newStatus = action === "APPROVE" ? "ACTIVE" : "SUSPENDED";
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { status: newStatus },
+    });
+  }
+
+  async verifyArtist(artistId: string, isVerified: boolean) {
+    const artist = await this.prisma.artistProfile.findUnique({
+      where: { id: artistId },
+    });
+
+    if (!artist) {
+      throw new NotFoundException("Artist profile not found");
+    }
+
+    return this.prisma.artistProfile.update({
+      where: { id: artistId },
+      data: { isVerified },
+    });
+  }
 }

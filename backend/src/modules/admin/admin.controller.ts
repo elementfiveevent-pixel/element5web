@@ -42,4 +42,28 @@ export class AdminController {
   async getAudits() {
     return this.adminService.listAuditLogs();
   }
+
+  @Get("users/pending")
+  @ApiOperation({ summary: "List users pending admin verification" })
+  async getPendingUsers() {
+    return this.adminService.listPendingUsers();
+  }
+
+  @Put("users/:userId/verify")
+  @ApiOperation({ summary: "Approve or reject a pending organizer account" })
+  async verifyUser(
+    @Param("userId") userId: string,
+    @Body("action") action: "APPROVE" | "REJECT",
+  ) {
+    return this.adminService.verifyUser(userId, action);
+  }
+
+  @Put("artists/:artistId/verify")
+  @ApiOperation({ summary: "Verify or unverify a creator/artist profile" })
+  async verifyArtist(
+    @Param("artistId") artistId: string,
+    @Body("isVerified") isVerified: boolean,
+  ) {
+    return this.adminService.verifyArtist(artistId, isVerified);
+  }
 }

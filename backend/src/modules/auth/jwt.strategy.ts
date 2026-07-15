@@ -18,6 +18,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       include: {
         roles: true,
+        artistProfile: true,
       },
     });
 
@@ -29,7 +30,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: user.id,
       email: user.email,
       fullName: user.fullName,
+      status: user.status,
       roles: user.roles.map((r: any) => r.role),
+      profilePhotoUrl: user.profilePhotoUrl,
+      artistProfile: user.artistProfile,
     };
   }
 }

@@ -2,6 +2,7 @@ import { Controller, Post, Body, Get, UseGuards, HttpCode, HttpStatus } from "@n
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
+import { SetupArtistProfileDto } from "./dto/setup-artist-profile.dto";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
@@ -50,6 +51,14 @@ export class AuthController {
   @ApiOperation({ summary: "Revoke an active session refresh token" })
   async logout(@Body("refreshToken") refreshToken: string) {
     return this.authService.logout(refreshToken);
+  }
+
+  @Post("artist-profile")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Create or update artist profile during onboarding" })
+  async setupArtistProfile(@CurrentUser() user: any, @Body() dto: SetupArtistProfileDto) {
+    return this.authService.setupArtistProfile(user.id, dto);
   }
 
   @Get("me")

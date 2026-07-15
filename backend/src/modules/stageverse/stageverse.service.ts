@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from "@nestjs/common";
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, Inject, forwardRef } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { SubmitTrackDto } from "./dto/submit-track.dto";
 import { SubmitScoreDto } from "./dto/submit-score.dto";
@@ -14,7 +14,24 @@ export class StageVerseService {
 
   private votingStates = new Map<string, boolean>();
 
-  async toggleVoting(eventId: string, open: boolean) {
+  private async assertOrganizerAccess(eventId: string, organizerId: string, roles: string[] = []) {
+    if (roles.includes("SUPER_ADMIN")) return;
+
+    const event = await this.prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      throw new NotFoundException("Event not found");
+    }
+
+    if (event.organizerId !== organizerId) {
+      throw new ForbiddenException("You do not have access to this event");
+    }
+  }
+
+  async toggleVoting(userId: string, roles: string[], eventId: string, open: boolean) {
+    await this.assertOrganizerAccess(eventId, userId, roles);
     this.votingStates.set(eventId, open);
     this.gateway.server.to(eventId).emit("votingStatusUpdate", { open });
     return { success: true, open };
@@ -24,7 +41,8 @@ export class StageVerseService {
     return { open: this.votingStates.get(eventId) ?? false };
   }
 
-  async resetVotes(eventId: string) {
+  async resetVotes(userId: string, roles: string[], eventId: string) {
+    await this.assertOrganizerAccess(eventId, userId, roles);
     const submissions = await this.prisma.stageVerseSubmission.findMany({
       where: { eventId },
       select: { id: true },
@@ -71,8 +89,8 @@ export class StageVerseService {
     return this.prisma.stageVerseSubmission.findMany({
       where: { eventId, status: "APPROVED" },
       include: {
-        user: { select: { fullName: true, profilePhotoUrl: true } },
-        scores: true,
+        user: true,
+        judgeScores: true,
         votes: true,
       },
       orderBy: { performanceOrder: "asc" },
@@ -175,23 +193,25 @@ export class StageVerseService {
     const submissions = await this.prisma.stageVerseSubmission.findMany({
       where: { eventId, status: "APPROVED" },
       include: {
-        user: { select: { fullName: true, profilePhotoUrl: true } },
-        scores: true,
-        votes: { select: { weight: true } },
+        user: true,
+        judgeScores: true,
+        votes: true,
       },
     });
 
     const standings = submissions.map((sub: any) => {
-      const votesCount = sub.votes.reduce((acc: number, v: any) => acc + v.weight, 0);
+      // Count votes (each vote = 1 point; weight column may not exist)
+      const votesCount = Array.isArray(sub.votes) ? sub.votes.length : 0;
 
       // Compute judge average score
+      const scores = sub.judgeScores || sub.scores || [];
       let judgeAvg = 0.0;
-      if (sub.scores.length > 0) {
-        const totalJudgeScore = sub.scores.reduce(
+      if (scores.length > 0) {
+        const totalJudgeScore = scores.reduce(
           (acc: number, s: any) => acc + (s.originalityScore + s.technicalityScore + s.engagementScore) / 3,
           0,
         );
-        judgeAvg = totalJudgeScore / sub.scores.length;
+        judgeAvg = totalJudgeScore / scores.length;
       }
 
       // Standings Formula: 40% votes count normalized + 60% judge score normalized

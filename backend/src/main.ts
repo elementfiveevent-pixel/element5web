@@ -7,6 +7,10 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 
 async function bootstrap() {
+  if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+    throw new Error("FATAL: JWT_SECRET environment variable is required in production mode.");
+  }
+
   const app = await NestFactory.create(AppModule);
 
   // 1. Global Security Middleware
@@ -20,7 +24,7 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*") || allowedOrigins.includes("https://*") || origin.endsWith(".vercel.app")) {
+      if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
         callback(null, true);
       } else {
         callback(new Error("CORS policy block: origin not whitelisted"));

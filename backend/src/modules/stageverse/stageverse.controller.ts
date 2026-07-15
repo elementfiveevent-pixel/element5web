@@ -55,8 +55,12 @@ export class StageVerseController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Organizers toggle live voting status for an event" })
-  async toggleVoting(@Param("eventId") eventId: string, @Body("open") open: boolean) {
-    return this.stageVerseService.toggleVoting(eventId, open);
+  async toggleVoting(
+    @CurrentUser() user: any,
+    @Param("eventId") eventId: string,
+    @Body("open") open: boolean,
+  ) {
+    return this.stageVerseService.toggleVoting(user.id, user.roles, eventId, open);
   }
 
   @Get(":eventId/voting/status")
@@ -70,8 +74,8 @@ export class StageVerseController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: "Organizers reset all votes for an event" })
-  async resetVotes(@Param("eventId") eventId: string) {
-    return this.stageVerseService.resetVotes(eventId);
+  async resetVotes(@CurrentUser() user: any, @Param("eventId") eventId: string) {
+    return this.stageVerseService.resetVotes(user.id, user.roles, eventId);
   }
 
   @Get(":eventId/standings")
