@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Upload, X, CheckCircle, AlertCircle, Image as ImageIcon } from "lucide-react";
+import { api } from "@/lib/api";
 
 interface SupabaseUploadResult {
   secure_url: string;
@@ -70,42 +71,45 @@ export default function SupabaseUpload({
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `${folder}/${fileName}`;
 
-      // Upload file directly to Supabase storage bucket 'media'
-      const { data, error: uploadError } = await supabase.storage
-        .from("media")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+      // Convert file to base64 and upload to backend
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        try {
+          const base64Data = reader.result as string;
+          setProgress(40);
+          
+          const response = await api.post("/media/upload", {
+            base64Data,
+            folder,
+            fileName,
+          });
 
-      if (uploadError) {
-        throw uploadError;
-      }
+          const publicUrl = response.publicUrl || response.url;
+          setProgress(100);
+          setUploadedUrl(publicUrl);
 
-      setProgress(80);
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("media")
-        .getPublicUrl(filePath);
-
-      setProgress(100);
-      setUploadedUrl(publicUrl);
-
-      onUploadSuccess?.({
-        secure_url: publicUrl,
-        public_id: filePath,
-        resource_type: file.type,
-        format: fileExt || "",
-        bytes: file.size,
-      });
-
+          onUploadSuccess?.({
+            secure_url: publicUrl,
+            public_id: filePath,
+            resource_type: file.type,
+            format: fileExt || "",
+            bytes: file.size,
+          });
+        } catch (err: any) {
+          const msg = err?.message || "Upload failed. Please try again.";
+          setError(msg);
+          setPreview(null);
+          onUploadError?.(msg);
+        } finally {
+          setUploading(false);
+        }
+      };
     } catch (err: any) {
       const msg = err?.message || "Upload failed. Please try again.";
       setError(msg);
       setPreview(null);
       onUploadError?.(msg);
-    } finally {
       setUploading(false);
     }
   };
