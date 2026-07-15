@@ -55,21 +55,38 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
   );
 }
 
-// ── Mini bar chart ────────────────────────────────────────────────────────────
 function MiniBarChart({ data, label }: { data: { label: string; count: number }[]; label: string }) {
   const max = Math.max(...data.map((d) => d.count), 1);
   return (
-    <div className="space-y-2">
-      <p className="font-display font-black text-xs uppercase text-[#121212]/50">{label}</p>
-      <div className="flex items-end gap-1 h-16">
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <p className="font-display font-black text-xs uppercase text-[#121212]/50">{label}</p>
+        <span className="font-mono text-[9px] font-bold bg-yellow-festival/20 px-2 py-0.5 border border-yellow-festival/30 rounded select-none">
+          MAX: {max}
+        </span>
+      </div>
+      <div className="flex items-end gap-1.5 h-20 border-b-2 border-[#121212] pb-1 pt-4">
         {data.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-0.5" title={`${d.label}: ${d.count}`}>
+          <div key={i} className="flex-1 flex flex-col items-center group relative h-full justify-end" title={`${d.label}: ${d.count}`}>
+            {/* Tooltip on hover */}
+            <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#121212] text-[#FAF8F5] text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border border-white/10 pointer-events-none whitespace-nowrap z-10 shadow">
+              {d.count} ({d.label})
+            </div>
+            {/* Bar */}
             <div
-              className="w-full bg-yellow-festival border border-[#121212] rounded-sm transition-all"
-              style={{ height: `${Math.round((d.count / max) * 100)}%`, minHeight: d.count > 0 ? "4px" : "0" }}
+              className={`w-full border-2 border-[#121212] rounded-t transition-all ${
+                d.count > 0 ? "bg-yellow-festival" : "bg-[#121212]/5"
+              }`}
+              style={{ height: `${Math.max(4, Math.round((d.count / max) * 100))}%` }}
             />
           </div>
         ))}
+      </div>
+      {/* Footer labels */}
+      <div className="flex justify-between font-space text-[9px] font-black uppercase text-gray-400 select-none">
+        <span>{data[0]?.label || "14 days ago"}</span>
+        <span>{data[Math.floor(data.length / 2)]?.label || ""}</span>
+        <span>{data[data.length - 1]?.label || "Today"}</span>
       </div>
     </div>
   );
@@ -342,9 +359,17 @@ function AnalyticsPanel({ eventId }: { eventId: string }) {
   if (loading) return <div className="py-12 text-center font-display font-black text-sm uppercase animate-pulse text-[#121212]/40">Loading analytics…</div>;
   if (error || !data) return <div className="py-8 text-center font-display font-black text-sm text-red-stage uppercase">{error ?? "No data"}</div>;
 
-  const regTimeline = data.registrationTimeline.slice(-14).map((d) => ({
-    label: d.date.slice(5), count: d.count,
-  }));
+  const regTimeline = Array.from({ length: 14 }).map((_, idx) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - idx));
+    const dateStr = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    const match = data.registrationTimeline.find((t) => t.date === dateStr);
+    return {
+      label,
+      count: match ? match.count : 0,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -713,7 +738,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
       ...t,
       attendeeName: r.user?.fullName || "User",
       attendeeEmail: r.user?.email || "",
-      role: r.user?.role || "AUDIENCE",
+      role: (r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile) ? "ARTIST" : "AUDIENCE",
       paymentStatus: r.paymentStatus,
     }))
   );

@@ -533,7 +533,11 @@ export class PostgresModel {
       }
 
       columns.push(`"${key}"`);
-      values.push(value);
+      if (typeof value === "object" && value !== null && !(value instanceof Date)) {
+        values.push(JSON.stringify(value));
+      } else {
+        values.push(value);
+      }
       placeholders.push(`$${placeholderIndex++}`);
     }
 
@@ -570,7 +574,11 @@ export class PostgresModel {
         continue;
       }
       setClauses.push(`"${key}" = $${placeholderIndex++}`);
-      setValues.push(value);
+      if (typeof value === "object" && value !== null && !(value instanceof Date)) {
+        setValues.push(JSON.stringify(value));
+      } else {
+        setValues.push(value);
+      }
     }
 
     const whereClauseRewritten = clause.replace(/\$(\d+)/g, (_, num) => {
@@ -621,7 +629,11 @@ export class PostgresModel {
     for (const [key, value] of Object.entries(data)) {
       if (value === undefined) continue;
       setClauses.push(`"${key}" = $${placeholderIndex++}`);
-      setValues.push(value);
+      if (typeof value === "object" && value !== null && !(value instanceof Date)) {
+        setValues.push(JSON.stringify(value));
+      } else {
+        setValues.push(value);
+      }
     }
 
     const whereClauseRewritten = clause.replace(/\$(\d+)/g, (_, num) => {
