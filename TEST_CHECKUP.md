@@ -85,7 +85,7 @@ Use this testing scenario checklist to verify that all routing, authentication g
 3. Enter the email and password you created.
 4. Click **SECURE SIGN IN**. Verify that the form dynamically transitions and requests a **Google Authenticator / 2FA Code**.
 5. Enter the active 6-digit TOTP token:
-   * *Note: The default Base32 2FA secret is `ELEMENT5ADMINSECRET` (you can configure a custom key via the `ADMIN_TOTP_SECRET` environment variable in Render/Railway). Add this secret to your Authenticator app to get the current code.*
+   * *Note: The default Base32 2FA secret is `GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ` (you can configure a custom key via the `ADMIN_TOTP_SECRET` environment variable in Render/Railway). Add this secret to your Authenticator app to get the current code.*
 6. Enter the code and click **VERIFY & SIGN IN**. Verify you are redirected to `/admin` successfully.
 7. Go to the **Creators** tab in the dashboard.
 8. Locate the newly registered Artist (from Scenario 1):

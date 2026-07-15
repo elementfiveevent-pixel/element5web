@@ -129,7 +129,7 @@ export class AuthService {
     // Verify TOTP if the user is a SUPER_ADMIN
     const userRoles = user.roles.map((r: any) => r.role);
     if (userRoles.includes(UserRole.SUPER_ADMIN)) {
-      const totpSecret = process.env.ADMIN_TOTP_SECRET || "ELEMENT5ADMINSECRET";
+      const totpSecret = process.env.ADMIN_TOTP_SECRET || "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
       if (!dto.totpToken) {
         throw new UnauthorizedException("2FA_REQUIRED");
       }
