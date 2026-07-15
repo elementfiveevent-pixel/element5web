@@ -59,7 +59,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { artists, events, collabRequests, setArtists, setEvents } = useApp();
 
-  const TABS = ["overview", "events", "creators", "leaderboard", "media", "health"] as const;
+  const TABS = ["overview", "events", "creators", "organizers", "leaderboard", "media", "health"] as const;
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>("overview");
 
   const [backendStats, setBackendStats] = useState<BackendStats | null>(null);
@@ -74,6 +74,10 @@ export default function AdminDashboard() {
   const [creators, setCreators] = useState<any[]>([]);
   const [creatorsLoading, setCreatorsLoading] = useState(false);
   const [verifyingCreatorId, setVerifyingCreatorId] = useState<string | null>(null);
+
+  const [pendingOrganizers, setPendingOrganizers] = useState<any[]>([]);
+  const [organizersLoading, setOrganizersLoading] = useState(false);
+  const [verifyingOrganizerId, setVerifyingOrganizerId] = useState<string | null>(null);
 
   // CMS state
   const [newEventTitle, setNewEventTitle] = useState("");
@@ -103,6 +107,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (activeTab === "health") fetchHealth();
     if (activeTab === "creators") fetchCreators();
+    if (activeTab === "organizers") fetchPendingOrganizers();
   }, [activeTab]);
 
   async function fetchHealth() {
@@ -127,6 +132,33 @@ export default function AdminDashboard() {
       setCreators([]);
     } finally {
       setCreatorsLoading(false);
+    }
+  }
+
+  async function fetchPendingOrganizers() {
+    setOrganizersLoading(true);
+    try {
+      const data = await api.get("/admin/users/pending");
+      setPendingOrganizers(Array.isArray(data) ? data : []);
+    } catch {
+      setPendingOrganizers([]);
+    } finally {
+      setOrganizersLoading(false);
+    }
+  }
+
+  async function handleVerifyOrganizer(userId: string, action: "APPROVE" | "REJECT") {
+    setVerifyingOrganizerId(userId);
+    try {
+      await api.put(`/admin/users/${userId}/verify`, { action });
+      setPendingOrganizers(prev => prev.filter(org => org.id !== userId));
+      if (action === "APPROVE") {
+        import("canvas-confetti").then(({ default: c }) => c({ particleCount: 40, spread: 30, colors: ["#FFDE4D", "#D80032"] }));
+      }
+    } catch (err) {
+      console.error("Failed to verify organizer:", err);
+    } finally {
+      setVerifyingOrganizerId(null);
     }
   }
 
@@ -388,6 +420,72 @@ export default function AdminDashboard() {
             ) : (
               <div className="border-3 border-dashed border-gray-300 p-12 text-center rounded bg-white font-space">
                 <p className="text-sm font-bold text-gray-500">No creators found on the platform.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ORGANIZERS ── */}
+        {activeTab === "organizers" && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h3 className="font-display font-black text-xl uppercase">Organizer Approval Panel</h3>
+              <button 
+                onClick={fetchPendingOrganizers}
+                disabled={organizersLoading}
+                className="flex items-center gap-1.5 border-2 border-[#121212] font-black text-[10px] uppercase px-3 py-1.5 rounded hover:bg-[#121212]/5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw size={12} className={organizersLoading ? "animate-spin" : ""} /> REFRESH
+              </button>
+            </div>
+            {organizersLoading ? (
+              <div className="text-center font-space font-bold py-16 animate-pulse text-gray-500 uppercase">
+                Loading pending organizers...
+              </div>
+            ) : pendingOrganizers.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {pendingOrganizers.map((org) => (
+                  <div key={org.id} className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
+                    <div className="flex justify-between items-start gap-4">
+                      <div className="flex items-center gap-3">
+                        <img 
+                          src={org.profilePhotoUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(org.fullName || "User")}&backgroundColor=121212&textColor=FAF8F5`}
+                          alt="" 
+                          className="w-12 h-12 rounded border-2 border-[#121212] object-cover" 
+                        />
+                        <div>
+                          <h4 className="font-display font-black text-lg uppercase tracking-tight">{org.fullName}</h4>
+                          <p className="font-space text-xs text-gray-500 font-bold mt-0.5">Email: {org.email}</p>
+                          <p className="font-space text-xs text-gray-400 font-bold mt-0.5">Mobile: {org.mobileNumber || "N/A"}</p>
+                        </div>
+                      </div>
+                      <span className="border-2 border-[#121212] text-[9px] font-black uppercase px-2 py-0.5 rounded shadow-brutal-sm bg-yellow-300 text-[#121212]">
+                        PENDING APPROVAL
+                      </span>
+                    </div>
+
+                    <div className="pt-4 border-t border-[#121212]/10 flex gap-4">
+                      <button
+                        onClick={() => handleVerifyOrganizer(org.id, "APPROVE")}
+                        disabled={verifyingOrganizerId === org.id}
+                        className="flex-1 bg-green-500 text-white border-2 border-[#121212] font-display font-black text-xs uppercase py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {verifyingOrganizerId === org.id ? "PROCESSING..." : "APPROVE ORGANIZER"}
+                      </button>
+                      <button
+                        onClick={() => handleVerifyOrganizer(org.id, "REJECT")}
+                        disabled={verifyingOrganizerId === org.id}
+                        className="flex-1 bg-[#D80032] text-white border-2 border-[#121212] font-display font-black text-xs uppercase py-2.5 rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {verifyingOrganizerId === org.id ? "PROCESSING..." : "REJECT / DELETE"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border-3 border-dashed border-gray-300 p-12 text-center rounded bg-white font-space">
+                <p className="text-sm font-bold text-gray-500">No pending organizers awaiting approval.</p>
               </div>
             )}
           </div>

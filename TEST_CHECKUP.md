@@ -93,6 +93,10 @@ Use this testing scenario checklist to verify that all routing, authentication g
    * Click **VERIFY CREATOR**. Verify that their badge changes to `✓ VERIFIED`.
 9. Navigate to the **Audit Stream** under the **Overview** tab:
    * Verify that the audit log stream displays the verification action in real time.
+10. Navigate to the newly created **organizers** tab:
+   * Verify that newly registered organizers appear in the list with a `PENDING APPROVAL` badge.
+   * Click **APPROVE ORGANIZER** -> Verify that confetti plays and the organizer is removed from the pending list.
+   * Log out of the admin panel and try logging in with the newly approved organizer credentials at `/login`. Verify they are successfully redirected to `/events/organizer` instead of showing "Awaiting Admin Approval"!
 
 ---
 
