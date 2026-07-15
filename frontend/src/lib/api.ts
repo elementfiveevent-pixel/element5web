@@ -18,7 +18,9 @@ interface RequestOptions extends RequestInit {
 }
 
 async function request(path: string, options: RequestOptions = {}) {
-  const url = new URL(`${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`);
+  const cleanBase = BASE_URL.replace(/\/$/, "");
+  const cleanPath = path.replace(/^\//, "");
+  const url = new URL(`${cleanBase}/${cleanPath}`);
 
   if (options.params) {
     Object.entries(options.params).forEach(([key, val]) => {
