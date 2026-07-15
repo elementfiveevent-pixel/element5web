@@ -44,11 +44,11 @@ export class MediaService implements OnModuleInit {
   }
 
   async uploadToSupabase(base64Data: string, folder: string, fileName: string) {
-    const supabaseUrl = this.configService.get<string>("SUPABASE_URL");
-    const supabaseAnonKey = this.configService.get<string>("SUPABASE_ANON_KEY");
+    const supabaseUrl = this.configService.get<string>("SUPABASE_URL") || process.env.SUPABASE_URL;
+    const supabaseAnonKey = this.configService.get<string>("SUPABASE_ANON_KEY") || process.env.SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error("Supabase credentials missing on backend config");
+      throw new Error("Supabase credentials missing on backend config. Make sure SUPABASE_URL and SUPABASE_ANON_KEY are set in your environment variables.");
     }
 
     const match = base64Data.match(/^data:([a-zA-Z0-9/+. -]+);base64,(.+)$/);

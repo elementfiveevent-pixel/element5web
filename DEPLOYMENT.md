@@ -78,6 +78,8 @@ We recommend **Render** or **Railway** for NestJS because they support long-runn
    * `DIRECT_URL` = *[Your Supabase Direct Connection URL]*
    * `JWT_SECRET` = *[Generate a strong secret string]*
    * `PORT` = `4000`
+   * `SUPABASE_URL` = `https://vtrokqbdolbfojiwqxsi.supabase.co`
+   * `SUPABASE_ANON_KEY` = *[Your Supabase Anon Key]*
 6. Go to the **Settings** tab -> Under the **Networking** section, click **Generate Domain** to expose the API to the public. Copy this URL.
 
 ### Option B: Deploying to Render
@@ -93,6 +95,8 @@ We recommend **Render** or **Railway** for NestJS because they support long-runn
    * `DIRECT_URL` = *[Your Supabase Direct URL]*
    * `JWT_SECRET` = *[Generate a strong secret string]*
    * `PORT` = `4000`
+   * `SUPABASE_URL` = `https://vtrokqbdolbfojiwqxsi.supabase.co`
+   * `SUPABASE_ANON_KEY` = *[Your Supabase Anon Key]*
 5. Copy the generated Web Service URL.
 
 ---
