@@ -114,18 +114,18 @@ export class AuthService {
       },
     });
 
-    const existingRoles = await this.prisma.userRole.findMany({
+    const existingRoles = await this.prisma.roleAssignment.findMany({
       where: { userId },
     });
-    const hasArtist = existingRoles.some((r) => r.role === UserRole.ARTIST);
+    const hasArtist = existingRoles.some((r: any) => r.role === UserRole.ARTIST);
     if (!hasArtist) {
-      await this.prisma.userRole.create({
+      await this.prisma.roleAssignment.create({
         data: {
           userId,
           role: UserRole.ARTIST,
         },
       });
-      await this.prisma.userRole.deleteMany({
+      await this.prisma.roleAssignment.deleteMany({
         where: {
           userId,
           role: UserRole.AUDIENCE,
