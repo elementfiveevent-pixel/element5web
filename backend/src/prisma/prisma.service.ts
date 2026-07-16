@@ -690,6 +690,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   moderationReport: PostgresModel;
   checkInAuditLog: PostgresModel;
   leaderboardStanding: PostgresModel;
+  highlight: PostgresModel;
 
   constructor() {
     const useSsl = process.env.DATABASE_URL?.includes("supabase.co") || 
@@ -726,6 +727,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     this.moderationReport = new PostgresModel(this.pool, "ModerationReport", this);
     this.checkInAuditLog = new PostgresModel(this.pool, "CheckInAuditLog", this);
     this.leaderboardStanding = new PostgresModel(this.pool, "LeaderboardStanding", this);
+    this.highlight = new PostgresModel(this.pool, "Highlight", this);
   }
 
   async onModuleInit() {
@@ -740,8 +742,17 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
           ALTER TABLE "Community" ADD COLUMN IF NOT EXISTS "createdById" UUID REFERENCES "User"("id") ON DELETE SET NULL;
           ALTER TABLE "CommunityMember" ADD COLUMN IF NOT EXISTS "role" TEXT DEFAULT 'MEMBER';
           ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "title" TEXT;
+          ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "sponsors" JSONB DEFAULT '[]'::jsonb;
+
+          CREATE TABLE IF NOT EXISTS "Highlight" (
+            "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            "imageUrl" TEXT NOT NULL,
+            "description" TEXT NOT NULL,
+            "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );
         `);
-        this.logger.log("✅ PostgreSQL schema updated with missing Community, Member, and Post columns");
+        this.logger.log("✅ PostgreSQL schema updated with Community, Member, Post, Event sponsors, and Highlight table");
       } catch (migrationErr: any) {
         this.logger.warn(`⚠ PostgreSQL migration check failed: ${migrationErr.message}`);
       }
@@ -807,6 +818,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
         moderationReport: new PostgresModel(client, "ModerationReport", this),
         checkInAuditLog: new PostgresModel(client, "CheckInAuditLog", this),
         leaderboardStanding: new PostgresModel(client, "LeaderboardStanding", this),
+        highlight: new PostgresModel(client, "Highlight", this),
       };
 
       const result = await callback(transactionService);

@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [show2FA, setShow2FA] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,16 +62,35 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
+    setShowRoleModal(true);
+  };
+
+  const completeGoogleSignIn = async (role: "ARTIST" | "AUDIENCE") => {
+    setShowRoleModal(false);
     setError(null);
     setLoading(true);
     try {
-      const res = await signInWithGoogle();
+      const res = await signInWithGoogle(role);
       if (res.success) {
         if (res.mode === "local") {
           console.warn("Signed in locally via Google fallback simulation:", res.message);
         }
-        router.push("/");
+        const loggedUser = res.user;
+        if (loggedUser?.role === "SUPER_ADMIN") {
+          router.push("/admin");
+        } else if (loggedUser?.role === "ORG_ADMIN") {
+          router.push("/events/organizer");
+        } else if (
+          loggedUser?.role === "ARTIST" &&
+          (!loggedUser?.artistProfile ||
+            !loggedUser.artistProfile.genres ||
+            loggedUser.artistProfile.genres.length === 0)
+        ) {
+          router.push("/onboarding");
+        } else {
+          router.push("/");
+        }
       } else {
         setError(res.message || "Failed to authenticate Google user");
       }
@@ -200,6 +220,40 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {showRoleModal && (
+        <div className="fixed inset-0 z-[9999] bg-[#121212]/80 flex items-center justify-center p-4">
+          <div className="bg-[#FAF8F5] border-4 border-[#121212] p-8 max-w-sm w-full rounded shadow-brutal space-y-6 text-[#121212] font-space relative">
+            <button 
+              onClick={() => setShowRoleModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 border-2 border-[#121212] bg-white rounded flex items-center justify-center hover:bg-gray-100 font-black shadow-brutal-sm cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="text-center space-y-2">
+              <span className="bg-red-stage text-white text-[9px] font-black uppercase px-2 py-0.5 rounded">Setup Profile</span>
+              <h3 className="font-display font-black text-2xl uppercase tracking-tight mt-1">CHOOSE YOUR ROLE</h3>
+              <p className="text-xs text-gray-500 font-bold">First-time Google signups require choosing a path. Existing accounts will log in normally.</p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => completeGoogleSignIn("ARTIST")}
+                className="w-full bg-[#121212] text-white border-3 border-[#121212] font-display font-black text-xs uppercase py-3.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer text-center"
+              >
+                JOIN AS ARTIST / CREATOR
+              </button>
+              <button
+                onClick={() => completeGoogleSignIn("AUDIENCE")}
+                className="w-full bg-yellow-festival text-[#121212] border-3 border-[#121212] font-display font-black text-xs uppercase py-3.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer text-center"
+              >
+                JOIN AS AUDIENCE / JUDGE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

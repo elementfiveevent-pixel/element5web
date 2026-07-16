@@ -44,6 +44,7 @@ interface FormData {
 
   // Step 4 – media
   flyerUrl: string;
+  sponsors: { name: string; logo: string }[];
 
   // Step 5 – details
   termsConditions: string;
@@ -71,6 +72,7 @@ const INITIAL: FormData = {
   venueName: "", venueAddress: "", city: "", state: "", mapsLink: "",
   maxCapacity: "200", isPaid: false, price: "0", audiencePrice: "0", artistPrice: "0", upiVpa: "", upiId: "", upiQrUrl: "", artistQrUrl: "", audienceQrUrl: "",
   flyerUrl: "",
+  sponsors: [],
   termsConditions: "", customFields: [],
 };
 
@@ -132,6 +134,9 @@ export default function CreateEventPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdEvent, setCreatedEvent] = useState<{ id: string; slug: string; title: string } | null>(null);
 
+  const [newSponsorName, setNewSponsorName] = useState("");
+  const [newSponsorLogo, setNewSponsorLogo] = useState("");
+
   const set = (key: keyof FormData, value: any) => setForm((f) => ({ ...f, [key]: value }));
 
   // Merge date + time into ISO string
@@ -167,6 +172,7 @@ export default function CreateEventPage() {
         flyerUrl:            form.flyerUrl || undefined,
         termsConditions:     form.termsConditions.trim() || undefined,
         customFields:        form.customFields.filter((field) => field.label.trim()),
+        sponsors:            form.sponsors,
       };
       const result = await api.post("/events", payload);
       setCreatedEvent({ id: result.id, slug: result.slug, title: result.title });
@@ -464,6 +470,78 @@ export default function CreateEventPage() {
                     <p className="font-space text-sm text-[#121212]/40 font-bold">No flyer uploaded — event will show a default banner</p>
                   </div>
                 )}
+
+                <div className="border-t-3 border-[#121212]/10 pt-6 space-y-4">
+                  <div>
+                    <h4 className="font-display font-black text-sm uppercase">Sponsor's Logos</h4>
+                    <p className="font-space text-xs text-[#121212]/50 font-bold">Add logos of event sponsors to rotate below the header banner.</p>
+                  </div>
+
+                  {/* Add sponsor controls */}
+                  <div className="border-2 border-[#121212] bg-white p-4 rounded space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-gray-500">Sponsor Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Red Bull"
+                          className="w-full px-3 py-2.5 border-2 border-[#121212] bg-white rounded font-space font-bold text-xs focus:outline-none"
+                          value={newSponsorName}
+                          onChange={(e) => setNewSponsorName(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase text-gray-500">Logo Upload</label>
+                        <SupabaseUpload
+                          folder="element5/sponsors"
+                          accept="image/*"
+                          label={newSponsorLogo ? "RE-UPLOAD LOGO" : "UPLOAD LOGO"}
+                          maxSizeMB={5}
+                          onUploadSuccess={(r) => setNewSponsorLogo(r.secure_url)}
+                        />
+                        {newSponsorLogo && (
+                          <p className="text-[10px] text-green-600 font-bold mt-1">✓ Logo uploaded successfully</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={!newSponsorName.trim() || !newSponsorLogo}
+                      onClick={() => {
+                        set("sponsors", [...form.sponsors, { name: newSponsorName, logo: newSponsorLogo }]);
+                        setNewSponsorName("");
+                        setNewSponsorLogo("");
+                      }}
+                      className="w-full bg-[#121212] text-white border-2 border-[#121212] font-display font-black text-[10px] uppercase py-2 rounded disabled:opacity-50 hover:bg-[#121212]/80 cursor-pointer"
+                    >
+                      + ADD SPONSOR
+                    </button>
+                  </div>
+
+                  {/* Listed sponsors */}
+                  {form.sponsors.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                      {form.sponsors.map((sp, idx) => (
+                        <div key={idx} className="border-2 border-[#121212] bg-white p-3 rounded relative shadow-brutal-sm flex flex-col items-center text-center">
+                          <button
+                            type="button"
+                            onClick={() => set("sponsors", form.sponsors.filter((_, i) => i !== idx))}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 border border-[#121212] bg-red-stage text-white rounded-full flex items-center justify-center font-black text-[8px] hover:bg-red-700 cursor-pointer animate-fade-in"
+                          >
+                            ✕
+                          </button>
+                          <div className="w-12 h-12 flex items-center justify-center border border-[#121212]/10 rounded overflow-hidden p-1 bg-gray-50">
+                            <img src={sp.logo} alt={sp.name} className="max-w-full max-h-full object-contain" />
+                          </div>
+                          <span className="font-space font-black text-[9px] uppercase tracking-tight mt-1.5 truncate max-w-full">
+                            {sp.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </>
             )}
 

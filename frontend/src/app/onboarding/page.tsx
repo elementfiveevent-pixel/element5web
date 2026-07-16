@@ -30,7 +30,7 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
-    } else if (user && user.role !== "ARTIST") {
+    } else if (user && user.role !== "ARTIST" && user.role !== "AUDIENCE") {
       router.push("/");
     } else if (user) {
       const artProfile = (user as any).artistProfile || {};
@@ -97,7 +97,13 @@ export default function OnboardingPage() {
 
       // Attempt API update
       const { api } = await import("@/lib/api");
-      await api.post("/auth/artist-profile", artistProfile);
+      const res = await api.post("/auth/artist-profile", artistProfile);
+
+      // Save updated role tokens if returned
+      if (res && res.accessToken) {
+        localStorage.setItem("e5_auth_token", res.accessToken);
+        document.cookie = `e5_auth_token=${res.accessToken}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+      }
 
       await refreshUser();
       confetti({ particleCount: 100, spread: 80, colors: ["#FFDE4D", "#D80032", "#FAF8F5"] });

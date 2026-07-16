@@ -33,8 +33,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: "Authenticate with Firebase Google ID token" })
   @ApiResponse({ status: 200, description: "Logged in via Google successfully" })
-  async googleLogin(@Body("idToken") idToken: string) {
-    return this.authService.googleLogin(idToken);
+  async googleLogin(@Body("idToken") idToken: string, @Body("role") role?: string) {
+    return this.authService.googleLogin(idToken, role);
   }
 
   @Post("refresh")

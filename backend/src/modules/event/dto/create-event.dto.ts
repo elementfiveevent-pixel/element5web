@@ -130,4 +130,12 @@ export class CreateEventDto {
   @IsArray()
   @IsOptional()
   customFields?: Array<Record<string, unknown>>;
+
+  @ApiProperty({
+    example: [{ name: "Red Bull", logo: "https://example.com/logo.png" }],
+    required: false,
+  })
+  @IsArray()
+  @IsOptional()
+  sponsors?: Array<Record<string, unknown>>;
 }

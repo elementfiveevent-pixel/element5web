@@ -49,6 +49,7 @@ export class EventService {
         artistQrUrl: dto.artistQrUrl || dto.upiQrUrl,
         termsConditions: dto.termsConditions,
         customFields: (dto.customFields ?? []) as Prisma.InputJsonValue,
+        sponsors: (dto.sponsors ?? []) as Prisma.InputJsonValue,
         slug,
         location: {
           create: {
@@ -505,6 +506,9 @@ export class EventService {
         }),
         ...(dto.customFields !== undefined && {
           customFields: dto.customFields as Prisma.InputJsonValue,
+        }),
+        ...(dto.sponsors !== undefined && {
+          sponsors: dto.sponsors as Prisma.InputJsonValue,
         }),
       },
       include: { location: true, ticketCategories: true },

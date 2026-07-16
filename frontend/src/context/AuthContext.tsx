@@ -20,8 +20,8 @@ interface AuthContextProps {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string, totpToken?: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string; user?: User | null }>;
-  register: (fullName: string, email: string, password: string, role: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
-  signInWithGoogle: () => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
+  register: (fullName: string, email: string, password: string, role: string, mobileNumber?: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
+  signInWithGoogle: (role?: "ARTIST" | "AUDIENCE") => Promise<{ success: boolean; mode: "live" | "local"; message?: string; user?: User | null }>;
   logout: () => void;
   refreshUser: () => Promise<User | null>;
 }
@@ -107,9 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (fullName: string, email: string, password: string, role: string) => {
+  const register = async (fullName: string, email: string, password: string, role: string, mobileNumber?: string) => {
     try {
-      const data = await api.post("/auth/register", { fullName, email, password, role });
+      const data = await api.post("/auth/register", { fullName, email, password, role, mobileNumber });
       if (data.accessToken) {
         setTokens(data.accessToken);
         await refreshUser();
@@ -122,16 +122,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (role?: "ARTIST" | "AUDIENCE") => {
     try {
       const result = await signInWithPopup(firebaseAuth, googleProvider);
       const idToken = await result.user.getIdToken();
       
-      const data = await api.post("/auth/google", { idToken });
+      const data = await api.post("/auth/google", { idToken, role });
       if (data.accessToken) {
         setTokens(data.accessToken);
-        await refreshUser();
-        return { success: true, mode: "live" as const };
+        const userProfile = await refreshUser();
+        return { success: true, mode: "live" as const, user: userProfile };
       }
       return { success: false, mode: "live" as const, message: "Failed to authenticate Google user on backend." };
     } catch (err: any) {

@@ -12,6 +12,7 @@ import { NotificationModule } from "./modules/notification/notification.module";
 import { MediaModule } from "./modules/media/media.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { StatsModule } from "./modules/stats/stats.module";
+import { HighlightModule } from "./modules/highlight/highlight.module";
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { StatsModule } from "./modules/stats/stats.module";
     MediaModule,
     AdminModule,
     StatsModule,
+    HighlightModule,
   ],
 })
 export class AppModule {}

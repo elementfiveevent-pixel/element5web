@@ -7,7 +7,7 @@ import Link from "next/link";
 import { UserPlus, AlertCircle } from "lucide-react";
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const [fullName, setFullName] = useState("");
@@ -24,7 +24,7 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      const res = await register(fullName, email, password, role);
+      const res = await register(fullName, email, password, role, mobileNumber);
       if (res.success) {
         if (res.mode === "local") {
           console.warn("Registered locally using fallback simulation:", res.message);
@@ -39,6 +39,30 @@ export default function RegisterPage() {
       }
     } catch (err: any) {
       setError(err?.message || "Failed to create account. Please check parameters.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await signInWithGoogle(role as "ARTIST" | "AUDIENCE");
+      if (res.success) {
+        if (res.mode === "local") {
+          console.warn("Registered locally via Google fallback simulation:", res.message);
+        }
+        if (role === "ARTIST") {
+          router.push("/onboarding");
+        } else {
+          router.push("/");
+        }
+      } else {
+        setError(res.message || "Failed to register via Google.");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Failed to register via Google.");
     } finally {
       setLoading(false);
     }
@@ -137,6 +161,22 @@ export default function RegisterPage() {
                 REGISTER ACCOUNT <UserPlus size={16} />
               </>
             )}
+          </button>
+
+          <div className="relative flex py-2 items-center">
+            <div className="flex-grow border-t border-[#121212]/10"></div>
+            <span className="flex-shrink mx-4 text-xs font-bold text-gray-400 uppercase tracking-widest">OR</span>
+            <div className="flex-grow border-t border-[#121212]/10"></div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignUp}
+            disabled={loading}
+            className="w-full bg-white text-[#121212] border-3 border-[#121212] font-black uppercase text-sm tracking-wider py-4 shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <span className="w-5 h-5 flex items-center justify-center border-2 border-[#121212] bg-[#FAF8F5] rounded-full text-[10px] font-black font-serif">G</span>
+            CONTINUE WITH GOOGLE
           </button>
         </form>
 

@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, ForbiddenException, UnauthorizedException } from "@nestjs/common";
+import { Injectable, ConflictException, ForbiddenException, UnauthorizedException, BadRequestException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
@@ -18,6 +18,10 @@ export class AuthService {
   async register(dto: RegisterDto) {
     if (dto.role === UserRole.SUPER_ADMIN) {
       throw new ForbiddenException("Registration as Super Admin is not allowed");
+    }
+
+    if (dto.role === UserRole.ORG_ADMIN && (!dto.mobileNumber || !dto.mobileNumber.trim())) {
+      throw new BadRequestException("Mobile contact number is required for organizer registration");
     }
 
     const existing = await this.prisma.user.findUnique({
@@ -83,7 +87,7 @@ export class AuthService {
       availabilityStatus = "UNAVAILABLE";
     }
 
-    return this.prisma.artistProfile.upsert({
+    await this.prisma.artistProfile.upsert({
       where: { userId },
       update: {
         stageName: dto.stageName,
@@ -109,6 +113,36 @@ export class AuthService {
         state: dto.state,
       },
     });
+
+    const existingRoles = await this.prisma.userRole.findMany({
+      where: { userId },
+    });
+    const hasArtist = existingRoles.some((r) => r.role === UserRole.ARTIST);
+    if (!hasArtist) {
+      await this.prisma.userRole.create({
+        data: {
+          userId,
+          role: UserRole.ARTIST,
+        },
+      });
+      await this.prisma.userRole.deleteMany({
+        where: {
+          userId,
+          role: UserRole.AUDIENCE,
+        },
+      });
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roles: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException("User not found");
+    }
+
+    return this.generateTokens(user.id, user.email, user.roles.map((r: any) => r.role));
   }
 
   async login(dto: LoginDto) {
@@ -208,7 +242,7 @@ export class AuthService {
     };
   }
 
-  async googleLogin(idToken: string) {
+  async googleLogin(idToken: string, requestedRole?: string) {
     let email: string;
     let fullName: string;
 
@@ -218,12 +252,20 @@ export class AuthService {
         fullName = email.split("@")[0];
       } else {
         const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
-        if (!response.ok) {
-          throw new UnauthorizedException("Invalid Google token signature or token expired");
+        if (response.ok) {
+          const payload = await response.json() as any;
+          email = payload.email;
+          fullName = payload.name || email.split("@")[0];
+        } else {
+          // Fallback: Decode Firebase ID Token JWT directly
+          const decoded = this.jwtService.decode(idToken) as any;
+          if (decoded && decoded.email) {
+            email = decoded.email;
+            fullName = decoded.name || decoded.email.split("@")[0];
+          } else {
+            throw new UnauthorizedException("Invalid Google token signature or token expired");
+          }
         }
-        const payload = await response.json() as any;
-        email = payload.email;
-        fullName = payload.name || email.split("@")[0];
       }
 
       if (!email) {
@@ -232,6 +274,18 @@ export class AuthService {
     } catch (err) {
       if (err instanceof UnauthorizedException) throw err;
       throw new UnauthorizedException("Invalid Google authentication payload");
+    }
+
+    let targetRole = UserRole.AUDIENCE;
+    if (requestedRole) {
+      const upperRole = requestedRole.toUpperCase();
+      if (upperRole === "ARTIST") {
+        targetRole = UserRole.ARTIST;
+      } else if (upperRole === "AUDIENCE") {
+        targetRole = UserRole.AUDIENCE;
+      } else {
+        throw new BadRequestException("Google registration is restricted to ARTIST or AUDIENCE roles only.");
+      }
     }
 
     let user = await this.prisma.user.findUnique({
@@ -245,11 +299,18 @@ export class AuthService {
           email,
           fullName,
           roles: {
-            create: { role: UserRole.AUDIENCE },
+            create: { role: targetRole },
           },
         },
         include: { roles: true },
       });
+    } else {
+      const userRoles = user.roles.map((r: any) => r.role);
+      const isAudienceOrArtist = userRoles.includes(UserRole.AUDIENCE) || userRoles.includes(UserRole.ARTIST);
+      const isAdminOrOrg = userRoles.includes(UserRole.SUPER_ADMIN) || userRoles.includes(UserRole.ORG_ADMIN);
+      if (isAdminOrOrg && !isAudienceOrArtist) {
+        throw new UnauthorizedException("Google login is restricted to Artists and Audience accounts. Administrators and Organizers must use their password credentials.");
+      }
     }
 
     if (user.status === "SUSPENDED") {

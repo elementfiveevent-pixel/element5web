@@ -26,6 +26,7 @@ interface BackendEvent {
   organizer?: { id: string; fullName: string; email: string };
   location?: EventLocation;
   ticketCategories: TicketCategory[];
+  sponsors?: { name: string; logo: string }[];
 }
 interface MyTicket { id: string; qrCode: string; isUsed: boolean; usedAt?: string; paymentStatus: string }
 
@@ -337,6 +338,54 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
           )}
         </div>
 
+        {/* ── Event Sponsors Ticker ─────────────────────────────────────── */}
+        {event.sponsors && event.sponsors.length > 0 && (
+          <div className="border-3 border-[#121212] bg-yellow-festival p-4 rounded shadow-brutal overflow-hidden relative select-none">
+            <span className="font-display font-black text-[9px] uppercase tracking-widest text-[#121212]/60 block text-center mb-3">
+              ★ Proudly Sponsored By ★
+            </span>
+            <div className="w-full overflow-hidden relative whitespace-nowrap">
+              <div className="inline-flex gap-16 items-center animate-marquee">
+                {/* First Copy */}
+                {Array(Math.ceil(12 / event.sponsors.length)).fill(event.sponsors).flat().map((sp, idx) => (
+                  <div key={`sp-a-${idx}`} className="inline-flex items-center gap-3">
+                    <div className="h-8 w-8 flex items-center justify-center bg-white/20 rounded p-1 border border-black/10">
+                      <img src={sp.logo} alt={sp.name} className="max-h-full max-w-full object-contain filter brightness-90 hover:brightness-100 transition-all duration-300" />
+                    </div>
+                    <span className="font-display font-extrabold text-sm uppercase tracking-tight text-[#121212]">
+                      {sp.name}
+                    </span>
+                  </div>
+                ))}
+                {/* Second Copy */}
+                {Array(Math.ceil(12 / event.sponsors.length)).fill(event.sponsors).flat().map((sp, idx) => (
+                  <div key={`sp-b-${idx}`} className="inline-flex items-center gap-3">
+                    <div className="h-8 w-8 flex items-center justify-center bg-white/20 rounded p-1 border border-black/10">
+                      <img src={sp.logo} alt={sp.name} className="max-h-full max-w-full object-contain filter brightness-90 hover:brightness-100 transition-all duration-300" />
+                    </div>
+                    <span className="font-display font-extrabold text-sm uppercase tracking-tight text-[#121212]">
+                      {sp.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <style dangerouslySetInnerHTML={{ __html: `
+              @keyframes marquee {
+                0% { transform: translateX(0%); }
+                100% { transform: translateX(-50%); }
+              }
+              .animate-marquee {
+                display: inline-flex;
+                animation: marquee 30s linear infinite;
+              }
+              .animate-marquee:hover {
+                animation-play-state: paused;
+              }
+            `}} />
+          </div>
+        )}
+
         {/* ── Ticket type selector ────────────────────────────────────────── */}
         {!hasTickets && !isCompleted && event.ticketCategories.length > 1 && (
           <div className="border-3 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal p-6 space-y-4">
@@ -535,27 +584,45 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-[#121212]/10 flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const isEventPaid = event.isPaid;
-                      const audiencePrice = event.audiencePrice !== undefined ? Number(event.audiencePrice) : (isEventPaid ? Number(event.price || 0) : 0);
-                      const artistPrice = event.artistPrice !== undefined ? Number(event.artistPrice) : (isEventPaid ? Number(event.price || 0) + 150 : 99);
-                      const selectedPrice = registrationType === "AUDIENCE" ? audiencePrice : artistPrice;
-                      
-                      if (selectedPrice > 0) {
-                        setRegistrationStep("PAYMENT");
-                      } else {
-                        confirmRegistration();
-                      }
-                    }}
-                    className="w-full bg-[#121212] text-white border-3 border-[#121212] font-display font-black text-xs uppercase py-3.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer text-center"
-                  >
-                    CONTINUE TO REGISTRATION
-                  </button>
-                  <p className="text-[9px] text-gray-400 font-bold text-center">Agree to guidelines on confirm.</p>
-                </div>
+                {registrationType === "ARTIST" && user?.role === "AUDIENCE" ? (
+                  <div className="space-y-4 pt-2 border-t border-[#121212]/10">
+                    <div className="p-4 border-2 border-[#121212] bg-yellow-festival/10 rounded space-y-2 text-xs font-bold leading-relaxed">
+                      <p className="font-display font-black text-red-stage uppercase text-xs">✨ Creator Profile Required</p>
+                      <p>To register as a performing artist for this event, you need to set up your Creator profile first. This enables you to list your genres, links, and display your stage details to the organizers.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = `/onboarding?upgrade=true`;
+                      }}
+                      className="w-full bg-red-stage text-white border-3 border-[#121212] font-display font-black text-xs uppercase py-3.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer text-center"
+                    >
+                      UPGRADE TO CREATOR NOW
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-[#121212]/10 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isEventPaid = event.isPaid;
+                        const audiencePrice = event.audiencePrice !== undefined ? Number(event.audiencePrice) : (isEventPaid ? Number(event.price || 0) : 0);
+                        const artistPrice = event.artistPrice !== undefined ? Number(event.artistPrice) : (isEventPaid ? Number(event.price || 0) + 150 : 99);
+                        const selectedPrice = registrationType === "AUDIENCE" ? audiencePrice : artistPrice;
+                        
+                        if (selectedPrice > 0) {
+                          setRegistrationStep("PAYMENT");
+                        } else {
+                          confirmRegistration();
+                        }
+                      }}
+                      className="w-full bg-[#121212] text-white border-3 border-[#121212] font-display font-black text-xs uppercase py-3.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer text-center"
+                    >
+                      CONTINUE TO REGISTRATION
+                    </button>
+                    <p className="text-[9px] text-gray-400 font-bold text-center">Agree to guidelines on confirm.</p>
+                  </div>
+                )}
               </>
             ) : (
               <>

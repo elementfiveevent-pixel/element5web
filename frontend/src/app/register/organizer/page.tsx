@@ -20,10 +20,16 @@ export default function OrganizerRegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!mobileNumber.trim()) {
+      setError("Mobile contact number is required.");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const res = await register(fullName, email, password, "ORG_ADMIN");
+      const res = await register(fullName, email, password, "ORG_ADMIN", mobileNumber);
       if (res.success) {
         router.push("/events/organizer");
       } else {
@@ -99,13 +105,16 @@ export default function OrganizerRegisterPage() {
           </div>
 
           <div className="space-y-1">
-            <label className="text-xs font-black uppercase text-gray-500 block">Mobile Contact (Optional)</label>
+            <label className="text-xs font-black uppercase text-gray-500 block">
+              Mobile Contact Number <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               placeholder="e.g. +91 9876543210"
               value={mobileNumber}
               onChange={(e) => setMobileNumber(e.target.value)}
               className="w-full p-3 border-2 border-[#121212] bg-white rounded font-bold placeholder-gray-400 focus:outline-none"
+              required
             />
           </div>
 

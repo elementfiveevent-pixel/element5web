@@ -2,30 +2,101 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "@/context/AppContext";
-import dynamic from "next/dynamic";
 import HeroBackground from "@/components/ui/HeroBackground";
 
-const PodiumScene = dynamic(() => import("@/components/3d/PodiumScene"), { ssr: false });
 import { Play, Flame, Star, Trophy, Users, Award, Calendar, MapPin, Clock, ArrowRight, Check, Sparkles } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
+import { api } from "@/lib/api";
 
 export default function Home() {
   const { artists, events, userVotes, registeredEvents, voteForArtist, registerForEvent } = useApp();
   const nextEvent = events[0] || {
     id: "stageverse-3.0",
     title: "StageVerse 3.0: Ahmedabad Edition",
-    venue: "The Brutalist Box, Ahmedabad",
+    venue: "Mishty Studio Cafe, Ahmedabad",
     audienceCount: 148,
     registrationLimit: 250,
+    countdownDate: "2026-07-26T19:00:00+05:30",
+    date: "26 JUL 2026",
+    time: "07:00 PM",
+    slug: "stageverse-3-0",
+    isPaid: false,
+    price: 0,
   };
+
+  // Filter active events list (StageVerse prioritized)
+  const activeEventsList = [...events]
+    .filter((e) => !e.isCompleted)
+    .sort((a, b) => {
+      const isStageVerseA = a.type?.toLowerCase().includes("stageverse") || a.title?.toLowerCase().includes("stageverse");
+      const isStageVerseB = b.type?.toLowerCase().includes("stageverse") || b.title?.toLowerCase().includes("stageverse");
+      if (isStageVerseA && !isStageVerseB) return -1;
+      if (!isStageVerseA && isStageVerseB) return 1;
+      return 0;
+    });
+
+  const [currentEventIndex, setCurrentEventIndex] = useState(0);
+  const displayedEvent = activeEventsList.length > 0 ? activeEventsList[currentEventIndex] : nextEvent;
+
+  const handlePrevEvent = () => {
+    setCurrentEventIndex((prev) => (prev > 0 ? prev - 1 : activeEventsList.length - 1));
+  };
+  const handleNextEvent = () => {
+    setCurrentEventIndex((prev) => (prev < activeEventsList.length - 1 ? prev + 1 : 0));
+  };
+
+  // Local client-side voting state for landing page (database is not affected)
+  const [localVoteIncrements, setLocalVoteIncrements] = useState<Record<string, number>>({});
+  const [votedIds, setVotedIds] = useState<Record<string, boolean>>({});
+
+  // Fallback default highlights
+  const MOCK_HIGHLIGHTS = [
+    {
+      id: "h-1",
+      imageUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=600&h=400&fit=crop",
+      description: "Sufi Acoustic Jam Session"
+    },
+    {
+      id: "h-2",
+      imageUrl: "https://images.unsplash.com/photo-1516280440614-37939bbacd6a?w=600&h=800&fit=crop",
+      description: "Rajkot Stand-up Special Round"
+    },
+    {
+      id: "h-3",
+      imageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&h=350&fit=crop",
+      description: "D-Vibe Headlining Surat 2.0"
+    },
+    {
+      id: "h-4",
+      imageUrl: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=600&fit=crop",
+      description: "Element Talks Rehearsals"
+    }
+  ];
+
+  // Dynamic Highlights feed state
+  const [highlights, setHighlights] = useState<any[]>([]);
+  const [highlightsLoading, setHighlightsLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/highlights")
+      .then((d) => {
+        setHighlights(Array.isArray(d) ? d : []);
+      })
+      .catch((err) => {
+        console.warn("Failed to load dynamic highlights:", err);
+      })
+      .finally(() => {
+        setHighlightsLoading(false);
+      });
+  }, []);
 
   const [curtainsOpened, setCurtainsOpened] = useState(false);
   const [curtainsFinished, setCurtainsFinished] = useState(false);
   const [lightsOn, setLightsOn] = useState(false);
   const [audioPulse, setAudioPulse] = useState(false);
   
-  // Timer for StageVerse 3.0 Countdown
+  // Timer for Countdown
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
@@ -46,14 +117,35 @@ export default function Home() {
       setAudioPulse((prev) => !prev);
     }, 800);
 
-    // Calculate countdown
-    const targetDate = new Date("2026-07-26T19:00:00+05:30").getTime();
+    return () => {
+      clearTimeout(curtainTimer);
+      clearTimeout(finishTimer);
+      clearTimeout(lightsTimer);
+      clearInterval(audioTimer);
+    };
+  }, []);
+
+  // Sync and calculate countdown for currently displayed event
+  useEffect(() => {
+    const dateStr = displayedEvent.countdownDate || displayedEvent.date;
+    if (!dateStr || dateStr === "TBD") {
+      setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      return;
+    }
+
+    const targetDate = new Date(dateStr).getTime();
+    if (isNaN(targetDate)) {
+      setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      return;
+    }
+
     const interval = setInterval(() => {
       const now = new Date().getTime();
       const diff = targetDate - now;
 
       if (diff <= 0) {
         clearInterval(interval);
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
       } else {
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -63,14 +155,8 @@ export default function Home() {
       }
     }, 1000);
 
-    return () => {
-      clearTimeout(curtainTimer);
-      clearTimeout(finishTimer);
-      clearTimeout(lightsTimer);
-      clearInterval(audioTimer);
-      clearInterval(interval);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [displayedEvent]);
 
   const triggerConfetti = () => {
     confetti({
@@ -82,7 +168,15 @@ export default function Home() {
   };
 
   const handleVote = (artistId: string) => {
-    voteForArtist(artistId, "stageverse-3.0");
+    if (votedIds[artistId]) return;
+    setLocalVoteIncrements((prev) => ({
+      ...prev,
+      [artistId]: (prev[artistId] || 0) + 1,
+    }));
+    setVotedIds((prev) => ({
+      ...prev,
+      [artistId]: true,
+    }));
     triggerConfetti();
   };
 
@@ -91,8 +185,13 @@ export default function Home() {
     triggerConfetti();
   };
 
-  // Sort artists for leaderboard
-  const sortedArtists = [...artists].sort((a, b) => b.votes - a.votes);
+  // Sort artists reactively using local client-side simulated votes
+  const sortedArtists = [...artists]
+    .map((artist) => ({
+      ...artist,
+      votes: artist.votes + (localVoteIncrements[artist.id] || 0),
+    }))
+    .sort((a, b) => b.votes - a.votes);
 
   return (
     <div className="relative overflow-hidden min-h-screen bg-[#121212]">
@@ -197,11 +296,11 @@ export default function Home() {
           </div>
           <div className="relative border-4 border-[#121212] bg-[#121212] p-2 rounded shadow-brutal-red h-[400px]">
             <img
-              src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&h=600&fit=crop"
-              alt="Live open mic audience"
+              src="/stageverse1.0grp.jpeg"
+              alt="StageVerse 1.0 group photo"
               className="w-full h-full object-cover border-2 border-[#FAF8F5] rounded"
             />
-            <div className="absolute top-4 left-4 brutal-tape-red text-xs">STAGEVERSE 2.0 SURAT</div>
+            <div className="absolute top-4 left-4 brutal-tape-red text-xs">STAGEVERSE 1.0 SURAT</div>
           </div>
         </div>
       </section>
@@ -225,10 +324,10 @@ export default function Home() {
               <span className="font-display text-4xl font-extrabold text-[#FAF8F5]/30">01</span>
               <h3 className="font-display text-2xl font-bold text-yellow-festival">StageVerse 1.0</h3>
               <p className="text-sm text-[#FAF8F5]/70 font-space">
-                The pilot run in Surat. Structured for 15 artists, bringing in a highly energetic crowd and crowning Aarav Mehta as the inaugural spoken word champion.
+                The pilot run. Structured for 15 artists, bringing in a highly energetic crowd and crowning Aarav Mehta as the inaugural spoken word champion.
               </p>
               <div className="text-xs bg-[#FAF8F5]/10 p-2 rounded font-bold">
-                📍 Art Loft, Surat • Completed
+                📍 Mishty Studio Cafe, Ahmedabad • Completed
               </div>
             </div>
 
@@ -240,7 +339,7 @@ export default function Home() {
                 Expanded reach with video reels that amassed 100K+ cumulative social views. Introduced loops, beatbox sets, and Gujarati rap battles to the audience.
               </p>
               <div className="text-xs bg-yellow-festival/20 text-yellow-festival p-2 rounded font-bold">
-                📍 Silent Room, Surat • Completed
+                📍 Mishty Studio Cafe, Ahmedabad • Completed
               </div>
             </div>
 
@@ -253,7 +352,7 @@ export default function Home() {
                 Ahmedabad edition. Integrating full digital voting, premium studio recording outputs, and custom branding panels with Red Bull Culture as the main sponsor.
               </p>
               <div className="text-xs bg-red-stage/20 text-red-stage p-2 rounded font-bold">
-                📍 Sindhu Bhavan Road • Booking Open
+                📍 Mishty Studio Cafe, Ahmedabad • Booking Open
               </div>
             </div>
           </div>
@@ -262,28 +361,20 @@ export default function Home() {
 
       {/* 5. ARTIST LEADERBOARD (LIVE VOTE) */}
       <section className="py-24 px-6 border-b-3 border-[#121212] bg-[#FFF5E4] text-[#121212]">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
           
-          <div className="lg:col-span-5 space-y-8">
+          <div className="lg:col-span-4 space-y-6">
             <span className="brutal-tape">REAL-TIME RANKINGS</span>
-            <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-5xl uppercase tracking-tighter">
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-4xl uppercase tracking-tighter leading-none">
               <span className="inline-block">STAGEVERSE</span> <br />
               <span className="text-red-stage inline-block">LEADERBOARD</span>
             </h2>
-            <p className="font-space font-bold text-base text-[#121212]/80">
+            <p className="font-space font-bold text-sm text-[#121212]/80 leading-relaxed">
               Each StageVerse event connects live to this dashboard. Audience members vote directly from their phones. Cast your vote below to support your favorite regional talent!
             </p>
-
-            {/* 3D Podium Block Container */}
-            <div className="h-[280px] w-full border-3 border-[#121212] bg-[#121212] rounded shadow-brutal relative">
-              <div className="absolute top-3 left-3 bg-yellow-festival border-2 border-[#121212] text-[10px] font-black px-2 py-0.5 rounded select-none z-10 shadow-brutal">
-                3D PODIUM VIEW
-              </div>
-              <PodiumScene />
-            </div>
           </div>
 
-          <div className="lg:col-span-7 space-y-4">
+          <div className="lg:col-span-8 space-y-4">
             <div className="bg-[#121212] text-[#FAF8F5] border-3 border-[#121212] p-4 font-display font-black text-sm uppercase tracking-wider flex justify-between rounded shadow-brutal select-none">
               <span>ARTIST RANKINGS</span>
               <span className="text-yellow-festival">STAGEVERSE 3.0 VOTE</span>
@@ -291,7 +382,7 @@ export default function Home() {
 
             <div className="space-y-3">
               {sortedArtists.map((artist, idx) => {
-                const isVoted = userVotes[artist.id];
+                const isVoted = votedIds[artist.id];
                 return (
                   <div
                     key={artist.id}
@@ -366,21 +457,45 @@ export default function Home() {
         <div className="absolute left-0 top-0 w-2/3 h-full bg-[#FFDE4D]/25 rotate-[-2deg] origin-top-left -z-0 pointer-events-none" />
 
         <div className="max-w-4xl mx-auto border-4 border-[#121212] bg-white p-8 md:p-12 rounded shadow-brutal relative z-10">
-          <div className="absolute -top-5 right-8 brutal-tape-red uppercase font-black tracking-widest text-xs">
-            NEXT EVENT TICKETS
+          {/* Navigation Arrows on Left and Right */}
+          {activeEventsList.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={handlePrevEvent}
+                className="absolute sm:-left-6 left-2 top-1/2 -translate-y-1/2 w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full flex items-center justify-center font-black text-lg shadow-brutal-sm sm:shadow-brutal hover:scale-105 hover:bg-yellow-festival/90 transition-all cursor-pointer z-20"
+                title="Previous Event"
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                onClick={handleNextEvent}
+                className="absolute sm:-right-6 right-2 top-1/2 -translate-y-1/2 w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full flex items-center justify-center font-black text-lg shadow-brutal-sm sm:shadow-brutal hover:scale-105 hover:bg-yellow-festival/90 transition-all cursor-pointer z-20"
+                title="Next Event"
+              >
+                →
+              </button>
+            </>
+          )}
+
+          <div className="absolute -top-5 right-8 flex items-center gap-3 select-none">
+            <div className="brutal-tape-red uppercase font-black tracking-widest text-xs">
+              EVENT TICKETS
+            </div>
           </div>
 
           <div className="space-y-8">
             <div className="space-y-4">
-              <span className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-1">
-                <Calendar size={14} /> JULY 26, 2026 • 07:00 PM
+              <span className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-1.5">
+                <Calendar size={14} /> {displayedEvent.date} {displayedEvent.time ? `• ${displayedEvent.time}` : ""}
               </span>
               <h2 className="font-display font-extrabold text-3xl md:text-5xl uppercase tracking-tighter">
-                {nextEvent.title}
+                {displayedEvent.title}
               </h2>
               <div className="flex flex-wrap gap-4 text-xs font-black uppercase text-gray-600">
                 <span className="flex items-center gap-1 bg-[#121212]/10 px-3 py-1 rounded">
-                  <MapPin size={12} /> {nextEvent.venue.split(",")[0]}
+                  <MapPin size={12} /> {displayedEvent.venue.split(",")[0]}
                 </span>
                 <span className="flex items-center gap-1 bg-[#121212]/10 px-3 py-1 rounded">
                   <Clock size={12} /> Live Audience Voting
@@ -421,13 +536,13 @@ export default function Home() {
               <div className="flex justify-between font-black uppercase text-xs">
                 <span>Registration Cap Progress</span>
                 <span className="text-red-stage">
-                  {nextEvent.audienceCount} / {nextEvent.registrationLimit} Seats Filled
+                  {displayedEvent.audienceCount} / {displayedEvent.registrationLimit} Seats Filled
                 </span>
               </div>
               <div className="w-full h-6 border-3 border-[#121212] bg-[#FAF8F5] rounded overflow-hidden p-0.5">
                 <div
                   className="h-full bg-red-stage border-r-2 border-[#121212] transition-all duration-500"
-                  style={{ width: `${(nextEvent.audienceCount / nextEvent.registrationLimit) * 100}%` }}
+                  style={{ width: `${(displayedEvent.audienceCount / displayedEvent.registrationLimit) * 100}%` }}
                 />
               </div>
             </div>
@@ -437,17 +552,17 @@ export default function Home() {
                 Each ticket enters you as a verified judge inside the arena. Vote on-stage live using your ticket code.
               </p>
               
-              {registeredEvents.includes("stageverse-3.0") ? (
+              {registeredEvents.includes(displayedEvent.id) ? (
                 <div className="w-full sm:w-auto bg-green-500 text-white font-black px-8 py-4 border-3 border-[#121212] shadow-brutal flex items-center justify-center gap-2 rounded select-none">
                   <Check size={18} /> REGISTERED SUCCESSFULLY
                 </div>
               ) : (
-                <button
-                  onClick={() => handleRegister(nextEvent.id)}
-                  className="w-full sm:w-auto bg-yellow-festival text-[#121212] font-black px-8 py-4 border-3 border-[#121212] shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded uppercase tracking-wider text-base"
+                <Link
+                  href={`/events/${displayedEvent.slug || displayedEvent.id}`}
+                  className="text-center w-full sm:w-auto bg-yellow-festival text-[#121212] font-black px-8 py-4 border-3 border-[#121212] shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded uppercase tracking-wider text-base"
                 >
-                  CLAIM FREE SPOT
-                </button>
+                  {displayedEvent.isPaid ? "BOOK TICKETS NOW" : "CLAIM FREE SPOT"}
+                </Link>
               )}
             </div>
           </div>
@@ -470,41 +585,41 @@ export default function Home() {
           </div>
 
           <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
-            <div className="break-inside-avoid border-3 border-white p-2 bg-[#0F0E0E] rounded shadow-brutal-light hover:rotate-[1deg] transition-all duration-300">
-              <img
-                src="https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=600&h=400&fit=crop"
-                alt="Singing on stage"
-                className="w-full h-auto object-cover rounded border border-white"
-              />
-              <div className="p-3 font-display font-bold text-sm text-yellow-festival">Sufi Acoustic Jam Session</div>
-            </div>
-
-            <div className="break-inside-avoid border-3 border-white p-2 bg-[#0F0E0E] rounded shadow-brutal-light hover:rotate-[-1deg] transition-all duration-300">
-              <img
-                src="https://images.unsplash.com/photo-1516280440614-37939bbacd6a?w=600&h=800&fit=crop"
-                alt="Standup comedy open mic"
-                className="w-full h-auto object-cover rounded border border-white"
-              />
-              <div className="p-3 font-display font-bold text-sm text-[#FAF8F5]">Rajkot Stand-up Special Round</div>
-            </div>
-
-            <div className="break-inside-avoid border-3 border-white p-2 bg-[#0F0E0E] rounded shadow-brutal-light hover:rotate-[2deg] transition-all duration-300">
-              <img
-                src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&h=350&fit=crop"
-                alt="Rapper with crowd"
-                className="w-full h-auto object-cover rounded border border-white"
-              />
-              <div className="p-3 font-display font-bold text-sm text-red-stage">D-Vibe Headlining Surat 2.0</div>
-            </div>
-
-            <div className="break-inside-avoid border-3 border-white p-2 bg-[#0F0E0E] rounded shadow-brutal-light hover:rotate-[-2deg] transition-all duration-300">
-              <img
-                src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=600&fit=crop"
-                alt="Festival lights"
-                className="w-full h-auto object-cover rounded border border-white"
-              />
-              <div className="p-3 font-display font-bold text-sm text-yellow-festival">Element Talks Rehearsals</div>
-            </div>
+            {highlightsLoading ? (
+              <div className="col-span-full py-12 text-center font-display font-black uppercase text-[#FAF8F5]/40 animate-pulse">
+                Loading Highlights Feed...
+              </div>
+            ) : highlights.length > 0 ? (
+              highlights.map((h, idx) => {
+                const rotation = idx % 3 === 0 ? "hover:rotate-[1deg]" : idx % 3 === 1 ? "hover:rotate-[-1deg]" : "hover:rotate-[2deg]";
+                const color = idx % 3 === 0 ? "text-yellow-festival" : idx % 3 === 1 ? "text-[#FAF8F5]" : "text-red-stage";
+                return (
+                  <div key={h.id || idx} className={`break-inside-avoid border-3 border-white p-2 bg-[#0F0E0E] rounded shadow-brutal-light ${rotation} transition-all duration-300`}>
+                    <img
+                      src={h.imageUrl}
+                      alt={h.description}
+                      className="w-full h-auto object-cover rounded border border-white"
+                    />
+                    <div className={`p-3 font-display font-bold text-sm ${color}`}>{h.description}</div>
+                  </div>
+                );
+              })
+            ) : (
+              MOCK_HIGHLIGHTS.map((h, idx) => {
+                const rotation = idx % 3 === 0 ? "hover:rotate-[1deg]" : idx % 3 === 1 ? "hover:rotate-[-1deg]" : "hover:rotate-[2deg]";
+                const color = idx % 3 === 0 ? "text-yellow-festival" : idx % 3 === 1 ? "text-[#FAF8F5]" : "text-red-stage";
+                return (
+                  <div key={h.id || idx} className={`break-inside-avoid border-3 border-white p-2 bg-[#0F0E0E] rounded shadow-brutal-light ${rotation} transition-all duration-300`}>
+                    <img
+                      src={h.imageUrl}
+                      alt={h.description}
+                      className="w-full h-auto object-cover rounded border border-white"
+                    />
+                    <div className={`p-3 font-display font-bold text-sm ${color}`}>{h.description}</div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </section>

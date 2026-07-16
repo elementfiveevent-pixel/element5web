@@ -9,7 +9,7 @@ import {
   LayoutDashboard, BarChart2, Users, QrCode, Ticket, PlusCircle,
   RefreshCw, AlertCircle, Check, X, CheckCircle, Clock, XCircle,
   Calendar, MapPin, TrendingUp, Eye, ArrowRight, Camera, Loader2,
-  ChevronDown, ChevronUp, Search, Radio, Vote, Pencil
+  ChevronDown, ChevronUp, Search, Radio, Vote, Pencil, Download
 } from "lucide-react";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabaseClient";
@@ -172,6 +172,74 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
     return matchSearch && matchFilter && matchType;
   });
 
+  const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      alert("No registrations to export.");
+      return;
+    }
+
+    const headers = [
+      "Attendee Name",
+      "Email Address",
+      "Mobile Contact",
+      "Role",
+      "Stage Name",
+      "Genre",
+      "Instagram ID",
+      "Payment Status",
+      "Registration Date",
+      "Amount Paid",
+      "Ticket Status"
+    ];
+
+    const rows = filtered.map((r) => {
+      const isUserArtist = r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile;
+      const stageName = r.customData?.stageName || r.user?.artistProfile?.stageName || "";
+      const genre = r.customData?.genre || r.user?.artistProfile?.genres?.join(" & ") || r.user?.artistProfile?.genre || "";
+      const instagram = r.customData?.instagramHandle || r.user?.artistProfile?.instagramHandle || "";
+      const mobile = r.customData?.mobileNumber || r.user?.mobileNumber || "";
+      const ticketStatus = r.tickets && r.tickets[0] ? (r.tickets[0].isUsed ? "USED" : "VALID") : "N/A";
+      const regDate = r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-IN") : "";
+
+      return [
+        r.user?.fullName || "Verified User",
+        r.user?.email || "",
+        mobile,
+        isUserArtist ? "ARTIST" : "AUDIENCE",
+        stageName,
+        genre,
+        instagram,
+        r.paymentStatus || "PENDING",
+        regDate,
+        Number(r.totalAmount) > 0 ? `INR ${r.totalAmount}` : "FREE",
+        ticketStatus
+      ];
+    });
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) =>
+        row
+          .map((value) => {
+            const strVal = String(value).replace(/"/g, '""');
+            return `"${strVal}"`;
+          })
+          .join(",")
+      )
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const cleanEventTitle = eventTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+    link.setAttribute("download", `registrations_${cleanEventTitle}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const statusIcon = (s: string) => s === "APPROVED" ? <CheckCircle size={13} className="text-green-600" /> : s === "PENDING" ? <Clock size={13} className="text-yellow-600" /> : s === "REJECTED" ? <XCircle size={13} className="text-red-600" /> : null;
 
   if (loading) return <div className="py-12 text-center font-display font-black text-sm uppercase animate-pulse text-[#121212]/40">Loading registrations…</div>;
@@ -194,6 +262,13 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
           <option value="ARTIST">Artists ({regs.filter(r => r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile).length})</option>
           <option value="AUDIENCE">Audience ({regs.filter(r => !(r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile)).length})</option>
         </select>
+        <button
+          onClick={handleExportCSV}
+          className="px-5 py-2.5 border-2 border-[#121212] bg-yellow-festival text-[#121212] font-display font-black text-xs uppercase tracking-tight rounded shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          title="Export filtered registrations to a CSV spreadsheet"
+        >
+          <Download size={13} /> Export Sheet
+        </button>
       </div>
       <div className="border-3 border-[#121212] rounded overflow-hidden shadow-brutal">
         <div className="grid grid-cols-12 bg-[#121212] text-[#FAF8F5] px-4 py-2.5 font-display font-black text-[10px] uppercase tracking-wider">
@@ -945,6 +1020,7 @@ const TABS = [
   { key: "gate",           label: "Ticket Gateway", icon: <Ticket size={14} /> },
   { key: "analytics",      label: "Analytics",     icon: <BarChart2 size={14} /> },
   { key: "voting",         label: "Manage Voting", icon: <Vote size={14} /> },
+  { key: "highlights",     label: "Highlights Feed", icon: <Camera size={14} /> },
 ] as const;
 type TabKey = typeof TABS[number]["key"];
 
@@ -971,10 +1047,14 @@ function OrganizerDashboardContent() {
   const [editForm, setEditForm] = useState<any>({
     title: "", description: "", venueName: "", venueAddress: "", city: "", state: "",
     maxCapacity: "200", isPaid: false, price: "0", audiencePrice: "0", artistPrice: "0",
-    upiVpa: "", upiQrUrl: "", artistQrUrl: "", audienceQrUrl: "", flyerUrl: "", status: "PUBLISHED"
+    upiVpa: "", upiQrUrl: "", artistQrUrl: "", audienceQrUrl: "", flyerUrl: "", status: "PUBLISHED",
+    sponsors: []
   });
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  const [newEditSponsorName, setNewEditSponsorName] = useState("");
+  const [newEditSponsorLogo, setNewEditSponsorLogo] = useState("");
 
   const handleStartEdit = async (ev: OrgEvent) => {
     try {
@@ -998,7 +1078,10 @@ function OrganizerDashboardContent() {
         audienceQrUrl: fullEvent.audienceQrUrl || fullEvent.upiQrUrl || "",
         flyerUrl: fullEvent.flyerUrl || "",
         status: fullEvent.status || "PUBLISHED",
+        sponsors: fullEvent.sponsors || [],
       });
+      setNewEditSponsorName("");
+      setNewEditSponsorLogo("");
       setEditError(null);
       setIsEditModalOpen(true);
     } catch (e: any) {
@@ -1029,6 +1112,7 @@ function OrganizerDashboardContent() {
         audienceQrUrl: editForm.audienceQrUrl || editForm.upiQrUrl,
         artistQrUrl: editForm.artistQrUrl,
         flyerUrl: editForm.flyerUrl,
+        sponsors: editForm.sponsors,
       };
 
       const updated = await api.patch(`/events/${editEventId}`, payload);
@@ -1142,6 +1226,23 @@ function OrganizerDashboardContent() {
             className="flex items-center gap-2 bg-yellow-festival text-[#121212] border-3 border-[#121212] font-black text-xs uppercase px-5 py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex-shrink-0">
             <PlusCircle size={15} /> CREATE EVENT
           </Link>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex border-b-3 border-[#121212] gap-2 overflow-x-auto pb-2 select-none">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-2 border-2 border-[#121212] rounded font-display font-black text-xs uppercase tracking-tight transition-all shadow-brutal-sm hover:translate-y-[1px] hover:shadow-none flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                activeTab === t.key ? "bg-yellow-festival text-[#121212]" : "bg-white text-gray-500 hover:bg-[#FAF8F5]"
+              }`}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Event selector (shown on non-events tabs as buttons instead of a dropdown) */}
@@ -1293,6 +1394,15 @@ function OrganizerDashboardContent() {
             </div>
           )}
 
+          {activeTab === "highlights" && (
+            <div className="space-y-4">
+              <h2 className="font-display font-black text-xl uppercase">
+                Manage Highlights Feed
+              </h2>
+              <HighlightsPanel />
+            </div>
+          )}
+
           {(activeTab === "registrations" || activeTab === "analytics" || activeTab === "voting" || activeTab === "gate") && !selectedEventId && !eventsLoading && (
             <div className="py-16 text-center">
               <p className="font-display font-black text-lg text-[#121212]/40 uppercase">No event selected — create one first.</p>
@@ -1425,6 +1535,82 @@ function OrganizerDashboardContent() {
                   <SupabaseUpload folder="element5/flyers" accept="image/*" label="UPLOAD NEW FLYER" maxSizeMB={10} onUploadSuccess={r => setEditForm({ ...editForm, flyerUrl: r.secure_url })} />
                 </div>
               </div>
+
+              {/* Sponsors upload */}
+              <div className="border-t border-[#121212]/10 pt-4 space-y-3">
+                <span className="font-display font-black text-xs uppercase block">Event Sponsors</span>
+                
+                {/* Add new sponsor */}
+                <div className="border border-[#121212]/20 bg-gray-50 p-3 rounded space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-gray-400">Sponsor Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Red Bull"
+                        className="w-full px-2 py-1.5 border border-[#121212]/30 bg-white rounded font-space font-bold text-xs focus:outline-none"
+                        value={newEditSponsorName}
+                        onChange={(e) => setNewEditSponsorName(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-gray-400">Logo Upload</label>
+                      <SupabaseUpload
+                        folder="element5/sponsors"
+                        accept="image/*"
+                        label={newEditSponsorLogo ? "RE-UPLOAD" : "UPLOAD LOGO"}
+                        maxSizeMB={5}
+                        onUploadSuccess={(r) => setNewEditSponsorLogo(r.secure_url)}
+                      />
+                      {newEditSponsorLogo && (
+                        <p className="text-[9px] text-green-600 font-bold mt-0.5">✓ Uploaded</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!newEditSponsorName.trim() || !newEditSponsorLogo}
+                    onClick={() => {
+                      setEditForm({
+                        ...editForm,
+                        sponsors: [...(editForm.sponsors || []), { name: newEditSponsorName, logo: newEditSponsorLogo }]
+                      });
+                      setNewEditSponsorName("");
+                      setNewEditSponsorLogo("");
+                    }}
+                    className="w-full bg-[#121212] text-white border border-[#121212] font-display font-black text-[9px] uppercase py-1.5 rounded disabled:opacity-50 hover:bg-[#121212]/80 cursor-pointer"
+                  >
+                    + Add Sponsor
+                  </button>
+                </div>
+
+                {/* List sponsors */}
+                {editForm.sponsors && editForm.sponsors.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                    {editForm.sponsors.map((sp: any, idx: number) => (
+                      <div key={idx} className="border border-[#121212]/30 bg-white p-2 rounded relative flex flex-col items-center text-center">
+                        <button
+                          type="button"
+                          onClick={() => setEditForm({
+                            ...editForm,
+                            sponsors: editForm.sponsors.filter((_: any, i: number) => i !== idx)
+                          })}
+                          className="absolute -top-1 -right-1 w-4.5 h-4.5 border border-[#121212] bg-red-stage text-white rounded-full flex items-center justify-center font-black text-[8px] hover:bg-red-700 cursor-pointer"
+                        >
+                          ✕
+                        </button>
+                        <div className="w-10 h-10 flex items-center justify-center border border-gray-100 rounded overflow-hidden p-0.5 bg-gray-50">
+                          <img src={sp.logo} alt={sp.name} className="max-w-full max-h-full object-contain" />
+                        </div>
+                        <span className="font-space font-black text-[8px] uppercase tracking-tight mt-1 truncate max-w-full">
+                          {sp.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {editError && (
@@ -1444,6 +1630,162 @@ function OrganizerDashboardContent() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function HighlightsPanel() {
+  const [highlights, setHighlights] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [imageUrl, setImageUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchHighlights = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.get("/highlights");
+      setHighlights(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error("Failed to fetch highlights:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHighlights();
+  }, [fetchHighlights]);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!imageUrl || !description.trim()) return;
+    setAdding(true);
+    setError(null);
+    try {
+      const newHighlight = await api.post("/highlights", { imageUrl, description });
+      setHighlights((prev) => [newHighlight, ...prev]);
+      setImageUrl("");
+      setDescription("");
+    } catch (err: any) {
+      setError(err?.message || "Failed to add highlight.");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await api.delete(`/highlights/${id}`);
+      setHighlights((prev) => prev.filter((h) => h.id !== id));
+    } catch (err: any) {
+      alert("Failed to delete highlight: " + (err?.message || err));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Add Highlight Form */}
+      <div className="lg:col-span-5 border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
+        <div>
+          <h3 className="font-display font-black text-lg uppercase">Add Highlight</h3>
+          <p className="font-space text-xs text-gray-500 font-bold">Publish a new image and description to the landing page Highlights Feed.</p>
+        </div>
+
+        {error && (
+          <div className="bg-red-500 text-white p-3 rounded text-xs font-bold font-space border-2 border-[#121212]">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleAdd} className="space-y-4 font-space">
+          <div className="space-y-1">
+            <label className="text-xs font-black uppercase text-gray-500 block">Highlight Image</label>
+            <input
+              type="text"
+              placeholder="Enter image URL or upload below..."
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="w-full p-2.5 border-2 border-[#121212] bg-white rounded font-bold text-xs focus:outline-none"
+              required
+            />
+            <div className="mt-2">
+              <SupabaseUpload
+                folder="element5/highlights"
+                accept="image/*"
+                label={imageUrl ? "✓ CHANGE UPLOADED IMAGE" : "UPLOAD IMAGE FILE"}
+                maxSizeMB={5}
+                onUploadSuccess={(r) => setImageUrl(r.secure_url)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-black uppercase text-gray-500 block">Caption / Description</label>
+            <textarea
+              placeholder="e.g. Sufi Acoustic Jam Session..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              className="w-full p-2.5 border-2 border-[#121212] bg-white rounded font-bold text-xs focus:outline-none resize-none"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={adding || !imageUrl || !description.trim()}
+            className="w-full bg-[#121212] text-white border-3 border-[#121212] font-display font-black text-xs uppercase py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {adding ? "PUBLISHING..." : "PUBLISH TO FEED"}
+          </button>
+        </form>
+      </div>
+
+      {/* Highlights List */}
+      <div className="lg:col-span-7 border-3 border-[#121212] bg-white p-6 rounded shadow-brutal space-y-4">
+        <div>
+          <h3 className="font-display font-black text-lg uppercase">Active Highlights</h3>
+          <p className="font-space text-xs text-gray-500 font-bold">Currently visible to visitors on the landing page.</p>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center font-display font-black text-sm uppercase animate-pulse text-[#121212]/40">
+            Loading Highlights Feed...
+          </div>
+        ) : highlights.length === 0 ? (
+          <div className="border-2 border-dashed border-[#121212]/20 p-8 rounded text-center">
+            <p className="font-space text-xs text-gray-400 font-bold">No dynamic highlights published yet. Showing system defaults.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[480px] overflow-y-auto pr-1">
+            {highlights.map((h) => (
+              <div key={h.id} className="border-2 border-[#121212] bg-[#FAF8F5] p-2.5 rounded shadow-brutal-sm relative flex flex-col justify-between gap-3">
+                <button
+                  type="button"
+                  disabled={deletingId === h.id}
+                  onClick={() => handleDelete(h.id)}
+                  className="absolute top-2 right-2 w-6 h-6 border-2 border-[#121212] bg-red-stage text-white rounded-full flex items-center justify-center font-black text-xs hover:bg-red-700 disabled:opacity-50 cursor-pointer z-10 shadow-brutal-sm"
+                  title="Remove Highlight"
+                >
+                  ✕
+                </button>
+                <div className="aspect-video w-full border border-[#121212]/20 rounded overflow-hidden bg-gray-100 relative">
+                  <img src={h.imageUrl} alt={h.description} className="w-full h-full object-cover" />
+                </div>
+                <p className="font-display font-bold text-xs uppercase tracking-tight text-red-stage line-clamp-2">
+                  {h.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

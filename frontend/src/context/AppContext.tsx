@@ -57,6 +57,9 @@ export interface Event {
   registrationProgress: number; // 0 to 100
   registrationLimit: number;
   isCompleted: boolean;
+  slug?: string;
+  isPaid?: boolean;
+  price?: number;
 }
 
 export interface Message {
@@ -158,6 +161,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             registrationProgress: e.maxCapacity ? Math.round((e.registrationsCount / e.maxCapacity) * 100) : 0,
             registrationLimit: e.maxCapacity || 100,
             isCompleted: ["COMPLETED", "ARCHIVED", "CANCELLED"].includes(e.status) || new Date(e.endDate || e.startDate) < new Date(),
+            slug: e.slug,
+            isPaid: e.isPaid,
+            price: e.price,
           }));
           setEvents(mapped);
         }
