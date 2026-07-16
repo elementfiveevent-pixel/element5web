@@ -134,13 +134,25 @@ export class EventController {
     return this.eventService.getEventAnalytics(eventId, user.id, user.roles ?? []);
   }
 
-  @Put(":eventId")
   @Patch(":eventId")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Update an existing event" })
-  async update(
+  @ApiOperation({ summary: "Update an existing event (PATCH)" })
+  async updatePatch(
+    @CurrentUser() user: any,
+    @Param("eventId") eventId: string,
+    @Body() dto: Partial<CreateEventDto>,
+  ) {
+    return this.eventService.updateEvent(eventId, user.id, dto, user.roles ?? []);
+  }
+
+  @Put(":eventId")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Update an existing event (PUT)" })
+  async updatePut(
     @CurrentUser() user: any,
     @Param("eventId") eventId: string,
     @Body() dto: Partial<CreateEventDto>,

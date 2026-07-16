@@ -263,6 +263,12 @@ export class PostgresModel {
               [row.user.id]
             );
             row.user.roles = rolesRes.rows;
+
+            const profileRes = await this.pool.query(
+              `SELECT * FROM "ArtistProfile" WHERE "userId" = $1`,
+              [row.user.id]
+            );
+            row.user.artistProfile = profileRes.rows[0] || null;
           }
         } else if (relation === "tickets" && this.tableName === "EventRegistration") {
           const ticketsRes = await this.pool.query(

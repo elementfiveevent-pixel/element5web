@@ -782,6 +782,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
       attendeeEmail: r.user?.email || "",
       role: (r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile) ? "ARTIST" : "AUDIENCE",
       paymentStatus: r.paymentStatus,
+      paymentScreenshotUrl: r.paymentScreenshotUrl,
     }))
   );
 
@@ -940,6 +941,13 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
                         <div className="min-w-0">
                           <p className="font-display font-bold text-sm truncate">{t.attendeeName}</p>
                           <p className="font-mono text-[9px] text-[#121212]/50 truncate">{t.qrCode}</p>
+                          {t.paymentScreenshotUrl && (
+                            <a href={t.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" 
+                              className="inline-flex items-center gap-1 mt-1 text-[9px] font-black text-red-stage hover:underline"
+                            >
+                              📸 VIEW RECEIPT
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>
