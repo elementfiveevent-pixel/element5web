@@ -271,7 +271,7 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
         </button>
       </div>
       <div className="border-3 border-[#121212] rounded overflow-hidden shadow-brutal">
-        <div className="grid grid-cols-12 bg-[#121212] text-[#FAF8F5] px-4 py-2.5 font-display font-black text-[10px] uppercase tracking-wider">
+        <div className="hidden sm:grid grid-cols-12 bg-[#121212] text-[#FAF8F5] px-4 py-2.5 font-display font-black text-[10px] uppercase tracking-wider">
           <div className="col-span-4">Attendee</div><div className="col-span-2 text-center">Status</div>
           <div className="col-span-2 text-center">Amount</div><div className="col-span-2 text-center">Ticket</div>
           <div className="col-span-2 text-right">Actions</div>
@@ -294,40 +294,44 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
             return (
               <div key={r.id} className="border-b border-[#121212]/10 bg-white">
                 <div 
-                  className="grid grid-cols-12 items-center px-4 py-3 hover:bg-[#FAF8F5] transition-colors cursor-pointer" 
+                  className="flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-0 items-start sm:items-center px-4 py-4 sm:py-3 hover:bg-[#FAF8F5] transition-colors cursor-pointer" 
                   onClick={() => setExpandedRegId(expandedRegId === r.id ? null : r.id)}
                 >
-                  <div className="col-span-4 flex items-center gap-2 min-w-0">
+                  <div className="w-full sm:col-span-4 flex items-center gap-2 min-w-0">
                     <div className="w-7 h-7 rounded-full bg-[#121212]/10 flex-shrink-0 flex items-center justify-center font-display font-black text-xs">
                       {(r.user?.fullName || "?")[0]}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-display font-bold text-sm truncate">{profile.stageName || r.user?.fullName || "User"}</p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-display font-bold text-sm truncate max-w-[120px] sm:max-w-none">{profile.stageName || r.user?.fullName || "User"}</p>
                         {isUserArtist && (
                           <span className="bg-red-stage text-white font-display font-black text-[7px] px-1.5 py-0.5 rounded rotate-[-2deg]">
                             ARTIST
                           </span>
                         )}
                       </div>
-                      <p className="font-space text-[10px] text-[#121212]/40 truncate">{r.user?.email || r.user?.email}</p>
+                      <p className="font-space text-[10px] text-[#121212]/40 truncate">{r.user?.email}</p>
                     </div>
                   </div>
-                  <div className="col-span-2 flex items-center justify-center gap-1">
+                  <div className="w-full sm:col-span-2 flex items-center sm:justify-center gap-1">
+                    <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-1">Status:</span>
                     {statusIcon(r.paymentStatus)}
                     <span className="font-space font-black text-[10px] uppercase">{r.paymentStatus}</span>
                   </div>
-                  <div className="col-span-2 text-center font-space font-black text-sm">
+                  <div className="w-full sm:col-span-2 text-left sm:text-center font-space font-black text-sm">
+                    <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Amount:</span>
                     {Number(r.totalAmount) > 0 ? `₹${r.totalAmount}` : "FREE"}
                   </div>
-                  <div className="col-span-2 text-center">
+                  <div className="w-full sm:col-span-2 text-left sm:text-center">
+                    <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Ticket:</span>
                     {r.tickets && r.tickets[0] ? (
                       <span className={`inline-flex items-center gap-1 font-space font-black text-[10px] uppercase px-2 py-0.5 rounded ${r.tickets[0].isUsed ? "bg-gray-200 text-gray-600" : "bg-green-100 text-green-700"}`}>
                         {r.tickets[0].isUsed ? "USED" : "VALID"}
                       </span>
                     ) : <span className="text-[#121212]/30 font-space text-[10px]">—</span>}
                   </div>
-                  <div className="col-span-2 flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <div className="w-full sm:col-span-2 flex items-center sm:justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Actions:</span>
                     {r.paymentStatus === "PENDING" && (
                       <>
                         <button onClick={() => review(r.id, "APPROVED")} disabled={reviewing === r.id}
@@ -345,10 +349,10 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
                     )}
                   </div>
                 </div>
-
+ 
                 {/* Accordion Content */}
                 {expandedRegId === r.id && (
-                  <div className="bg-[#FAF8F5] border-t border-[#121212]/5 px-12 py-4 space-y-3 font-space text-xs text-[#121212]/80 animate-fade-in">
+                  <div className="bg-[#FAF8F5] border-t border-[#121212]/5 px-4 sm:px-12 py-4 space-y-3 font-space text-xs text-[#121212]/80 animate-fade-in">
                     {isUserArtist ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -918,7 +922,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
           </div>
 
           <div className="border-3 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal overflow-hidden">
-            <div className="grid grid-cols-12 bg-[#121212] text-[#FAF8F5] px-4 py-2.5 font-display font-black text-[10px] uppercase tracking-wider">
+            <div className="hidden sm:grid grid-cols-12 bg-[#121212] text-[#FAF8F5] px-4 py-2.5 font-display font-black text-[10px] uppercase tracking-wider">
               <div className="col-span-5">Attendee / Ticket Code</div>
               <div className="col-span-2 text-center">Role</div>
               <div className="col-span-2 text-center">Status</div>
@@ -932,13 +936,13 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
                 </div>
               ) : (
                 filteredTickets.map((t) => (
-                  <div key={t.id} className="grid grid-cols-12 items-center px-4 py-3 bg-white hover:bg-[#FAF8F5] transition-colors">
-                    <div className="col-span-5">
+                  <div key={t.id} className="flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-0 items-start sm:items-center px-4 py-4 sm:py-3 bg-white hover:bg-[#FAF8F5] transition-colors">
+                    <div className="w-full sm:col-span-5">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded bg-yellow-festival/20 flex items-center justify-center font-display font-black text-xs border border-[#121212]/10">
+                        <div className="w-7 h-7 rounded bg-yellow-festival/20 flex items-center justify-center font-display font-black text-xs border border-[#121212]/10 flex-shrink-0">
                           {(t.attendeeName || "?")[0]}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="font-display font-bold text-sm truncate">{t.attendeeName}</p>
                           <p className="font-mono text-[9px] text-[#121212]/50 truncate">{t.qrCode}</p>
                           {t.paymentScreenshotUrl && (
@@ -952,7 +956,8 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
                       </div>
                     </div>
 
-                    <div className="col-span-2 text-center">
+                    <div className="w-full sm:col-span-2 text-left sm:text-center">
+                      <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Role:</span>
                       <span className={`font-space font-black text-[9px] uppercase px-1.5 py-0.5 rounded ${
                         t.role === "ARTIST" ? "bg-red-stage text-white" : "bg-blue-100 text-blue-800"
                       }`}>
@@ -960,7 +965,8 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
                       </span>
                     </div>
 
-                    <div className="col-span-2 text-center">
+                    <div className="w-full sm:col-span-2 text-left sm:text-center">
+                      <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Status:</span>
                       <span className={`inline-flex items-center gap-1 font-space font-black text-[10px] uppercase px-2 py-0.5 rounded ${
                         t.isUsed ? "bg-gray-200 text-gray-600" : "bg-green-100 text-green-700"
                       }`}>
@@ -968,7 +974,8 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
                       </span>
                     </div>
 
-                    <div className="col-span-3 flex items-center justify-end">
+                    <div className="w-full sm:col-span-3 flex items-center sm:justify-end">
+                      <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Action:</span>
                       {t.isUsed ? (
                         <span className="text-[10px] font-space font-bold text-gray-400">
                           {t.usedAt ? new Date(t.usedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "GATE"}

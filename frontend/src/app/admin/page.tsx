@@ -237,10 +237,10 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-3 border-[#121212] rounded overflow-hidden max-w-2xl bg-white">
+        <div className="flex overflow-x-auto whitespace-nowrap border-3 border-[#121212] rounded max-w-3xl bg-white scrollbar-none select-none">
           {TABS.map(t => (
             <button key={t} onClick={() => setActiveTab(t)}
-              className={`flex-1 py-3 font-display font-black text-xs uppercase transition-colors ${activeTab === t ? "bg-[#121212] text-white" : "bg-white text-[#121212]"}`}>
+              className={`px-5 py-3 font-display font-black text-xs uppercase transition-colors flex-shrink-0 ${activeTab === t ? "bg-[#121212] text-white" : "bg-white text-[#121212] hover:bg-gray-50"}`}>
               {t}
             </button>
           ))}
@@ -510,23 +510,30 @@ export default function AdminDashboard() {
           <div className="space-y-6">
             <h3 className="font-display font-black text-xl uppercase">Vote Reset System</h3>
             <div className="border-3 border-[#121212] bg-white rounded overflow-hidden shadow-brutal">
-              <div className="grid grid-cols-12 bg-[#121212] text-white p-3 font-display font-black text-xs uppercase tracking-wider">
+              <div className="hidden sm:grid grid-cols-12 bg-[#121212] text-white p-3 font-display font-black text-xs uppercase tracking-wider">
                 <div className="col-span-5">ARTIST</div><div className="col-span-3 text-center">VOTES</div>
                 <div className="col-span-2 text-center">SCORE</div><div className="col-span-2 text-right">RESET</div>
               </div>
               <div className="divide-y divide-[#121212]">
                 {artists.map(artist => (
-                  <div key={artist.id} className="grid grid-cols-12 items-center p-3 font-space font-bold text-sm">
-                    <div className="col-span-5 flex items-center gap-3">
+                  <div key={artist.id} className="flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-0 items-start sm:items-center p-3 font-space font-bold text-sm">
+                    <div className="w-full sm:col-span-5 flex items-center gap-3">
                       <img src={artist.avatar} alt="" className="w-8 h-8 rounded-full object-cover border border-[#121212]" />
                       <span className="truncate">{artist.name}</span>
                     </div>
-                    <div className="col-span-3 text-center text-red-stage font-black">{artist.votes}</div>
-                    <div className="col-span-2 text-center">{artist.stageVerseScore}%</div>
-                    <div className="col-span-2 text-right">
+                    <div className="w-full sm:col-span-3 text-left sm:text-center">
+                      <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Votes:</span>
+                      <span className="text-red-stage font-black">{artist.votes}</span>
+                    </div>
+                    <div className="w-full sm:col-span-2 text-left sm:text-center">
+                      <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Score:</span>
+                      <span>{artist.stageVerseScore}%</span>
+                    </div>
+                    <div className="w-full sm:col-span-2 text-left sm:text-right flex items-center justify-between sm:justify-end w-full">
+                      <span className="inline-block sm:hidden text-[9px] font-black uppercase text-gray-400 mr-2">Reset:</span>
                       <button onClick={() => setArtists(artists.map(a => a.id === artist.id ? { ...a, votes: 0 } : a))}
                         disabled={artist.votes === 0}
-                        className="text-xs bg-[#121212] text-white border border-[#121212] px-2.5 py-1 rounded disabled:opacity-30 hover:bg-red-stage">
+                        className="text-xs bg-[#121212] text-white border border-[#121212] px-2.5 py-1 rounded disabled:opacity-30 hover:bg-red-stage cursor-pointer">
                         RESET
                       </button>
                     </div>
@@ -602,6 +609,16 @@ export default function AdminDashboard() {
             <div className="border-3 border-[#121212] bg-white p-6 rounded shadow-brutal space-y-4">
               <h4 className="font-display font-black text-base uppercase flex items-center gap-2">
                 <Eye size={18} className="text-red-stage" /> Prometheus Metrics
+              </h4>
+              <p className="font-space text-sm text-gray-600">Raw Prometheus text metrics are exposed at the backend /metrics endpoint.</p>
+              <a href="http://localhost:4000/metrics" target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-[#121212] text-white font-black uppercase text-xs px-4 py-2.5 rounded hover:bg-black/80">
+                OPEN METRICS ENDPOINT →
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* ── HIGHLIGHTS FEED ── */}
         {activeTab === "highlights" && (
           <HighlightsPanel />
