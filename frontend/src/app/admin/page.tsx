@@ -237,7 +237,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex overflow-x-auto whitespace-nowrap border-3 border-[#121212] rounded max-w-3xl bg-white scrollbar-none select-none">
+        <div className="flex overflow-x-auto md:overflow-x-visible whitespace-nowrap border-3 border-[#121212] rounded w-full md:w-max bg-white scrollbar-thin select-none">
           {TABS.map(t => (
             <button key={t} onClick={() => setActiveTab(t)}
               className={`px-5 py-3 font-display font-black text-xs uppercase transition-colors flex-shrink-0 ${activeTab === t ? "bg-[#121212] text-white" : "bg-white text-[#121212] hover:bg-gray-50"}`}>
