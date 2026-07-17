@@ -1028,7 +1028,6 @@ const TABS = [
   { key: "gate",           label: "Ticket Gateway", icon: <Ticket size={14} /> },
   { key: "analytics",      label: "Analytics",     icon: <BarChart2 size={14} /> },
   { key: "voting",         label: "Manage Voting", icon: <Vote size={14} /> },
-  { key: "highlights",     label: "Highlights Feed", icon: <Camera size={14} /> },
 ] as const;
 type TabKey = typeof TABS[number]["key"];
 
@@ -1408,14 +1407,7 @@ function OrganizerDashboardContent() {
             </div>
           )}
 
-          {activeTab === "highlights" && (
-            <div className="space-y-4">
-              <h2 className="font-display font-black text-xl uppercase">
-                Manage Highlights Feed
-              </h2>
-              <HighlightsPanel />
-            </div>
-          )}
+
 
           {(activeTab === "registrations" || activeTab === "analytics" || activeTab === "voting" || activeTab === "gate") && !selectedEventId && !eventsLoading && (
             <div className="py-16 text-center">
@@ -1648,161 +1640,7 @@ function OrganizerDashboardContent() {
   );
 }
 
-function HighlightsPanel() {
-  const [highlights, setHighlights] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [imageUrl, setImageUrl] = useState("");
-  const [description, setDescription] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchHighlights = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await api.get("/highlights");
-      setHighlights(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      console.error("Failed to fetch highlights:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchHighlights();
-  }, [fetchHighlights]);
-
-  const handleAdd = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!imageUrl || !description.trim()) return;
-    setAdding(true);
-    setError(null);
-    try {
-      const newHighlight = await api.post("/highlights", { imageUrl, description });
-      setHighlights((prev) => [newHighlight, ...prev]);
-      setImageUrl("");
-      setDescription("");
-    } catch (err: any) {
-      setError(err?.message || "Failed to add highlight.");
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    setDeletingId(id);
-    try {
-      await api.delete(`/highlights/${id}`);
-      setHighlights((prev) => prev.filter((h) => h.id !== id));
-    } catch (err: any) {
-      alert("Failed to delete highlight: " + (err?.message || err));
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* Add Highlight Form */}
-      <div className="lg:col-span-5 border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
-        <div>
-          <h3 className="font-display font-black text-lg uppercase">Add Highlight</h3>
-          <p className="font-space text-xs text-gray-500 font-bold">Publish a new image and description to the landing page Highlights Feed.</p>
-        </div>
-
-        {error && (
-          <div className="bg-red-500 text-white p-3 rounded text-xs font-bold font-space border-2 border-[#121212]">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleAdd} className="space-y-4 font-space">
-          <div className="space-y-1">
-            <label className="text-xs font-black uppercase text-gray-500 block">Highlight Image</label>
-            <input
-              type="text"
-              placeholder="Enter image URL or upload below..."
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              className="w-full p-2.5 border-2 border-[#121212] bg-white rounded font-bold text-xs focus:outline-none"
-              required
-            />
-            <div className="mt-2">
-              <SupabaseUpload
-                folder="element5/highlights"
-                accept="image/*"
-                label={imageUrl ? "✓ CHANGE UPLOADED IMAGE" : "UPLOAD IMAGE FILE"}
-                maxSizeMB={5}
-                onUploadSuccess={(r) => setImageUrl(r.secure_url)}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-black uppercase text-gray-500 block">Caption / Description</label>
-            <textarea
-              placeholder="e.g. Sufi Acoustic Jam Session..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full p-2.5 border-2 border-[#121212] bg-white rounded font-bold text-xs focus:outline-none resize-none"
-              required
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={adding || !imageUrl || !description.trim()}
-            className="w-full bg-[#121212] text-white border-3 border-[#121212] font-display font-black text-xs uppercase py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50 cursor-pointer"
-          >
-            {adding ? "PUBLISHING..." : "PUBLISH TO FEED"}
-          </button>
-        </form>
-      </div>
-
-      {/* Highlights List */}
-      <div className="lg:col-span-7 border-3 border-[#121212] bg-white p-6 rounded shadow-brutal space-y-4">
-        <div>
-          <h3 className="font-display font-black text-lg uppercase">Active Highlights</h3>
-          <p className="font-space text-xs text-gray-500 font-bold">Currently visible to visitors on the landing page.</p>
-        </div>
-
-        {loading ? (
-          <div className="py-12 text-center font-display font-black text-sm uppercase animate-pulse text-[#121212]/40">
-            Loading Highlights Feed...
-          </div>
-        ) : highlights.length === 0 ? (
-          <div className="border-2 border-dashed border-[#121212]/20 p-8 rounded text-center">
-            <p className="font-space text-xs text-gray-400 font-bold">No dynamic highlights published yet. Showing system defaults.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[480px] overflow-y-auto pr-1">
-            {highlights.map((h) => (
-              <div key={h.id} className="border-2 border-[#121212] bg-[#FAF8F5] p-2.5 rounded shadow-brutal-sm relative flex flex-col justify-between gap-3">
-                <button
-                  type="button"
-                  disabled={deletingId === h.id}
-                  onClick={() => handleDelete(h.id)}
-                  className="absolute top-2 right-2 w-6 h-6 border-2 border-[#121212] bg-red-stage text-white rounded-full flex items-center justify-center font-black text-xs hover:bg-red-700 disabled:opacity-50 cursor-pointer z-10 shadow-brutal-sm"
-                  title="Remove Highlight"
-                >
-                  ✕
-                </button>
-                <div className="aspect-video w-full border border-[#121212]/20 rounded overflow-hidden bg-gray-100 relative">
-                  <img src={h.imageUrl} alt={h.description} className="w-full h-full object-cover" />
-                </div>
-                <p className="font-display font-bold text-xs uppercase tracking-tight text-red-stage line-clamp-2">
-                  {h.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export default function OrganizerDashboard() {
   return (

@@ -63,7 +63,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const { artists, events, collabRequests, setArtists, setEvents } = useApp();
 
-  const TABS = ["overview", "events", "creators", "organizers", "leaderboard", "media", "health"] as const;
+  const TABS = ["overview", "events", "creators", "organizers", "leaderboard", "highlights", "media", "health"] as const;
   const [activeTab, setActiveTab] = useState<typeof TABS[number]>("overview");
 
   const [backendStats, setBackendStats] = useState<BackendStats | null>(null);
@@ -602,17 +602,225 @@ export default function AdminDashboard() {
             <div className="border-3 border-[#121212] bg-white p-6 rounded shadow-brutal space-y-4">
               <h4 className="font-display font-black text-base uppercase flex items-center gap-2">
                 <Eye size={18} className="text-red-stage" /> Prometheus Metrics
-              </h4>
-              <p className="font-space text-sm text-gray-600">Raw Prometheus text metrics are exposed at the backend /metrics endpoint.</p>
-              <a href="http://localhost:4000/metrics" target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-[#121212] text-white font-black uppercase text-xs px-4 py-2.5 rounded hover:bg-black/80">
-                OPEN METRICS ENDPOINT →
-              </a>
-            </div>
-          </div>
+        {/* ── HIGHLIGHTS FEED ── */}
+        {activeTab === "highlights" && (
+          <HighlightsPanel />
         )}
 
       </div>
     </div>
   );
 }
+
+function HighlightsPanel() {
+  const [highlights, setHighlights] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  
+  // List of pending highlights that the admin is editing/adding
+  const [pendingItems, setPendingItems] = React.useState<{ id: string; imageUrl: string; description: string }[]>([
+    { id: Math.random().toString(), imageUrl: "", description: "" }
+  ]);
+  const [publishing, setPublishing] = React.useState(false);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const fetchHighlights = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.get("/highlights");
+      setHighlights(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error("Failed to fetch highlights:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchHighlights();
+  }, [fetchHighlights]);
+
+  const addPendingRow = () => {
+    setPendingItems((prev) => [...prev, { id: Math.random().toString(), imageUrl: "", description: "" }]);
+  };
+
+  const removePendingRow = (id: string) => {
+    setPendingItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const updatePendingItem = (id: string, field: "imageUrl" | "description", value: string) => {
+    setPendingItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const handlePublishAll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const validItems = pendingItems.filter((item) => item.imageUrl && item.description.trim());
+    if (validItems.length === 0) return;
+    
+    setPublishing(true);
+    setError(null);
+    try {
+      // Publish each valid highlight
+      const promises = validItems.map((item) =>
+        api.post("/highlights", { imageUrl: item.imageUrl, description: item.description })
+      );
+      const results = await Promise.all(promises);
+      
+      // Update local highlights state
+      setHighlights((prev) => [...results, ...prev]);
+      
+      // Reset pending items to a single empty row
+      setPendingItems([{ id: Math.random().toString(), imageUrl: "", description: "" }]);
+    } catch (err: any) {
+      setError(err?.message || "Failed to publish highlights.");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await api.delete(`/highlights/${id}`);
+      setHighlights((prev) => prev.filter((h) => h.id !== id));
+    } catch (err: any) {
+      alert("Failed to delete highlight: " + (err?.message || err));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Add Multiple Highlights Form */}
+      <div className="lg:col-span-6 border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
+        <div>
+          <h3 className="font-display font-black text-xl uppercase">Publish Highlights</h3>
+          <p className="font-space text-xs text-gray-500 font-bold mt-1">Add one or multiple highlight panels to publish to the landing page Highlights Feed.</p>
+        </div>
+
+        {error && (
+          <div className="bg-red-stage text-white p-3 rounded text-xs font-bold font-space border-2 border-[#121212]">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handlePublishAll} className="space-y-6">
+          <div className="space-y-4 max-h-[380px] overflow-y-auto pr-1">
+            {pendingItems.map((item, idx) => (
+              <div key={item.id} className="border-2 border-[#121212] bg-white p-4 rounded relative space-y-3 shadow-brutal-sm">
+                {pendingItems.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removePendingRow(item.id)}
+                    className="absolute top-2 right-2 w-5 h-5 border border-[#121212] bg-red-stage text-white rounded-full flex items-center justify-center font-black text-[10px] hover:bg-red-700 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+                <div className="font-display font-black text-xs uppercase text-gray-400">
+                  Highlight Panel #{idx + 1}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-gray-500 block">Image URL / Upload</label>
+                    <input
+                      type="text"
+                      placeholder="Image URL or upload below..."
+                      value={item.imageUrl}
+                      onChange={(e) => updatePendingItem(item.id, "imageUrl", e.target.value)}
+                      className="w-full p-2 border border-[#121212] bg-white rounded font-bold text-[11px] focus:outline-none"
+                      required
+                    />
+                    <div className="mt-1.5">
+                      <SupabaseUpload
+                        folder="element5/highlights"
+                        accept="image/*"
+                        label={item.imageUrl ? "CHANGE UPLOAD" : "UPLOAD IMAGE"}
+                        maxSizeMB={5}
+                        onUploadSuccess={(r) => updatePendingItem(item.id, "imageUrl", r.secure_url)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase text-gray-500 block">Description / Caption</label>
+                    <textarea
+                      placeholder="e.g. Sufi Acoustic Jam Session..."
+                      value={item.description}
+                      onChange={(e) => updatePendingItem(item.id, "description", e.target.value)}
+                      rows={3}
+                      className="w-full p-2 border border-[#121212] bg-white rounded font-bold text-[11px] focus:outline-none resize-none h-[72px]"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={addPendingRow}
+              className="flex-1 bg-white text-[#121212] border-3 border-[#121212] font-display font-black text-xs uppercase py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer"
+            >
+              + Add Another Panel
+            </button>
+            <button
+              type="submit"
+              disabled={publishing || pendingItems.filter(i => i.imageUrl && i.description.trim()).length === 0}
+              className="flex-1 bg-yellow-festival text-[#121212] border-3 border-[#121212] font-display font-black text-xs uppercase py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {publishing ? "PUBLISHING..." : "PUBLISH PANELS"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Active Highlights List */}
+      <div className="lg:col-span-6 border-3 border-[#121212] bg-white p-6 rounded shadow-brutal space-y-4">
+        <div>
+          <h3 className="font-display font-black text-xl uppercase">Active Feed</h3>
+          <p className="font-space text-xs text-gray-500 font-bold mt-1">Highlights currently visible on the landing page.</p>
+        </div>
+
+        {loading ? (
+          <div className="py-12 text-center font-display font-black text-sm uppercase animate-pulse text-[#121212]/40">
+            Loading Highlights Feed...
+          </div>
+        ) : highlights.length === 0 ? (
+          <div className="border-2 border-dashed border-[#121212]/20 p-8 rounded text-center">
+            <p className="font-space text-xs text-gray-400 font-bold">No dynamic highlights published yet. Showing system defaults.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[480px] overflow-y-auto pr-1">
+            {highlights.map((h) => (
+              <div key={h.id} className="border-2 border-[#121212] bg-[#FAF8F5] p-2.5 rounded shadow-brutal-sm relative flex flex-col justify-between gap-3 animate-fade-in">
+                <button
+                  type="button"
+                  disabled={deletingId === h.id}
+                  onClick={() => handleDelete(h.id)}
+                  className="absolute top-2 right-2 w-6 h-6 border-2 border-[#121212] bg-red-stage text-white rounded-full flex items-center justify-center font-black text-xs hover:bg-red-700 disabled:opacity-50 cursor-pointer z-10 shadow-brutal-sm"
+                  title="Remove Highlight"
+                >
+                  ✕
+                </button>
+                <div className="aspect-video w-full border border-[#121212]/20 rounded overflow-hidden bg-gray-100 relative">
+                  <img src={h.imageUrl} alt={h.description} className="w-full h-full object-cover" />
+                </div>
+                <p className="font-display font-bold text-xs uppercase tracking-tight text-red-stage line-clamp-2">
+                  {h.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
