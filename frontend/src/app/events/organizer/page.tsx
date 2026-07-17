@@ -1101,6 +1101,11 @@ function OrganizerDashboardContent() {
     setSavingEdit(true);
     setEditError(null);
     try {
+      let finalSponsors = editForm.sponsors || [];
+      if (newEditSponsorName.trim() && newEditSponsorLogo) {
+        finalSponsors = [...finalSponsors, { name: newEditSponsorName.trim(), logo: newEditSponsorLogo }];
+      }
+
       const payload = {
         title: editForm.title,
         description: editForm.description,
@@ -1120,7 +1125,7 @@ function OrganizerDashboardContent() {
         audienceQrUrl: editForm.audienceQrUrl || editForm.upiQrUrl,
         artistQrUrl: editForm.artistQrUrl,
         flyerUrl: editForm.flyerUrl,
-        sponsors: editForm.sponsors,
+        sponsors: finalSponsors,
       };
 
       const updated = await api.patch(`/events/${editEventId}`, payload);
@@ -1132,6 +1137,7 @@ function OrganizerDashboardContent() {
         flyerUrl: updated.flyerUrl,
         category: updated.category,
         maxCapacity: updated.maxCapacity,
+        sponsors: updated.sponsors || [],
         location: updated.location ? { venueName: updated.location.venueName, city: updated.location.city } : e.location
       } : e));
 

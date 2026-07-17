@@ -147,6 +147,11 @@ export default function CreateEventPage() {
     setSubmitting(true);
     setSubmitError(null);
     try {
+      let finalSponsors = form.sponsors || [];
+      if (newSponsorName.trim() && newSponsorLogo) {
+        finalSponsors = [...finalSponsors, { name: newSponsorName.trim(), logo: newSponsorLogo }];
+      }
+
       const payload = {
         title:               form.title.trim(),
         description:         form.description.trim() || undefined,
@@ -172,7 +177,7 @@ export default function CreateEventPage() {
         flyerUrl:            form.flyerUrl || undefined,
         termsConditions:     form.termsConditions.trim() || undefined,
         customFields:        form.customFields.filter((field) => field.label.trim()),
-        sponsors:            form.sponsors,
+        sponsors:            finalSponsors,
       };
       const result = await api.post("/events", payload);
       setCreatedEvent({ id: result.id, slug: result.slug, title: result.title });

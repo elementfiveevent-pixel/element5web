@@ -17,7 +17,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("e5_auth_token")?.value;
 
-  const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
+  const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route)) && !pathname.startsWith("/admin/login");
   const isAuthOnly = AUTH_ONLY_ROUTES.some((route) => pathname.startsWith(route));
 
   if (isProtected && !token) {
