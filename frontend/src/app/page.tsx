@@ -6,7 +6,6 @@ import HeroBackground from "@/components/ui/HeroBackground";
 
 import { Play, Flame, Star, Trophy, Users, Award, Calendar, MapPin, Clock, ArrowRight, Check, Sparkles } from "lucide-react";
 import Link from "next/link";
-import confetti from "canvas-confetti";
 import { api } from "@/lib/api";
 
 export default function Home() {
@@ -94,7 +93,6 @@ export default function Home() {
   const [curtainsOpened, setCurtainsOpened] = useState(false);
   const [curtainsFinished, setCurtainsFinished] = useState(false);
   const [lightsOn, setLightsOn] = useState(false);
-  const [audioPulse, setAudioPulse] = useState(false);
   
   // Timer for Countdown
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
@@ -113,15 +111,10 @@ export default function Home() {
       setLightsOn(true);
     }, 2200);
 
-    const audioTimer = setInterval(() => {
-      setAudioPulse((prev) => !prev);
-    }, 800);
-
     return () => {
       clearTimeout(curtainTimer);
       clearTimeout(finishTimer);
       clearTimeout(lightsTimer);
-      clearInterval(audioTimer);
     };
   }, []);
 
@@ -158,7 +151,8 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [displayedEvent]);
 
-  const triggerConfetti = () => {
+  const triggerConfetti = async () => {
+    const { default: confetti } = await import("canvas-confetti");
     confetti({
       particleCount: 120,
       spread: 70,
@@ -259,10 +253,10 @@ export default function Home() {
         </div>
 
         <div className="absolute bottom-4 sm:bottom-8 left-4 sm:left-8 hidden sm:flex items-end gap-1.5 z-10 opacity-70">
-          <div className={`w-1.5 bg-yellow-festival transition-all duration-300 ${audioPulse ? "h-8" : "h-3"}`} />
-          <div className={`w-1.5 bg-red-stage transition-all duration-300 ${audioPulse ? "h-4" : "h-10"}`} />
-          <div className={`w-1.5 bg-[#FAF8F5] transition-all duration-300 ${audioPulse ? "h-12" : "h-4"}`} />
-          <div className={`w-1.5 bg-orange-burnt transition-all duration-300 ${audioPulse ? "h-6" : "h-12"}`} />
+          <div className={`w-1.5 bg-yellow-festival animate-[audioPulse1_0.8s_infinite_alternate] ease-in-out`} />
+          <div className={`w-1.5 bg-red-stage animate-[audioPulse2_0.8s_infinite_alternate] ease-in-out`} />
+          <div className={`w-1.5 bg-[#FAF8F5] animate-[audioPulse3_0.8s_infinite_alternate] ease-in-out`} />
+          <div className={`w-1.5 bg-orange-burnt animate-[audioPulse4_0.8s_infinite_alternate] ease-in-out`} />
           <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF8F5]/50 pl-2">LIVE FREQUENCY</span>
         </div>
       </section>

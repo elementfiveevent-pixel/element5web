@@ -24,21 +24,25 @@ export default function HeroBackground() {
 
       {/* Moving Stage Spotlight 1 - Red */}
       <div 
-        className="absolute w-[60vw] h-[60vw] rounded-full opacity-30 mix-blend-screen blur-[120px] animate-[pulseRed_10s_infinite_alternate]"
+        className="absolute w-[60vw] h-[60vw] rounded-full opacity-30 mix-blend-screen blur-[80px] animate-[pulseRed_10s_infinite_alternate]"
         style={{
           background: "radial-gradient(circle, #D80032 0%, transparent 70%)",
           top: "-10%",
-          left: "10%"
+          left: "10%",
+          willChange: "transform",
+          contain: "layout style"
         }}
       />
 
       {/* Moving Stage Spotlight 2 - Yellow */}
       <div 
-        className="absolute w-[50vw] h-[50vw] rounded-full opacity-25 mix-blend-screen blur-[100px] animate-[pulseYellow_8s_infinite_alternate]"
+        className="absolute w-[50vw] h-[50vw] rounded-full opacity-25 mix-blend-screen blur-[60px] animate-[pulseYellow_8s_infinite_alternate]"
         style={{
           background: "radial-gradient(circle, #FFDE4D 0%, transparent 70%)",
           bottom: "10%",
-          right: "5%"
+          right: "5%",
+          willChange: "transform",
+          contain: "layout style"
         }}
       />
 

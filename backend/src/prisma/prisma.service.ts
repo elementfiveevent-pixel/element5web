@@ -184,7 +184,8 @@ export class PostgresModel {
   private async loadIncludes(rows: any[], include: any) {
     if (!rows || rows.length === 0 || !include) return;
 
-    for (const row of rows) {
+    if (rows.length === 1) {
+      const row = rows[0];
       for (const [relation, includeVal] of Object.entries(include)) {
         if (!includeVal) continue;
 
@@ -298,7 +299,6 @@ export class PostgresModel {
           );
           row.user = userRes.rows[0] || null;
         } else if (relation === "achievements" && this.tableName === "ArtistProfile") {
-          // ArtistAchievement join table — graceful empty array if table doesn't exist
           try {
             const achRes = await this.pool.query(
               `SELECT * FROM "ArtistAchievement" WHERE "artistProfileId" = $1`,
@@ -309,7 +309,6 @@ export class PostgresModel {
             row.achievements = [];
           }
         } else if (relation === "performances" && this.tableName === "ArtistProfile") {
-          // Performance records — graceful empty array if table doesn't exist
           try {
             const perfRes = await this.pool.query(
               `SELECT * FROM "Performance" WHERE "artistProfileId" = $1`,
@@ -336,7 +335,6 @@ export class PostgresModel {
             `SELECT * FROM "JudgeScore" WHERE "submissionId" = $1`,
             [row.id]
           );
-          // Support both alias names so callers using either "scores" or "judgeScores" work
           row.judgeScores = scoresRes.rows;
           row.scores = scoresRes.rows;
         } else if (relation === "reporter" && this.tableName === "ModerationReport") {
@@ -383,8 +381,456 @@ export class PostgresModel {
           );
           row.user = userRes.rows[0] || null;
         }
-        // Gracefully skip unknown relations (sponsors, partners, announcements, media, etc.)
-        // so callers don't crash when querying relations not yet modeled
+      }
+      return;
+    }
+
+    for (const [relation, includeVal] of Object.entries(include)) {
+      if (!includeVal) continue;
+
+      if (relation === "roles" && this.tableName === "User") {
+        const ids = rows.map((r) => r.id);
+        const res = await this.pool.query(
+          `SELECT * FROM "RoleAssignment" WHERE "userId" = ANY($1)`,
+          [ids]
+        );
+        const rolesGrouped = res.rows.reduce((acc: any, r: any) => {
+          if (!acc[r.userId]) acc[r.userId] = [];
+          acc[r.userId].push(r);
+          return acc;
+        }, {});
+        for (const row of rows) {
+          row.roles = rolesGrouped[row.id] || [];
+        }
+      } else if (relation === "user" && this.tableName === "RefreshToken") {
+        const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+        if (userIds.length > 0) {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [userIds]
+          );
+          const usersMap = new Map(userRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.user = usersMap.get(row.userId) || null;
+          }
+          if (typeof includeVal === "object" && (includeVal as any).include) {
+            const fetchedUsers = Array.from(usersMap.values());
+            if (fetchedUsers.length > 0) {
+              await this.service.user.loadIncludes(fetchedUsers, (includeVal as any).include);
+            }
+          }
+        } else {
+          for (const row of rows) {
+            row.user = null;
+          }
+        }
+      } else if (relation === "user" && this.tableName === "RoleAssignment") {
+        const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+        if (userIds.length > 0) {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [userIds]
+          );
+          const usersMap = new Map(userRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.user = usersMap.get(row.userId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.user = null;
+          }
+        }
+      } else if (relation === "location" && this.tableName === "Event") {
+        const eventIds = rows.map((r) => r.id);
+        const locRes = await this.pool.query(
+          `SELECT * FROM "Location" WHERE "eventId" = ANY($1)`,
+          [eventIds]
+        );
+        const locMap = new Map(locRes.rows.map((l: any) => [l.eventId, l]));
+        for (const row of rows) {
+          row.location = locMap.get(row.id) || null;
+        }
+      } else if (relation === "ticketCategories" && this.tableName === "Event") {
+        const eventIds = rows.map((r) => r.id);
+        const catRes = await this.pool.query(
+          `SELECT * FROM "TicketCategory" WHERE "eventId" = ANY($1)`,
+          [eventIds]
+        );
+        const catsGrouped = catRes.rows.reduce((acc: any, c: any) => {
+          if (!acc[c.eventId]) acc[c.eventId] = [];
+          acc[c.eventId].push(c);
+          return acc;
+        }, {});
+        for (const row of rows) {
+          row.ticketCategories = catsGrouped[row.id] || [];
+        }
+      } else if (relation === "organizer" && this.tableName === "Event") {
+        const orgIds = [...new Set(rows.map((r) => r.organizerId).filter(Boolean))];
+        if (orgIds.length > 0) {
+          const orgRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [orgIds]
+          );
+          const orgMap = new Map(orgRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.organizer = orgMap.get(row.organizerId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.organizer = null;
+          }
+        }
+      } else if (relation === "registrations" && this.tableName === "Event") {
+        const eventIds = rows.map((r) => r.id);
+        const regsRes = await this.pool.query(
+          `SELECT * FROM "EventRegistration" WHERE "eventId" = ANY($1)`,
+          [eventIds]
+        );
+        const regsGrouped = regsRes.rows.reduce((acc: any, r: any) => {
+          if (!acc[r.eventId]) acc[r.eventId] = [];
+          acc[r.eventId].push(r);
+          return acc;
+        }, {});
+        for (const row of rows) {
+          row.registrations = regsGrouped[row.id] || [];
+        }
+      } else if (relation === "tickets" && this.tableName === "Event") {
+        const eventIds = rows.map((r) => r.id);
+        const ticketsRes = await this.pool.query(
+          `SELECT * FROM "EventTicket" WHERE "eventId" = ANY($1)`,
+          [eventIds]
+        );
+        const ticketsGrouped = ticketsRes.rows.reduce((acc: any, t: any) => {
+          if (!acc[t.eventId]) acc[t.eventId] = [];
+          acc[t.eventId].push(t);
+          return acc;
+        }, {});
+        for (const row of rows) {
+          row.tickets = ticketsGrouped[row.id] || [];
+        }
+      } else if (relation === "checkInAuditLogs" && this.tableName === "Event") {
+        const eventIds = rows.map((r) => r.id);
+        const logsRes = await this.pool.query(
+          `SELECT * FROM "CheckInAuditLog" WHERE "eventId" = ANY($1) ORDER BY "createdAt" ASC`,
+          [eventIds]
+        );
+        const logsGrouped = logsRes.rows.reduce((acc: any, l: any) => {
+          if (!acc[l.eventId]) acc[l.eventId] = [];
+          acc[l.eventId].push(l);
+          return acc;
+        }, {});
+        for (const row of rows) {
+          row.checkInAuditLogs = logsGrouped[row.id] || [];
+        }
+      } else if (relation === "event" && this.tableName === "EventRegistration") {
+        const eventIds = [...new Set(rows.map((r) => r.eventId).filter(Boolean))];
+        if (eventIds.length > 0) {
+          const eventRes = await this.pool.query(
+            `SELECT * FROM "Event" WHERE "id" = ANY($1)`,
+            [eventIds]
+          );
+          const eventsMap = new Map(eventRes.rows.map((e: any) => [e.id, e]));
+          for (const row of rows) {
+            row.event = eventsMap.get(row.eventId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.event = null;
+          }
+        }
+      } else if (relation === "user" && this.tableName === "EventRegistration") {
+        const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+        if (userIds.length > 0) {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [userIds]
+          );
+          const usersMap = new Map<any, any>(userRes.rows.map((u: any) => [u.id, u]));
+
+          const fetchedUserIds = Array.from(usersMap.keys());
+          let rolesGrouped: any = {};
+          let profilesMap = new Map<any, any>();
+
+          if (fetchedUserIds.length > 0) {
+            const rolesRes = await this.pool.query(
+              `SELECT * FROM "RoleAssignment" WHERE "userId" = ANY($1)`,
+              [fetchedUserIds]
+            );
+            rolesGrouped = rolesRes.rows.reduce((acc: any, r: any) => {
+              if (!acc[r.userId]) acc[r.userId] = [];
+              acc[r.userId].push(r);
+              return acc;
+            }, {});
+
+            const profileRes = await this.pool.query(
+              `SELECT * FROM "ArtistProfile" WHERE "userId" = ANY($1)`,
+              [fetchedUserIds]
+            );
+            profilesMap = new Map<any, any>(profileRes.rows.map((p: any) => [p.userId, p]));
+          }
+
+          for (const row of rows) {
+            const u = usersMap.get(row.userId) as any || null;
+            row.user = u;
+            if (u) {
+              u.roles = rolesGrouped[u.id] || [];
+              u.artistProfile = profilesMap.get(u.id) || null;
+            }
+          }
+        } else {
+          for (const row of rows) {
+            row.user = null;
+          }
+        }
+      } else if (relation === "tickets" && this.tableName === "EventRegistration") {
+        const regIds = rows.map((r) => r.id);
+        const ticketsRes = await this.pool.query(
+          `SELECT * FROM "EventTicket" WHERE "registrationId" = ANY($1)`,
+          [regIds]
+        );
+        const ticketsGrouped = ticketsRes.rows.reduce((acc: any, t: any) => {
+          if (!acc[t.registrationId]) acc[t.registrationId] = [];
+          acc[t.registrationId].push(t);
+          return acc;
+        }, {});
+        for (const row of rows) {
+          row.tickets = ticketsGrouped[row.id] || [];
+        }
+      } else if (relation === "user" && this.tableName === "StageVerseSubmission") {
+        const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+        if (userIds.length > 0) {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [userIds]
+          );
+          const usersMap = new Map(userRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.user = usersMap.get(row.userId) || null;
+          }
+          if (typeof includeVal === "object" && (includeVal as any).include) {
+            const fetchedUsers = Array.from(usersMap.values());
+            if (fetchedUsers.length > 0) {
+              await this.service.user.loadIncludes(fetchedUsers, (includeVal as any).include);
+            }
+          }
+        } else {
+          for (const row of rows) {
+            row.user = null;
+          }
+        }
+      } else if (relation === "artistProfile" && this.tableName === "User") {
+        const userIds = rows.map((r) => r.id);
+        const profileRes = await this.pool.query(
+          `SELECT * FROM "ArtistProfile" WHERE "userId" = ANY($1)`,
+          [userIds]
+        );
+        const profileMap = new Map(profileRes.rows.map((p: any) => [p.userId, p]));
+        for (const row of rows) {
+          row.artistProfile = profileMap.get(row.id) || null;
+        }
+      } else if (relation === "user" && this.tableName === "ArtistProfile") {
+        const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+        if (userIds.length > 0) {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [userIds]
+          );
+          const usersMap = new Map(userRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.user = usersMap.get(row.userId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.user = null;
+          }
+        }
+      } else if (relation === "achievements" && this.tableName === "ArtistProfile") {
+        const profileIds = rows.map((r) => r.id);
+        try {
+          const achRes = await this.pool.query(
+            `SELECT * FROM "ArtistAchievement" WHERE "artistProfileId" = ANY($1)`,
+            [profileIds]
+          );
+          const achsGrouped = achRes.rows.reduce((acc: any, a: any) => {
+            if (!acc[a.artistProfileId]) acc[a.artistProfileId] = [];
+            acc[a.artistProfileId].push(a);
+            return acc;
+          }, {});
+          for (const row of rows) {
+            row.achievements = achsGrouped[row.id] || [];
+          }
+        } catch {
+          for (const row of rows) {
+            row.achievements = [];
+          }
+        }
+      } else if (relation === "performances" && this.tableName === "ArtistProfile") {
+        const profileIds = rows.map((r) => r.id);
+        try {
+          const perfRes = await this.pool.query(
+            `SELECT * FROM "Performance" WHERE "artistProfileId" = ANY($1)`,
+            [profileIds]
+          );
+          const perfsGrouped = perfRes.rows.reduce((acc: any, p: any) => {
+            if (!acc[p.artistProfileId]) acc[p.artistProfileId] = [];
+            acc[p.artistProfileId].push(p);
+            return acc;
+          }, {});
+          for (const row of rows) {
+            row.performances = perfsGrouped[row.id] || [];
+          }
+        } catch {
+          for (const row of rows) {
+            row.performances = [];
+          }
+        }
+      } else if (relation === "submission" && this.tableName === "Vote") {
+        const subIds = [...new Set(rows.map((r) => r.submissionId).filter(Boolean))];
+        if (subIds.length > 0) {
+          const subRes = await this.pool.query(
+            `SELECT * FROM "StageVerseSubmission" WHERE "id" = ANY($1)`,
+            [subIds]
+          );
+          const subMap = new Map(subRes.rows.map((s: any) => [s.id, s]));
+          for (const row of rows) {
+            row.submission = subMap.get(row.submissionId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.submission = null;
+          }
+        }
+      } else if (relation === "votes" && this.tableName === "StageVerseSubmission") {
+        const submissionIds = rows.map((r) => r.id);
+        const votesRes = await this.pool.query(
+          `SELECT * FROM "Vote" WHERE "submissionId" = ANY($1)`,
+          [submissionIds]
+        );
+        const votesGrouped = votesRes.rows.reduce((acc: any, v: any) => {
+          if (!acc[v.submissionId]) acc[v.submissionId] = [];
+          acc[v.submissionId].push(v);
+          return acc;
+        }, {});
+        for (const row of rows) {
+          row.votes = votesGrouped[row.id] || [];
+        }
+      } else if ((relation === "judgeScores" || relation === "scores") && this.tableName === "StageVerseSubmission") {
+        const submissionIds = rows.map((r) => r.id);
+        const scoresRes = await this.pool.query(
+          `SELECT * FROM "JudgeScore" WHERE "submissionId" = ANY($1)`,
+          [submissionIds]
+        );
+        const scoresGrouped = scoresRes.rows.reduce((acc: any, s: any) => {
+          if (!acc[s.submissionId]) acc[s.submissionId] = [];
+          acc[s.submissionId].push(s);
+          return acc;
+        }, {});
+        for (const row of rows) {
+          row.judgeScores = scoresGrouped[row.id] || [];
+          row.scores = scoresGrouped[row.id] || [];
+        }
+      } else if (relation === "reporter" && this.tableName === "ModerationReport") {
+        const reporterIds = [...new Set(rows.map((r) => r.reporterId).filter(Boolean))];
+        if (reporterIds.length > 0) {
+          const reporterRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [reporterIds]
+          );
+          const reporterMap = new Map(reporterRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.reporter = reporterMap.get(row.reporterId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.reporter = null;
+          }
+        }
+      } else if (relation === "moderator" && this.tableName === "ModerationReport") {
+        const moderatorIds = [...new Set(rows.map((r) => r.moderatorId).filter(Boolean))];
+        if (moderatorIds.length > 0) {
+          const modRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [moderatorIds]
+          );
+          const modMap = new Map(modRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.moderator = modMap.get(row.moderatorId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.moderator = null;
+          }
+        }
+      } else if (relation === "user" && this.tableName === "AuditLog") {
+        const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+        if (userIds.length > 0) {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [userIds]
+          );
+          const usersMap = new Map(userRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.user = usersMap.get(row.userId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.user = null;
+          }
+        }
+      } else if (relation === "event" && this.tableName === "EventTicket") {
+        const eventIds = [...new Set(rows.map((r) => r.eventId).filter(Boolean))];
+        if (eventIds.length > 0) {
+          const eventRes = await this.pool.query(
+            `SELECT * FROM "Event" WHERE "id" = ANY($1)`,
+            [eventIds]
+          );
+          const eventsMap = new Map(eventRes.rows.map((e: any) => [e.id, e]));
+          for (const row of rows) {
+            row.event = eventsMap.get(row.eventId) || null;
+          }
+          if (typeof includeVal === "object" && (includeVal as any).include) {
+            const fetchedEvents = Array.from(eventsMap.values());
+            if (fetchedEvents.length > 0) {
+              await this.service.event.loadIncludes(fetchedEvents, (includeVal as any).include);
+            }
+          }
+        } else {
+          for (const row of rows) {
+            row.event = null;
+          }
+        }
+      } else if (relation === "registration" && this.tableName === "EventTicket") {
+        const regIds = [...new Set(rows.map((r) => r.registrationId).filter(Boolean))];
+        if (regIds.length > 0) {
+          const regRes = await this.pool.query(
+            `SELECT * FROM "EventRegistration" WHERE "id" = ANY($1)`,
+            [regIds]
+          );
+          const regsMap = new Map(regRes.rows.map((r: any) => [r.id, r]));
+          for (const row of rows) {
+            row.registration = regsMap.get(row.registrationId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.registration = null;
+          }
+        }
+      } else if (relation === "user" && this.tableName === "EventTicket") {
+        const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+        if (userIds.length > 0) {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [userIds]
+          );
+          const usersMap = new Map(userRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.user = usersMap.get(row.userId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.user = null;
+          }
+        }
       }
     }
   }
@@ -705,6 +1151,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     this.pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       connectionTimeoutMillis: 5000,
+      max: 20,
+      idleTimeoutMillis: 30000,
       ssl: useSsl ? { rejectUnauthorized: false } : undefined,
     });
 

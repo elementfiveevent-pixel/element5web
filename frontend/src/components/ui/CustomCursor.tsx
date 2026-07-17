@@ -1,34 +1,47 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 
 export default function CustomCursor() {
-  const [position, setPosition] = useState({ x: -100, y: -100 });
-  const [cursorType, setCursorType] = useState<"default" | "link" | "media" | "vote">("default");
-  const [isVisible, setIsVisible] = useState(false);
-  const [isMobile, setIsMobile] = useState(true);
+  const cursorRef = useRef<HTMLDivElement>(null);
+  const cursorTypeRef = useRef<"default" | "link" | "media" | "vote">("default");
+  const visibleRef = useRef(false);
+  const isMobileRef = useRef(true);
+  const [mounted, setMounted] = React.useState(false);
 
   useEffect(() => {
     const checkDevice = () => {
-      setIsMobile(
+      isMobileRef.current =
         window.matchMedia("(max-width: 768px)").matches ||
         "ontouchstart" in window ||
-        navigator.maxTouchPoints > 0
-      );
+        navigator.maxTouchPoints > 0;
     };
 
     checkDevice();
     window.addEventListener("resize", checkDevice);
 
-    if (isMobile) return;
+    if (isMobileRef.current) {
+      setMounted(false);
+      return () => window.removeEventListener("resize", checkDevice);
+    }
+
+    setMounted(true);
 
     const handleMouseMove = (e: MouseEvent) => {
-      setPosition({ x: e.clientX, y: e.clientY });
-      if (!isVisible) setIsVisible(true);
+      if (cursorRef.current) {
+        cursorRef.current.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
+        if (!visibleRef.current) {
+          visibleRef.current = true;
+          cursorRef.current.style.opacity = "1";
+        }
+      }
     };
 
     const handleMouseLeave = () => {
-      setIsVisible(false);
+      visibleRef.current = false;
+      if (cursorRef.current) {
+        cursorRef.current.style.opacity = "0";
+      }
     };
 
     const handleMouseOver = (e: MouseEvent) => {
@@ -38,20 +51,34 @@ export default function CustomCursor() {
       const clickable = target.closest("a, button, [role='button'], input, select, textarea");
       const cursorAttr = target.closest("[data-cursor]")?.getAttribute("data-cursor");
 
+      let newType: "default" | "link" | "media" | "vote" = "default";
       if (cursorAttr === "play") {
-        setCursorType("media");
+        newType = "media";
       } else if (cursorAttr === "vote") {
-        setCursorType("vote");
+        newType = "vote";
       } else if (clickable) {
-        setCursorType("link");
-      } else {
-        setCursorType("default");
+        newType = "link";
+      }
+
+      if (newType !== cursorTypeRef.current) {
+        cursorTypeRef.current = newType;
+        if (cursorRef.current) {
+          cursorRef.current.className = `custom-cursor ${
+            newType === "link"
+              ? "hovered-link"
+              : newType === "media"
+              ? "hovered-media"
+              : newType === "vote"
+              ? "hovered-vote"
+              : ""
+          }`;
+        }
       }
     };
 
-    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
     document.addEventListener("mouseleave", handleMouseLeave);
-    window.addEventListener("mouseover", handleMouseOver);
+    window.addEventListener("mouseover", handleMouseOver, { passive: true });
 
     return () => {
       window.removeEventListener("resize", checkDevice);
@@ -59,37 +86,22 @@ export default function CustomCursor() {
       document.removeEventListener("mouseleave", handleMouseLeave);
       window.removeEventListener("mouseover", handleMouseOver);
     };
-  }, [isMobile, isVisible]);
+  }, []);
 
-  if (isMobile || !isVisible) return null;
+  if (!mounted) return null;
 
   return (
     <div
-      className={`custom-cursor ${
-        cursorType === "link"
-          ? "hovered-link"
-          : cursorType === "media"
-          ? "hovered-media"
-          : cursorType === "vote"
-          ? "hovered-vote"
-          : ""
-      }`}
+      ref={cursorRef}
+      className="custom-cursor"
       style={{
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        position: "fixed",
+        top: 0,
+        left: 0,
+        opacity: 0,
         pointerEvents: "none",
+        willChange: "transform",
       }}
-    >
-      {cursorType === "media" && (
-        <span className="text-[10px] font-black tracking-widest text-[#121212] select-none pointer-events-none">
-          PLAY
-        </span>
-      )}
-      {cursorType === "vote" && (
-        <span className="text-[10px] font-black tracking-widest text-[#121212] select-none pointer-events-none">
-          VOTE
-        </span>
-      )}
-    </div>
+    />
   );
 }

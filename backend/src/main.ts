@@ -7,6 +7,8 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { json, urlencoded } from "express";
 
+import { gzipMiddleware } from "./common/middleware/gzip.middleware";
+
 async function bootstrap() {
   if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
     throw new Error("FATAL: JWT_SECRET environment variable is required in production mode.");
@@ -14,7 +16,8 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
-  // 1. Global Security Middleware
+  // 1. Global Security Middleware & Compression
+  app.use(gzipMiddleware);
   app.use(json({ limit: "50mb" }));
   app.use(urlencoded({ limit: "50mb", extended: true }));
   app.use(helmet());
