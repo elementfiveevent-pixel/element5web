@@ -65,7 +65,7 @@ async function bootstrap() {
 
   // 4. Server Start
   const port = process.env.PORT || 4000;
-  await app.listen(port);
+  await app.listen(port, "0.0.0.0");
   console.log(`🚀 Element 5 Core Backend is running on: http://localhost:${port}`);
   console.log(`📖 API Documentation is available at: http://localhost:${port}/api/docs`);
 }
