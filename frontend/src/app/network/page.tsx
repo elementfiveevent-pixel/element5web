@@ -65,6 +65,7 @@ export default function ArtistNetwork() {
 
   // ── Messaging ──
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>(artists[0]?.id || "");
+  const [mobileShowChat, setMobileShowChat] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [backendMessages, setBackendMessages] = useState<BackendMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -604,7 +605,7 @@ export default function ArtistNetwork() {
             <div className="border-3 border-[#121212] bg-[#121212] rounded shadow-brutal min-h-[560px] flex flex-col md:flex-row">
 
               {/* Recipient Picker */}
-              <div className="w-full md:w-1/3 border-b-3 md:border-b-0 md:border-r-3 border-[#121212] bg-[#0F0E0E] p-4 space-y-3">
+              <div className={`w-full md:w-1/3 border-b-3 md:border-b-0 md:border-r-3 border-[#121212] bg-[#0F0E0E] p-4 space-y-3 ${mobileShowChat ? "hidden md:block" : "block"}`}>
                 <div className="flex items-center justify-between pb-2 border-b border-white/10">
                   <h4 className="font-display font-black text-xs text-yellow-festival uppercase tracking-wider select-none">
                     CREATOR DIRECTORY
@@ -617,7 +618,10 @@ export default function ArtistNetwork() {
                   {activeContactsList.map((artist) => (
                     <div
                       key={artist.id}
-                      onClick={() => setSelectedRecipientId(artist.id)}
+                      onClick={() => {
+                        setSelectedRecipientId(artist.id);
+                        setMobileShowChat(true);
+                      }}
                       className={`flex items-center gap-3 p-2.5 rounded cursor-pointer border-2 transition-all ${
                         selectedRecipientId === artist.id
                           ? "bg-yellow-festival text-[#121212] border-yellow-festival"
@@ -635,9 +639,16 @@ export default function ArtistNetwork() {
               </div>
 
               {/* Chat Console */}
-              <div className="flex-1 flex flex-col bg-[#1A1A1A]">
+              <div className={`flex-1 flex flex-col bg-[#1A1A1A] ${mobileShowChat ? "flex" : "hidden md:flex"}`}>
                 {/* Header */}
                 <div className="bg-[#0F0E0E] p-4 border-b border-white/10 flex items-center gap-3 select-none">
+                  <button
+                    type="button"
+                    onClick={() => setMobileShowChat(false)}
+                    className="md:hidden mr-1 border-2 border-white/20 px-2.5 py-1 rounded text-xs font-black bg-[#121212] text-[#FAF8F5] hover:border-yellow-festival cursor-pointer"
+                  >
+                    ← BACK
+                  </button>
                   {activeChatArtist && (
                     <>
                       <img src={activeChatArtist.avatar} alt={activeChatArtist.name} className="w-10 h-10 rounded-full object-cover border" />

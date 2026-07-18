@@ -49,7 +49,8 @@ export enum PaymentStatus {
 export enum SubmissionStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
-  REJECTED = "REJECTED"
+  REJECTED = "REJECTED",
+  SKIPPED = "SKIPPED"
 }
 
 export enum ReportStatus {

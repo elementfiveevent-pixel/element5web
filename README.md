@@ -78,12 +78,26 @@ Element 5 uses a NestJS backend designed around a custom query builder (`Postgre
 
 ## ⚡ Real-Time Voting Engine (StageVerse)
 
-The live voting engine allows audience members to decide the winner of open mic sessions and battles:
+The live voting engine allows event organizers to coordinate performances and enables audience members to rate active performers in real-time.
 
-* **For the Organizer**: 
-  * Controls the live ballot from `/events/organizer?tab=voting`. Can toggle the voting gate `OPEN` or `CLOSED` or trigger a complete `RESET`.
-  * Monitors live vote totals for each performer as they pour in.
-* **For the Audience**:
-  * Toggles the live view at `/stageverse`. If voting is closed, they watch the track preview. If opened, they are presented with a neobrutalist voting slip to select their favorite track.
-* **For the Artist**:
-  * Their uploaded YouTube showcase is read by the system, placing their track name and biography details automatically onto the ballot when approved.
+### 🔗 Voting System URLs & Pages
+*   **💼 [Organizer Voting Panel](http://localhost:3000/events/organizer?tab=voting)**: The command center where organizers manage the performance lineup, trigger countdown timers, and control leaderboard visibility.
+*   **👥 [Audience Voting Terminal](http://localhost:3000/stageverse/voting-system)**: The secure, real-time interface for audience members to rate the active performer on a scale of 1-10.
+*   **🎪 [Event Details & Ballots Link](http://localhost:3000/events/event-id)**: The public event page showing the live voting alert banner (when active), links to the terminal, and registration options.
+
+---
+
+### 🛠️ How it Works & Features
+
+#### 1. Organizer Control Center
+*   **⚡ Event Control (Tab 1)**: Select which artist is currently performing. Start a custom performance countdown timer and a voting round timer simultaneously, or operate them individually. Includes real-time telemetry like total votes cast and cumulative average score.
+*   **🎤 Manage Performers (Tab 2)**: Reorder the performance sequence lineup, skip no-shows, edit details, and add new performers. Supports single additions (registered platform artists or custom guest performers) and bulk imports (paste a list of names).
+*   **🏆 Leaderboard (Tab 3)**: View ranked standings in real-time. Features toggles to hide/reveal scores (privacy blur), cast standings "On Stage" (public visibility), export results to CSV, or trigger a full event data reset.
+
+#### 2. Gatekeeping & Access Controls
+*   **Auto-Approved Voter Status**: Registered attendees who purchased ticket registrations automatically get direct access to vote.
+*   **Access Request Queue**: Attendee requests from users who don't hold tickets are placed in a live queue on the organizer dashboard for manual approval or rejection.
+
+#### 3. Real-Time Syncing (Socket.io)
+*   When the organizer starts a voting round or switches the current active performer, the audience terminal instantly updates to display the active slot. Voting buttons and rating selectors are hidden out of turn to ensure leaderboard accuracy.
+

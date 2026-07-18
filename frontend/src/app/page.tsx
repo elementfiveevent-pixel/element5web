@@ -457,7 +457,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handlePrevEvent}
-                className="absolute sm:-left-6 left-2 top-1/2 -translate-y-1/2 w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full flex items-center justify-center font-black text-lg shadow-brutal-sm sm:shadow-brutal hover:scale-105 hover:bg-yellow-festival/90 transition-all cursor-pointer z-20"
+                className="absolute -left-6 top-1/2 -translate-y-1/2 w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full hidden sm:flex items-center justify-center font-black text-lg shadow-brutal hover:scale-105 hover:bg-yellow-festival/90 transition-all cursor-pointer z-20"
                 title="Previous Event"
               >
                 ←
@@ -465,7 +465,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleNextEvent}
-                className="absolute sm:-right-6 right-2 top-1/2 -translate-y-1/2 w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full flex items-center justify-center font-black text-lg shadow-brutal-sm sm:shadow-brutal hover:scale-105 hover:bg-yellow-festival/90 transition-all cursor-pointer z-20"
+                className="absolute -right-6 top-1/2 -translate-y-1/2 w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full hidden sm:flex items-center justify-center font-black text-lg shadow-brutal hover:scale-105 hover:bg-yellow-festival/90 transition-all cursor-pointer z-20"
                 title="Next Event"
               >
                 →
@@ -498,27 +498,27 @@ export default function Home() {
             </div>
 
             {/* Countdown Grid */}
-            <div className="grid grid-cols-4 gap-4 text-center border-y-3 border-[#121212] py-6 my-6 bg-[#FAF8F5]">
+            <div className="grid grid-cols-4 gap-2 sm:gap-4 text-center border-y-3 border-[#121212] py-4 sm:py-6 my-6 bg-[#FAF8F5]">
               <div className="space-y-1">
-                <span className="font-display font-black text-3xl md:text-5xl text-[#121212] block">
+                <span className="font-display font-black text-2xl sm:text-3xl md:text-5xl text-[#121212] block">
                   {String(timeLeft.days).padStart(2, "0")}
                 </span>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">DAYS</span>
               </div>
               <div className="space-y-1">
-                <span className="font-display font-black text-3xl md:text-5xl text-[#121212] block">
+                <span className="font-display font-black text-2xl sm:text-3xl md:text-5xl text-[#121212] block">
                   {String(timeLeft.hours).padStart(2, "0")}
                 </span>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">HOURS</span>
               </div>
               <div className="space-y-1">
-                <span className="font-display font-black text-3xl md:text-5xl text-[#121212] block">
+                <span className="font-display font-black text-2xl sm:text-3xl md:text-5xl text-[#121212] block">
                   {String(timeLeft.minutes).padStart(2, "0")}
                 </span>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">MINS</span>
               </div>
               <div className="space-y-1">
-                <span className="font-display font-black text-3xl md:text-5xl text-[#121212] block">
+                <span className="font-display font-black text-2xl sm:text-3xl md:text-5xl text-[#121212] block">
                   {String(timeLeft.seconds).padStart(2, "0")}
                 </span>
                 <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">SECS</span>
@@ -559,6 +559,30 @@ export default function Home() {
                 </Link>
               )}
             </div>
+
+            {activeEventsList.length > 1 && (
+              <div className="flex sm:hidden items-center justify-center gap-4 pt-4 border-t-2 border-[#121212]/10 mt-4">
+                <button
+                  type="button"
+                  onClick={handlePrevEvent}
+                  className="w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full flex items-center justify-center font-black text-lg shadow-brutal-sm hover:scale-105 transition-all cursor-pointer"
+                  title="Previous Event"
+                >
+                  ←
+                </button>
+                <span className="font-space font-black text-xs uppercase tracking-wider text-gray-500 select-none">
+                  {currentEventIndex + 1} of {activeEventsList.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNextEvent}
+                  className="w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full flex items-center justify-center font-black text-lg shadow-brutal-sm hover:scale-105 transition-all cursor-pointer"
+                  title="Next Event"
+                >
+                  →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>

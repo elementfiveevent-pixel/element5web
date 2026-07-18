@@ -60,4 +60,8 @@ export class StageVerseGateway implements OnGatewayConnection, OnGatewayDisconne
   broadcastLiveVote(eventId: string, voteDetails: any) {
     this.server.to(eventId).emit("liveVoteCast", voteDetails);
   }
+
+  broadcastCurrentPerformer(eventId: string, submissionId: string | null) {
+    this.server.to(eventId).emit("currentPerformerUpdate", { currentPerformerId: submissionId });
+  }
 }

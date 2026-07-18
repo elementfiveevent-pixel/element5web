@@ -110,32 +110,32 @@ export default function QRTicket({
       </div>
 
       {/* Ticket body */}
-      <div className="p-4 flex gap-4 items-start bg-[#FAF8F5] text-[#121212]">
+      <div className="p-4 flex flex-col sm:flex-row gap-4 items-center sm:items-start bg-[#FAF8F5] text-[#121212]">
         {/* QR */}
-        <div className="flex-shrink-0 border-3 border-[#121212] bg-[#FAF8F5] p-1 rounded">
-          <canvas ref={canvasRef} className="block rounded" />
+        <div className="flex-shrink-0 border-3 border-[#121212] bg-[#FAF8F5] p-1 rounded flex justify-center max-w-full sm:w-auto">
+          <canvas ref={canvasRef} className="block rounded max-w-full" />
         </div>
 
         {/* Info */}
-        <div className="flex-1 min-w-0 space-y-2.5">
+        <div className="flex-1 min-w-0 w-full space-y-2.5 text-center sm:text-left">
           {category && (
-            <span className="inline-block font-black text-[9px] uppercase tracking-wider bg-red-stage text-white px-2 py-0.5 rounded">
+            <span className="inline-block font-black text-[9px] uppercase tracking-wider bg-red-stage text-white px-2 py-0.5 rounded mx-auto sm:mx-0">
               {category}
             </span>
           )}
           <h3 className="font-display font-extrabold text-base leading-tight uppercase tracking-tight line-clamp-2">
             {eventTitle}
           </h3>
-          <div className="space-y-1 font-space text-[11px] font-bold text-[#121212]/70">
+          <div className="space-y-1 font-space text-[11px] font-bold text-[#121212]/70 flex flex-col items-center sm:items-start">
             {eventDate && <p>📅 {eventDate}</p>}
             {venueName && <p>📍 {venueName}{venueCity ? `, ${venueCity}` : ""}</p>}
-            <p className="font-mono text-[9px] uppercase tracking-wider text-[#121212]/40 pt-1 border-t border-[#121212]/10">
+            <p className="font-mono text-[9px] uppercase tracking-wider text-[#121212]/40 pt-1 border-t border-[#121212]/10 w-full">
               REF: {qrCode.slice(0, 16).toUpperCase()}
             </p>
           </div>
 
           {!compact && (
-            <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="grid grid-cols-2 gap-2 pt-1 text-left">
               <div className="bg-[#121212]/5 border border-[#121212]/10 rounded p-2">
                 <span className="text-[9px] font-black uppercase text-[#121212]/40 block">Ticket ID</span>
                 <span className="font-mono text-[10px] font-black">{ticketId.slice(0, 8).toUpperCase()}</span>
@@ -150,7 +150,7 @@ export default function QRTicket({
           )}
 
           {isUsed && usedAt && (
-            <p className="text-[9px] font-black uppercase text-gray-500 mt-1">
+            <p className="text-[9px] font-black uppercase text-gray-500 mt-1 block">
               Checked in: {new Date(usedAt).toLocaleString("en-IN")}
             </p>
           )}
@@ -162,7 +162,7 @@ export default function QRTicket({
 
       {/* Actions */}
       {!compact && (
-        <div className="bg-[#FAF8F5] px-4 py-3 flex items-center gap-2">
+        <div className="bg-[#FAF8F5] px-4 py-3 flex flex-wrap items-center justify-center sm:justify-start gap-2">
           <button
             onClick={handleDownload}
             disabled={!dataUrl}

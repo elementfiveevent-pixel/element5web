@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 import {
   LayoutDashboard, BarChart2, Users, QrCode, Ticket, PlusCircle,
   RefreshCw, AlertCircle, Check, X, CheckCircle, Clock, XCircle,
-  Calendar, MapPin, TrendingUp, Eye, ArrowRight, Camera, Loader2,
+  Calendar, MapPin, TrendingUp, Eye, EyeOff, Trash2, ArrowRight, Camera, Loader2,
   ChevronDown, ChevronUp, Search, Radio, Vote, Pencil, Download
 } from "lucide-react";
 import QRCode from "qrcode";
@@ -491,11 +491,46 @@ function AnalyticsPanel({ eventId }: { eventId: string }) {
 }
 
 function VotingPanel({ eventId }: { eventId: string }) {
+  const [activeTab, setActiveTab] = useState<"control" | "performers" | "leaderboard" | "requests">("control");
   const [isOpen, setIsOpen] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [standings, setStandings] = useState<any[]>([]);
+  const [lineup, setLineup] = useState<any[]>([]);
+  const [accessRequests, setAccessRequests] = useState<any[]>([]);
+  const [currentPerformerId, setCurrentPerformerId] = useState<string | null>(null);
+
+  // Performer form states
+  const [performerName, setPerformerName] = useState("");
+  const [trackTitle, setTrackTitle] = useState("");
+  const [isCustomArtist, setIsCustomArtist] = useState(false);
+  const [selectedArtistId, setSelectedArtistId] = useState("");
+  const [allArtists, setAllArtists] = useState<any[]>([]);
+  const [bulkNames, setBulkNames] = useState("");
+
   const [toggling, setToggling] = useState(false);
+  const [togglingLb, setTogglingLb] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [submittingPerformer, setSubmittingPerformer] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [hideScores, setHideScores] = useState(false);
+
+  // Timer states
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [perfDuration, setPerfDuration] = useState("5");
+  const [voteDuration, setVoteDuration] = useState("2");
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [perfTimeLeft, setPerfTimeLeft] = useState<number | null>(null);
+  const [perfEndsAt, setPerfEndsAt] = useState<number | null>(null);
+
+  const refreshData = useCallback(async () => {
+    try {
+      const standingsRes = await api.get(`/stageverse/${eventId}/standings`);
+      setStandings(Array.isArray(standingsRes) ? standingsRes : []);
+      const lineupRes = await api.get(`/stageverse/${eventId}/submissions`);
+      setLineup(Array.isArray(lineupRes) ? lineupRes : []);
+    } catch {}
+  }, [eventId]);
 
   const fetchStatusAndSubmissions = useCallback(async () => {
     if (!eventId) return;
@@ -503,9 +538,25 @@ function VotingPanel({ eventId }: { eventId: string }) {
     try {
       const statusRes = await api.get(`/stageverse/${eventId}/voting/status`);
       setIsOpen(statusRes.open);
+      setExpiresAt(statusRes.expiresAt ?? null);
 
-      const subRes = await api.get(`/stageverse/${eventId}/submissions`);
-      setSubmissions(Array.isArray(subRes) ? subRes : []);
+      const eventDetail = await api.get(`/events/${eventId}`);
+      setShowLeaderboard(eventDetail.showLeaderboard ?? false);
+      setCurrentPerformerId(eventDetail.currentPerformerId ?? null);
+
+      const standingsRes = await api.get(`/stageverse/${eventId}/standings`);
+      setStandings(Array.isArray(standingsRes) ? standingsRes : []);
+
+      const lineupRes = await api.get(`/stageverse/${eventId}/submissions`);
+      setLineup(Array.isArray(lineupRes) ? lineupRes : []);
+
+      try {
+        const requestsRes = await api.get(`/stageverse/${eventId}/voting/access-requests`);
+        setAccessRequests(Array.isArray(requestsRes) ? requestsRes : []);
+      } catch { setAccessRequests([]); }
+
+      const artistsRes = await api.get(`/stageverse/${eventId}/registered-artists`);
+      setAllArtists(Array.isArray(artistsRes) ? artistsRes : []);
     } catch (e) {
       console.error("Failed to load voting details", e);
     } finally {
@@ -513,106 +564,769 @@ function VotingPanel({ eventId }: { eventId: string }) {
     }
   }, [eventId]);
 
-  useEffect(() => {
-    fetchStatusAndSubmissions();
-  }, [fetchStatusAndSubmissions]);
+  useEffect(() => { fetchStatusAndSubmissions(); }, [fetchStatusAndSubmissions]);
 
-  const handleToggle = async () => {
+  // Voting countdown
+  useEffect(() => {
+    if (!isOpen || !expiresAt) { setTimeLeft(null); return; }
+    const updateTime = () => {
+      const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setTimeLeft(diff);
+      if (diff <= 0) { setIsOpen(false); setTimeLeft(null); setExpiresAt(null); }
+    };
+    updateTime();
+    const iv = setInterval(updateTime, 1000);
+    return () => clearInterval(iv);
+  }, [isOpen, expiresAt]);
+
+  // Performance countdown
+  useEffect(() => {
+    if (!perfEndsAt) { setPerfTimeLeft(null); return; }
+    const updateTime = () => {
+      const diff = Math.max(0, Math.floor((perfEndsAt - Date.now()) / 1000));
+      setPerfTimeLeft(diff);
+      if (diff <= 0) { setPerfTimeLeft(null); setPerfEndsAt(null); }
+    };
+    updateTime();
+    const iv = setInterval(updateTime, 1000);
+    return () => clearInterval(iv);
+  }, [perfEndsAt]);
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  // ── EVENT CONTROL HANDLERS ───────────────────────────────────────────────
+  const handleSetPerformer = async (subId: string) => {
+    try {
+      await api.post(`/stageverse/${eventId}/current-performer`, { submissionId: subId });
+      setCurrentPerformerId(subId);
+    } catch (err: any) { alert(err.message || "Failed to set performer."); }
+  };
+
+  const handleStartPerformance = () => {
+    if (!currentPerformerId) return alert("Select a performer first.");
+    const ms = parseFloat(perfDuration) * 60 * 1000;
+    setPerfEndsAt(Date.now() + ms);
+  };
+
+  const handleStopPerformance = () => { setPerfEndsAt(null); setPerfTimeLeft(null); };
+
+  const handleToggleVotingPanel = async (open: boolean) => {
     setToggling(true);
     try {
-      const res = await api.post(`/stageverse/${eventId}/voting/toggle`, { open: !isOpen });
+      const res = await api.post(`/stageverse/${eventId}/voting/toggle`, { open });
       setIsOpen(res.open);
-    } catch (e) {
-      // Local fallback simulation
-      setIsOpen(!isOpen);
+      if (!open) {
+        setExpiresAt(null);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to toggle voting panel.");
     } finally {
       setToggling(false);
     }
   };
 
+  const handleOpenVoting = async () => {
+    if (!currentPerformerId) return alert("Select a performer first.");
+    setToggling(true);
+    try {
+      const durationSeconds = parseFloat(voteDuration) * 60;
+      const res = await api.post(`/stageverse/${eventId}/voting/toggle`, { open: true, durationSeconds: durationSeconds > 0 ? durationSeconds : undefined });
+      setIsOpen(res.open);
+      setExpiresAt(res.expiresAt ?? null);
+    } catch (e) {} finally { setToggling(false); }
+  };
+
+  const handleCloseVoting = async () => {
+    setToggling(true);
+    try {
+      const res = await api.post(`/stageverse/${eventId}/voting/toggle`, { open: false });
+      setIsOpen(res.open);
+      setExpiresAt(null);
+    } catch (e) {} finally { setToggling(false); }
+  };
+
+  const handleStartBoth = async () => {
+    if (!currentPerformerId) return alert("Select a performer first.");
+    handleStartPerformance();
+    await handleOpenVoting();
+  };
+
+  const handleResetTimers = () => {
+    setPerfEndsAt(null); setPerfTimeLeft(null);
+    handleCloseVoting();
+  };
+
+  const handleEndAct = async () => {
+    handleResetTimers();
+    setCurrentPerformerId(null);
+    try { await api.post(`/stageverse/${eventId}/current-performer`, { submissionId: null }); } catch {}
+    alert("Act concluded. Waiting screen pushed to audience.");
+  };
+
+  // ── PERFORMER MANAGEMENT HANDLERS ────────────────────────────────────────
+  const handleToggleLeaderboard = async () => {
+    setTogglingLb(true);
+    try {
+      const res = await api.post(`/stageverse/${eventId}/leaderboard/toggle`, { show: !showLeaderboard });
+      setShowLeaderboard(res.show);
+    } catch (e) { setShowLeaderboard(!showLeaderboard); } finally { setTogglingLb(false); }
+  };
+
+  const handleToggleSkip = async (submissionId: string, currentStatus: string) => {
+    const nextStatus = currentStatus === "SKIPPED" ? "APPROVED" : "SKIPPED";
+    try {
+      await api.post(`/stageverse/submissions/${submissionId}/status`, { status: nextStatus });
+      await refreshData();
+    } catch (err: any) { alert("Failed to toggle skip: " + (err.message || err)); }
+  };
+
+  const handleEditPerformer = async (sub: any) => {
+    const currentName = sub.user?.fullName || "Guest Performer";
+    const currentTrack = sub.trackTitle;
+    const isGhostUser = sub.user?.email?.startsWith("unregistered_");
+    let newName = currentName;
+    if (isGhostUser) {
+      const promptedName = prompt("Enter performer name:", currentName);
+      if (promptedName === null) return;
+      newName = promptedName.trim();
+    }
+    const newTrack = prompt("Enter track title:", currentTrack);
+    if (newTrack === null) return;
+    try {
+      await api.post(`/stageverse/submissions/${sub.id}/details`, {
+        performerName: isGhostUser ? newName : undefined,
+        trackTitle: newTrack.trim()
+      });
+      await refreshData();
+    } catch (err: any) { alert("Failed to update: " + (err.message || err)); }
+  };
+
+  const handleDeletePerformer = async (sub: any) => {
+    const name = sub.user?.fullName || "Guest Performer";
+    if (!confirm(`Delete ${name} from the lineup?`)) return;
+    try {
+      await api.delete(`/stageverse/submissions/${sub.id}`);
+      await refreshData();
+    } catch (err: any) { alert("Failed to delete: " + (err.message || err)); }
+  };
+
+  const handleMoveOrder = async (index: number, direction: "UP" | "DOWN") => {
+    const nextIndex = direction === "UP" ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= lineup.length) return;
+    const currentSub = lineup[index];
+    const targetSub = lineup[nextIndex];
+    try {
+      await api.post(`/stageverse/submissions/${currentSub.id}/order`, { performanceOrder: nextIndex + 1 });
+      await api.post(`/stageverse/submissions/${targetSub.id}/order`, { performanceOrder: index + 1 });
+      await refreshData();
+    } catch (err: any) { alert("Failed to reorder: " + (err.message || err)); }
+  };
+
+  const handleAddPerformer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingPerformer(true);
+    try {
+      if (bulkNames.trim()) {
+        const names = bulkNames.split("\n").map(n => n.trim()).filter(n => n.length > 0);
+        await api.post(`/stageverse/${eventId}/submissions/add-bulk`, { names });
+        setBulkNames("");
+        alert(`Added ${names.length} performers!`);
+      } else if (isCustomArtist) {
+        if (!performerName.trim()) { alert("Please provide the performer's name."); setSubmittingPerformer(false); return; }
+        await api.post(`/stageverse/${eventId}/submissions/add-unregistered`, {
+          performerName: performerName.trim(),
+          trackTitle: trackTitle.trim() || "Performance"
+        });
+        setPerformerName(""); setTrackTitle("");
+        alert("Performer added!");
+      } else {
+        if (!selectedArtistId) { alert("Please select a registered artist."); setSubmittingPerformer(false); return; }
+        await api.post(`/stageverse/${eventId}/submissions/add-registered`, {
+          artistUserId: selectedArtistId,
+          trackTitle: trackTitle.trim() || "Performance"
+        });
+        setSelectedArtistId(""); setTrackTitle("");
+        alert("Performer added!");
+      }
+      await refreshData();
+    } catch (err: any) { alert(err.message || "Failed to add performer."); }
+    finally { setSubmittingPerformer(false); }
+  };
+
+  const handleReviewRequest = async (requestId: string, status: "APPROVED" | "REJECTED") => {
+    setProcessingRequestId(requestId);
+    try {
+      await api.post(`/stageverse/voting/access-requests/${requestId}/review`, { status });
+      setAccessRequests(prev => prev.filter(r => r.id !== requestId));
+    } catch (err: any) { alert(err.message || "Failed to update request."); }
+    finally { setProcessingRequestId(null); }
+  };
+
+  const handleExportCSV = () => {
+    let csv = "Rank,Name,TrackTitle,Votes,AudienceAvg,JudgeAvg,TotalScore\n";
+    standings.forEach((p, i) => {
+      csv += `${i + 1},"${p.performer}","${p.trackTitle}",${p.votesCount},${p.audienceAverage.toFixed(2)},${p.judgeAverage.toFixed(2)},${p.totalScore.toFixed(2)}\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `stageverse-results-${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleReset = async () => {
-    if (!confirm("Are you sure you want to reset all votes? This cannot be undone.")) return;
+    const confirmation = prompt("DANGER: Type 'RESET' to completely erase all scores and votes.");
+    if (confirmation !== "RESET") return;
     setResetting(true);
     try {
       await api.post(`/stageverse/${eventId}/voting/reset`);
-      // Refresh submissions
-      const subRes = await api.get(`/stageverse/${eventId}/submissions`);
-      setSubmissions(Array.isArray(subRes) ? subRes : []);
-    } catch (e) {
-      alert("Votes reset!");
-      setSubmissions(prev => prev.map(s => ({ ...s, votes: [] })));
-    } finally {
-      setResetting(false);
-    }
+      await api.post(`/stageverse/${eventId}/voting/toggle`, { open: false });
+      await api.post(`/stageverse/${eventId}/current-performer`, { submissionId: null });
+      setIsOpen(false); setExpiresAt(null); setCurrentPerformerId(null);
+      setPerfEndsAt(null);
+      await refreshData();
+      alert("Event fully reset!");
+    } catch (e) { alert("Reset complete."); setStandings([]); }
+    finally { setResetting(false); }
   };
 
   if (loading) return <div className="py-12 text-center font-display font-black text-sm uppercase animate-pulse text-[#121212]/40">Loading voting system…</div>;
 
+  const livePerformer = lineup.find((s: any) => s.id === currentPerformerId);
+  const activePerformers = standings.filter((s: any) => s.status !== "SKIPPED");
+
   return (
     <div className="space-y-6">
-      {/* Status Card */}
-      <div className="border-3 border-[#121212] bg-white rounded shadow-brutal p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <span className="font-display font-black text-[10px] uppercase tracking-widest block opacity-70">LIVE VOTING STATUS</span>
-          <div className="flex items-center gap-2">
-            <span className={`w-3.5 h-3.5 rounded-full border-2 border-[#121212] ${isOpen ? "bg-green-500 animate-pulse" : "bg-red-stage"}`} />
-            <span className="font-display font-extrabold text-2xl uppercase">{isOpen ? "OPEN / ACTIVE" : "CLOSED / DEACTIVATED"}</span>
-          </div>
-          <p className="font-space text-xs text-gray-500 font-bold">Audience can cast votes from the Stageverse voting terminal when active.</p>
-        </div>
-
-        <div className="flex items-center gap-3">
+      {/* ── 4 Tab Navigation ──────────────────────────────────────────────── */}
+      <div className="flex flex-wrap bg-[#121212] p-1 rounded border-2 border-[#121212] w-fit shadow-brutal-sm gap-1">
+        {([
+          { id: "control", label: "⚡ Event Control" },
+          { id: "performers", label: "🎤 Manage Performers" },
+          { id: "leaderboard", label: "🏆 Leaderboard" },
+          { id: "requests", label: `🎟️ Access Requests (${accessRequests.length})` },
+        ]).map(t => (
           <button
-            onClick={handleToggle}
-            disabled={toggling}
-            className={`px-6 py-3 border-3 border-[#121212] font-display font-black text-xs uppercase shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded cursor-pointer ${
-              isOpen ? "bg-[#FAF8F5] text-[#121212]" : "bg-green-500 text-white"
+            key={t.id}
+            onClick={() => setActiveTab(t.id as any)}
+            className={`px-4 py-2 rounded font-display font-black text-[10px] uppercase transition-all cursor-pointer ${
+              activeTab === t.id
+                ? "bg-yellow-festival text-[#121212]"
+                : "text-[#FAF8F5]/60 hover:text-white"
             }`}
           >
-            {toggling ? "PROCESSING..." : isOpen ? "CLOSE VOTING" : "OPEN VOTING"}
+            {t.label}
           </button>
-          <button
-            onClick={handleReset}
-            disabled={resetting}
-            className="px-6 py-3 bg-red-stage text-white border-3 border-[#121212] font-display font-black text-xs uppercase shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded cursor-pointer"
-          >
-            {resetting ? "RESETTING..." : "RESET ALL VOTES"}
-          </button>
-        </div>
+        ))}
       </div>
 
-      {/* Submissions Standings List */}
-      <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
-        <div>
-          <h3 className="font-display font-black text-lg uppercase">Event Performers & Votes</h3>
-          <p className="font-space text-xs text-gray-500 font-bold">List of approved tracks for this StageVerse event.</p>
-        </div>
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* TAB 1: EVENT CONTROL                                              */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {activeTab === "control" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Left: Live Controller */}
+          <div className="border-3 border-[#121212] bg-white rounded shadow-brutal p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b-2 border-[#121212]/10 pb-4">
+              <div>
+                <h2 className="font-display font-black text-lg uppercase leading-none">Live Controller</h2>
+                <p className="font-space text-[10px] text-gray-500 font-bold mt-1">Select performer and manage timers.</p>
+              </div>
+              <button
+                onClick={() => handleToggleVotingPanel(!isOpen)}
+                disabled={toggling}
+                className={`px-4 py-2 border-2 border-[#121212] font-display font-black text-[10px] uppercase rounded cursor-pointer transition-all shadow-brutal-sm ${
+                  isOpen 
+                    ? "bg-red-stage text-white hover:bg-red-700" 
+                    : "bg-yellow-festival text-[#121212] hover:bg-yellow-festival/85"
+                }`}
+              >
+                {toggling ? "..." : isOpen ? "Stop Voting Panel" : "Start Voting Panel"}
+              </button>
+            </div>
 
-        <div className="space-y-3">
-          {submissions.length > 0 ? (
-            submissions.map((sub, idx) => (
-              <div key={sub.id} className="border-2 border-[#121212] bg-white p-4 rounded shadow-brutal-light flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="font-display font-black text-sm text-[#121212]/30">{idx + 1}</span>
-                  <div>
-                    <h4 className="font-display font-bold text-sm uppercase">{sub.user?.fullName || "Creator"}</h4>
-                    <p className="font-space text-[10px] text-gray-500 font-bold uppercase">{sub.trackTitle}</p>
+            {/* Current Performer Selector */}
+            <div className="space-y-1">
+              <span className="font-display font-black text-[9px] uppercase text-gray-400 block">Current Performer</span>
+              <select
+                value={currentPerformerId || ""}
+                onChange={e => handleSetPerformer(e.target.value)}
+                className="w-full px-3 py-2.5 border-2 border-[#121212] bg-[#FAF8F5] rounded font-space font-bold text-xs focus:outline-none cursor-pointer"
+              >
+                <option value="" disabled>--- Select Performer ---</option>
+                {lineup.map((sub: any) => (
+                  <option key={sub.id} value={sub.id}>
+                    {sub.user?.fullName || "Guest"} {sub.status === "SKIPPED" ? "(Skipped)" : ""} — {sub.trackTitle}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Duration Inputs */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <span className="font-display font-black text-[9px] uppercase text-gray-400 block">Performance (Mins)</span>
+                <input type="number" value={perfDuration} onChange={e => setPerfDuration(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-[#121212] bg-[#FAF8F5] rounded font-space font-bold text-xs focus:outline-none" />
+              </div>
+              <div className="space-y-1">
+                <span className="font-display font-black text-[9px] uppercase text-gray-400 block">Voting (Mins)</span>
+                <input type="number" value={voteDuration} onChange={e => setVoteDuration(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-[#121212] bg-[#FAF8F5] rounded font-space font-bold text-xs focus:outline-none" />
+              </div>
+            </div>
+
+            {/* Primary Action */}
+            <button onClick={handleStartBoth} disabled={!currentPerformerId || toggling}
+              className="w-full py-3.5 bg-green-500 text-white border-3 border-[#121212] font-display font-black text-xs uppercase shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded cursor-pointer disabled:opacity-50">
+              Start Performance & Voting Together
+            </button>
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t-2 border-[#121212]/10" /></div>
+              <div className="relative flex justify-center"><span className="bg-white px-3 font-display font-black text-[9px] uppercase text-gray-400">Or Control Individually</span></div>
+            </div>
+
+            {/* Individual Controls */}
+            <div className="grid grid-cols-2 gap-3">
+              {perfEndsAt === null ? (
+                <button onClick={handleStartPerformance}
+                  className="py-2.5 border-2 border-[#121212] bg-[#FAF8F5] font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-yellow-festival/30 transition-colors">
+                  Start Performance
+                </button>
+              ) : (
+                <button onClick={handleStopPerformance}
+                  className="py-2.5 border-2 border-red-stage bg-red-stage/10 text-red-stage font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-red-stage hover:text-white transition-colors">
+                  Stop Performance
+                </button>
+              )}
+
+              {!isOpen ? (
+                <button onClick={handleOpenVoting} disabled={toggling}
+                  className="py-2.5 border-2 border-[#121212] bg-[#FAF8F5] font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-yellow-festival/30 transition-colors disabled:opacity-50">
+                  {toggling ? "Opening..." : "Open Voting"}
+                </button>
+              ) : (
+                <button onClick={handleCloseVoting} disabled={toggling}
+                  className="py-2.5 border-2 border-red-stage bg-red-stage/10 text-red-stage font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-red-stage hover:text-white transition-colors disabled:opacity-50">
+                  {toggling ? "Closing..." : "Close Voting"}
+                </button>
+              )}
+            </div>
+
+            {/* Reset / End Act */}
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={handleResetTimers}
+                className="py-2.5 border-2 border-[#121212]/30 bg-white font-display font-black text-[10px] uppercase rounded text-gray-500 cursor-pointer hover:bg-[#FAF8F5] transition-colors">
+                Reset Timers
+              </button>
+              <button onClick={handleEndAct}
+                className="py-2.5 bg-[#121212] text-white border-2 border-[#121212] font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-black/80 transition-colors shadow-brutal-sm">
+                🏁 End Act
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Live Status Card */}
+          <div className="border-3 border-[#121212] bg-white rounded shadow-brutal p-6 flex flex-col justify-between min-h-[400px]">
+            <div>
+              <h2 className="font-display font-black text-lg uppercase">Live Status</h2>
+              <p className="font-space text-xs text-gray-500 font-bold">What the audience sees now.</p>
+            </div>
+
+            {livePerformer ? (
+              <div className="flex flex-col items-center mt-6 flex-1 relative">
+                {/* Live Vote Counter Badge */}
+                {isOpen && (
+                  <div className="absolute right-0 top-0 bg-green-500/10 border-2 border-green-500/30 px-3 py-2 rounded-lg flex flex-col items-center">
+                    <span className="font-display font-black text-[8px] uppercase tracking-widest text-green-600">Live Votes</span>
+                    <span className="font-display font-black text-2xl text-green-600 tabular-nums">
+                      {standings.find((s: any) => s.submissionId === currentPerformerId)?.votesCount || 0}
+                    </span>
+                  </div>
+                )}
+
+                {/* Avatar */}
+                <div className="w-20 h-20 rounded-xl bg-[#FAF8F5] border-2 border-[#121212] overflow-hidden mb-4 flex items-center justify-center">
+                  {livePerformer.user?.profilePhotoUrl ? (
+                    <img src={livePerformer.user.profilePhotoUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="font-display font-black text-2xl text-gray-400">
+                      {(livePerformer.user?.fullName || "?")[0]}
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="font-display font-black text-xl text-center">{livePerformer.user?.fullName || "Guest"}</h3>
+                <p className="font-space text-xs text-gray-500 font-bold mt-1">{livePerformer.trackTitle}</p>
+
+                {/* Status Indicator */}
+                <div className="flex items-center gap-2 mt-3">
+                  <span className="relative flex h-3 w-3">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${perfEndsAt || isOpen ? "bg-green-400" : "bg-red-400"}`} />
+                    <span className={`relative inline-flex rounded-full h-3 w-3 border border-[#121212] ${perfEndsAt || isOpen ? "bg-green-500" : "bg-red-500"}`} />
+                  </span>
+                  <span className="font-display font-black text-[10px] uppercase text-gray-500">
+                    {perfEndsAt ? "Performance Live" : isOpen ? "Voting Open" : "Waiting"}
+                  </span>
+                </div>
+
+                {/* Timer Displays */}
+                <div className="grid grid-cols-2 gap-4 mt-6 w-full">
+                  <div className="flex flex-col items-center p-3 bg-[#FAF8F5] border-2 border-[#121212] rounded-lg">
+                    <span className="font-display font-black text-[8px] uppercase text-gray-400 mb-1">Performance</span>
+                    <span className="font-mono font-black text-xl tabular-nums">
+                      {perfTimeLeft !== null ? formatTime(perfTimeLeft) : "--:--"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-[#FAF8F5] border-2 border-[#121212] rounded-lg">
+                    <span className="font-display font-black text-[8px] uppercase text-gray-400 mb-1">Voting</span>
+                    <span className={`font-mono font-black text-xl tabular-nums ${timeLeft !== null && timeLeft <= 30 ? "text-red-stage" : ""}`}>
+                      {timeLeft !== null ? formatTime(timeLeft) : "--:--"}
+                    </span>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <span className="font-space font-black text-sm text-red-stage">{sub.votes?.length ?? 0}</span>
-                  <span className="text-[9px] text-gray-400 font-black uppercase tracking-wider block">VOTES</span>
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-4 mt-4 w-full">
+                  <div className="flex flex-col items-center p-3 bg-[#FAF8F5] border-2 border-[#121212]/20 rounded-lg">
+                    <span className="font-display font-black text-[8px] uppercase text-gray-400 mb-1">Total Votes</span>
+                    <span className="font-display font-black text-2xl tabular-nums">
+                      {standings.find((s: any) => s.submissionId === currentPerformerId)?.votesCount || 0}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center p-3 bg-yellow-festival/10 border-2 border-yellow-festival/30 rounded-lg">
+                    <span className="font-display font-black text-[8px] uppercase text-yellow-700 mb-1">Avg Score</span>
+                    <span className="font-display font-black text-2xl tabular-nums text-yellow-700">
+                      {(standings.find((s: any) => s.submissionId === currentPerformerId)?.audienceAverage || 0).toFixed(1)}
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))
-          ) : (
-            <div className="border-2 border-dashed border-[#121212]/20 bg-white p-6 rounded text-center">
-              <p className="font-space text-xs text-gray-400 font-bold">No performers registered or approved for this event yet.</p>
-            </div>
-          )}
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center space-y-3">
+                  <div className="w-16 h-16 bg-[#FAF8F5] border-2 border-dashed border-[#121212]/20 rounded-xl mx-auto flex items-center justify-center">
+                    <span className="text-2xl opacity-30">🎤</span>
+                  </div>
+                  <p className="font-display font-black text-sm text-gray-400 uppercase">No performer active</p>
+                  <p className="font-space text-[10px] text-gray-400 font-bold">Select a performer from the dropdown to begin.</p>
+                </div>
+              </div>
+            )}
+
+            {/* Access Requests Mini Panel */}
+            {accessRequests.length > 0 && (
+              <div className="mt-4 border-t-2 border-[#121212]/10 pt-4">
+                <span className="font-display font-black text-[9px] uppercase text-gray-400 block mb-2">
+                  Pending Access Requests ({accessRequests.length})
+                </span>
+                <div className="space-y-2 max-h-[120px] overflow-y-auto">
+                  {accessRequests.map((req: any) => (
+                    <div key={req.id} className="flex items-center justify-between bg-[#FAF8F5] border border-[#121212]/10 p-2 rounded">
+                      <div>
+                        <span className="font-display font-bold text-[10px] block">{req.user?.fullName}</span>
+                        <span className="font-space text-[8px] text-gray-400">{req.user?.email}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleReviewRequest(req.id, "APPROVED")} disabled={processingRequestId === req.id}
+                          className="bg-green-500 text-white text-[7px] font-black uppercase px-2 py-1 rounded cursor-pointer hover:bg-green-600">✓</button>
+                        <button onClick={() => handleReviewRequest(req.id, "REJECTED")} disabled={processingRequestId === req.id}
+                          className="bg-red-stage text-white text-[7px] font-black uppercase px-2 py-1 rounded cursor-pointer hover:bg-red-700">✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* TAB 2: MANAGE PERFORMERS                                          */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {activeTab === "performers" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Performers List (2/3) */}
+          <div className="lg:col-span-2 border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="font-display font-black text-lg uppercase flex items-center gap-2"><Users size={16} /> Performers</h2>
+                <p className="font-space text-xs text-gray-500 font-bold">{lineup.length} total participants</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+              {lineup.length > 0 ? (
+                lineup.map((sub: any, idx: number) => {
+                  const performerName = sub.user?.fullName || "Guest Performer";
+                  const isSkipped = sub.status === "SKIPPED";
+                  const isActive = sub.id === currentPerformerId;
+                  const subStanding = standings.find((s: any) => s.submissionId === sub.id);
+                  return (
+                    <div key={sub.id}
+                      className={`border-2 border-[#121212] bg-white p-4 rounded shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4 transition-all ${
+                        isSkipped ? "opacity-40 grayscale" : ""
+                      } ${isActive ? "ring-2 ring-yellow-festival ring-offset-2" : ""}`}>
+                      <div className="flex items-center gap-3 w-full sm:w-auto">
+                        {/* Reorder */}
+                        <div className="flex flex-col gap-1">
+                          <button onClick={() => handleMoveOrder(idx, "UP")} disabled={idx === 0}
+                            className="p-0.5 border border-[#121212] rounded bg-[#FAF8F5] hover:bg-yellow-festival disabled:opacity-40 cursor-pointer">
+                            <ChevronUp size={12} />
+                          </button>
+                          <button onClick={() => handleMoveOrder(idx, "DOWN")} disabled={idx === lineup.length - 1}
+                            className="p-0.5 border border-[#121212] rounded bg-[#FAF8F5] hover:bg-yellow-festival disabled:opacity-40 cursor-pointer">
+                            <ChevronDown size={12} />
+                          </button>
+                        </div>
+
+                        {/* Avatar */}
+                        <div className="w-10 h-10 rounded-lg bg-[#FAF8F5] border border-[#121212] overflow-hidden flex items-center justify-center font-display font-black text-sm text-gray-400 flex-shrink-0">
+                          {sub.user?.profilePhotoUrl ? (
+                            <img src={sub.user.profilePhotoUrl} alt="" className="w-full h-full object-cover" />
+                          ) : performerName[0]}
+                        </div>
+
+                        {/* Info */}
+                        <div className={isSkipped ? "line-through" : ""}>
+                          <span className="font-display font-black text-sm block leading-tight">
+                            {performerName} {isSkipped && "(Skipped)"}
+                          </span>
+                          <span className="font-space text-[10px] text-gray-500 font-bold">{sub.trackTitle}</span>
+                          <div className="flex gap-3 mt-0.5">
+                            <span className="font-space text-[9px] text-gray-400 font-bold">★ {subStanding?.audienceAverage?.toFixed(1) || "0.0"}</span>
+                            <span className="font-space text-[9px] text-gray-400 font-bold">🗳️ {subStanding?.votesCount || 0} votes</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button onClick={() => handleToggleSkip(sub.id, sub.status)}
+                          className="p-1.5 border-2 border-[#121212] rounded bg-[#FAF8F5] hover:bg-yellow-festival cursor-pointer transition-colors" title={isSkipped ? "Unskip" : "Skip/No-Show"}>
+                          {isSkipped ? <Eye size={12} /> : <EyeOff size={12} />}
+                        </button>
+                        <button onClick={() => handleEditPerformer(sub)}
+                          className="p-1.5 border-2 border-[#121212] rounded bg-[#FAF8F5] hover:bg-yellow-festival cursor-pointer transition-colors" title="Edit Details">
+                          <Pencil size={12} />
+                        </button>
+                        <button onClick={() => handleDeletePerformer(sub)}
+                          className="p-1.5 border-2 border-[#121212] rounded bg-red-stage text-white hover:bg-red-700 cursor-pointer transition-colors" title="Delete">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="border-2 border-dashed border-[#121212]/20 bg-white p-8 rounded text-center">
+                  <p className="font-space text-xs text-gray-400 font-bold">No performers in the lineup yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Add Performer Form (1/3) */}
+          <div className="border-3 border-[#121212] bg-[#FAF8F5] p-5 rounded shadow-brutal space-y-5 h-fit sticky top-6">
+            <div>
+              <h2 className="font-display font-black text-sm uppercase">Add Performer</h2>
+              <p className="font-space text-[10px] text-gray-500 font-bold">Create new participants.</p>
+            </div>
+
+            <form onSubmit={handleAddPerformer} className="space-y-4">
+              {/* Single Addition */}
+              <div className="space-y-3">
+                <span className="font-display font-black text-[9px] uppercase text-gray-400 block">Single Addition</span>
+
+                <label className="flex items-center gap-2 font-space text-[10px] font-black uppercase text-gray-600 cursor-pointer select-none">
+                  <input type="checkbox" checked={isCustomArtist} onChange={(e) => setIsCustomArtist(e.target.checked)}
+                    className="w-3.5 h-3.5 border-2 border-[#121212] rounded" disabled={bulkNames.length > 0} />
+                  Not registered on platform
+                </label>
+
+                {isCustomArtist ? (
+                  <input type="text" placeholder="Performer Name"
+                    value={performerName} onChange={(e) => setPerformerName(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-[#121212] bg-white rounded font-space font-bold text-xs focus:outline-none"
+                    disabled={bulkNames.length > 0} />
+                ) : (
+                  <select value={selectedArtistId} onChange={(e) => setSelectedArtistId(e.target.value)}
+                    className="w-full px-3 py-2 border-2 border-[#121212] bg-white rounded font-space font-bold text-xs focus:outline-none"
+                    disabled={bulkNames.length > 0}>
+                    <option value="">-- Choose Artist Profile --</option>
+                    {allArtists.map((art: any) => (
+                      <option key={art.id} value={art.userId}>
+                        {art.stageName || art.user?.fullName} ({art.genres?.join(", ") || "No Genre"})
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <input type="text" placeholder="Track Title / Performance Type"
+                  value={trackTitle} onChange={(e) => setTrackTitle(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-[#121212] bg-white rounded font-space font-bold text-xs focus:outline-none"
+                  disabled={bulkNames.length > 0} />
+              </div>
+
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-[#121212]/10" /></div>
+                <div className="relative flex justify-center"><span className="bg-[#FAF8F5] px-2 font-display font-black text-[9px] uppercase text-gray-400">OR</span></div>
+              </div>
+
+              {/* Bulk Addition */}
+              <div className="space-y-2">
+                <span className="font-display font-black text-[9px] uppercase text-gray-400 block">Bulk Addition</span>
+                <textarea rows={4} placeholder="Paste names separated by new lines"
+                  value={bulkNames} onChange={(e) => setBulkNames(e.target.value)}
+                  className="w-full px-3 py-2 border-2 border-[#121212] bg-white rounded font-space font-bold text-xs focus:outline-none resize-none"
+                  disabled={performerName.length > 0 || selectedArtistId.length > 0} />
+              </div>
+
+              <button type="submit" disabled={submittingPerformer || (!performerName && !selectedArtistId && !bulkNames.trim())}
+                className="w-full py-2.5 border-2 border-[#121212] bg-[#121212] text-[#FAF8F5] font-display font-black text-xs uppercase rounded cursor-pointer hover:bg-black/90 transition-colors shadow-brutal-sm disabled:opacity-50">
+                {submittingPerformer ? "Adding..." : "Add Performer(s)"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* TAB 3: LEADERBOARD                                                */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {activeTab === "leaderboard" && (
+        <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <h2 className="font-display font-black text-xl uppercase">Event Leaderboard</h2>
+              <p className="font-space text-xs text-gray-500 font-bold">Rankings updated in real-time</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={handleToggleLeaderboard} disabled={togglingLb}
+                className={`px-3 py-2 border-2 border-[#121212] font-display font-black text-[10px] uppercase rounded cursor-pointer transition-all ${
+                  showLeaderboard
+                    ? "bg-yellow-festival text-[#121212]"
+                    : "bg-white hover:bg-yellow-festival/20"
+                }`}>
+                {togglingLb ? "..." : showLeaderboard ? "✅ On Stage" : "Reveal on Stage"}
+              </button>
+              <button onClick={() => setHideScores(!hideScores)}
+                className="px-3 py-2 border-2 border-[#121212] bg-white font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-[#FAF8F5] flex items-center gap-1.5">
+                {hideScores ? <EyeOff size={12} /> : <Eye size={12} />}
+                {hideScores ? "Reveal Scores" : "Hide Scores"}
+              </button>
+              <button onClick={handleExportCSV}
+                className="px-3 py-2 border-2 border-[#121212] bg-white font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-[#FAF8F5] flex items-center gap-1.5">
+                <Download size={12} /> Export CSV
+              </button>
+              <button onClick={handleReset} disabled={resetting}
+                className="px-3 py-2 border-2 border-[#121212] bg-red-stage text-white font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-red-700 transition-colors disabled:opacity-50">
+                {resetting ? "Resetting..." : "End & Reset Event"}
+              </button>
+            </div>
+          </div>
+
+          {/* Rankings */}
+          <div className="space-y-3">
+            {standings.length > 0 ? (
+              standings.map((sub: any, idx: number) => {
+                const isTop3 = idx < 3;
+                return (
+                  <div key={sub.submissionId}
+                    className={`flex flex-col sm:flex-row items-center justify-between p-4 rounded border-2 ${
+                      isTop3 ? "bg-yellow-festival/5 border-yellow-festival/30" : "bg-white border-[#121212]/10"
+                    }`}>
+                    <div className="flex items-center gap-4 w-full sm:w-auto">
+                      <span className={`font-display font-black text-center w-8 ${
+                        idx === 0 ? "text-yellow-500 text-2xl" : idx === 1 ? "text-gray-400 text-xl" : idx === 2 ? "text-amber-600 text-lg" : "text-gray-400 text-sm"
+                      }`}>
+                        #{idx + 1}
+                      </span>
+                      <div className="w-12 h-12 bg-[#FAF8F5] border-2 border-[#121212]/20 rounded-xl overflow-hidden flex items-center justify-center font-display font-black text-gray-400 flex-shrink-0">
+                        {sub.photoUrl ? <img src={sub.photoUrl} className="w-full h-full object-cover" alt="" /> : (sub.performer || "?")[0]}
+                      </div>
+                      <div>
+                        <h3 className="font-display font-black text-sm">{sub.performer}</h3>
+                        <span className="font-space text-[10px] text-gray-500 font-bold">{sub.trackTitle}</span>
+                      </div>
+                    </div>
+
+                    <div className={`flex items-end gap-6 text-right mt-3 sm:mt-0 transition-all duration-300 ${hideScores ? "blur-md opacity-40 select-none grayscale" : ""}`}>
+                      <div>
+                        <div className="font-display font-black text-[8px] uppercase text-gray-400 mb-0.5">Votes</div>
+                        <div className="font-display font-black text-lg tabular-nums">{sub.votesCount}</div>
+                      </div>
+                      <div>
+                        <div className="font-display font-black text-[8px] uppercase text-gray-400 mb-0.5">Audience</div>
+                        <div className="font-display font-black text-lg tabular-nums">{sub.audienceAverage.toFixed(1)}</div>
+                      </div>
+                      <div>
+                        <div className="font-display font-black text-[8px] uppercase text-yellow-700 mb-0.5">Score</div>
+                        <div className="font-display font-black text-xl tabular-nums text-yellow-700">{sub.totalScore.toFixed(1)}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-12 border-2 border-dashed border-[#121212]/20 rounded">
+                <p className="font-display font-black text-sm text-gray-400 uppercase">No standings data yet</p>
+                <p className="font-space text-[10px] text-gray-400 font-bold mt-1">Add performers and start voting to see results.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* TAB 4: ACCESS REQUESTS                                            */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {activeTab === "requests" && (
+        <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-6">
+          <div>
+            <h2 className="font-display font-black text-xl uppercase">Voting Access Requests</h2>
+            <p className="font-space text-xs text-gray-500 font-bold">Manage voting permission requests from non-registered attendees</p>
+          </div>
+
+          <div className="space-y-3">
+            {accessRequests.length > 0 ? (
+              accessRequests.map((req: any) => (
+                <div key={req.id} className="flex flex-col sm:flex-row items-center justify-between p-4 rounded border-2 bg-white border-[#121212]/10 gap-4">
+                  <div>
+                    <h3 className="font-display font-black text-sm">{req.user?.fullName || "Anonymous Voter"}</h3>
+                    <p className="font-space text-[10px] text-gray-500 font-bold">{req.user?.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleReviewRequest(req.id, "APPROVED")}
+                      disabled={processingRequestId === req.id}
+                      className="px-3 py-1.5 bg-green-500 text-white border-2 border-[#121212] font-display font-black text-[10px] uppercase rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none cursor-pointer disabled:opacity-50"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => handleReviewRequest(req.id, "REJECTED")}
+                      disabled={processingRequestId === req.id}
+                      className="px-3 py-1.5 bg-red-stage text-white border-2 border-[#121212] font-display font-black text-[10px] uppercase rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none cursor-pointer disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 border-2 border-dashed border-[#121212]/20 rounded">
+                <p className="font-display font-black text-sm text-gray-400 uppercase">No pending access requests</p>
+                <p className="font-space text-[10px] text-gray-400 font-bold mt-1">Attendees who are not registered on the platform will appear here if they request access.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

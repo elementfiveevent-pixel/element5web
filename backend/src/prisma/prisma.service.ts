@@ -1,6 +1,15 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from "@nestjs/common";
 import { Pool, PoolClient } from "pg";
 
+function toPgArray(arr: any[]): string {
+  const escaped = arr.map(val => {
+    if (val === null || val === undefined) return 'NULL';
+    const str = String(val).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return `"${str}"`;
+  });
+  return `{${escaped.join(',')}}`;
+}
+
 const KEY_MAP: Record<string, string> = {
   userid: "userId",
   passwordhash: "passwordHash",
@@ -72,7 +81,11 @@ const KEY_MAP: Record<string, string> = {
   ticketid: "ticketId",
   verificationmethod: "verificationMethod",
   artistprofileid: "artistProfileId",
-  totalscore: "totalScore"
+  totalscore: "totalScore",
+  votingactive: "votingActive",
+  showleaderboard: "showLeaderboard",
+  votingexpiresat: "votingExpiresAt",
+  currentperformerid: "currentPerformerId"
 };
 
 function mapRowKeys(row: any): any {
@@ -380,6 +393,12 @@ export class PostgresModel {
             [row.userId]
           );
           row.user = userRes.rows[0] || null;
+        } else if (relation === "user" && this.tableName === "VotingAccessRequest") {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = $1`,
+            [row.userId]
+          );
+          row.user = userRes.rows[0] || null;
         }
       }
       return;
@@ -424,7 +443,7 @@ export class PostgresModel {
             row.user = null;
           }
         }
-      } else if (relation === "user" && this.tableName === "RoleAssignment") {
+      } else if (relation === "user" && (this.tableName === "RoleAssignment" || this.tableName === "VotingAccessRequest" || this.tableName === "ArtistProfile")) {
         const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
         if (userIds.length > 0) {
           const userRes = await this.pool.query(
@@ -831,6 +850,22 @@ export class PostgresModel {
             row.user = null;
           }
         }
+      } else if (relation === "user" && this.tableName === "VotingAccessRequest") {
+        const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
+        if (userIds.length > 0) {
+          const userRes = await this.pool.query(
+            `SELECT * FROM "User" WHERE "id" = ANY($1)`,
+            [userIds]
+          );
+          const usersMap = new Map(userRes.rows.map((u: any) => [u.id, u]));
+          for (const row of rows) {
+            row.user = usersMap.get(row.userId) || null;
+          }
+        } else {
+          for (const row of rows) {
+            row.user = null;
+          }
+        }
       }
     }
   }
@@ -991,8 +1026,10 @@ export class PostgresModel {
       }
 
       columns.push(`"${key}"`);
-      if (typeof value === "object" && value !== null && !(value instanceof Date)) {
+      if (typeof value === "object" && value !== null && !(value instanceof Date) && !Array.isArray(value)) {
         values.push(JSON.stringify(value));
+      } else if (Array.isArray(value)) {
+        values.push(toPgArray(value));
       } else {
         values.push(value);
       }
@@ -1032,8 +1069,10 @@ export class PostgresModel {
         continue;
       }
       setClauses.push(`"${key}" = $${placeholderIndex++}`);
-      if (typeof value === "object" && value !== null && !(value instanceof Date)) {
+      if (typeof value === "object" && value !== null && !(value instanceof Date) && !Array.isArray(value)) {
         setValues.push(JSON.stringify(value));
+      } else if (Array.isArray(value)) {
+        setValues.push(toPgArray(value));
       } else {
         setValues.push(value);
       }
@@ -1087,8 +1126,10 @@ export class PostgresModel {
     for (const [key, value] of Object.entries(data)) {
       if (value === undefined) continue;
       setClauses.push(`"${key}" = $${placeholderIndex++}`);
-      if (typeof value === "object" && value !== null && !(value instanceof Date)) {
+      if (typeof value === "object" && value !== null && !(value instanceof Date) && !Array.isArray(value)) {
         setValues.push(JSON.stringify(value));
+      } else if (Array.isArray(value)) {
+        setValues.push(toPgArray(value));
       } else {
         setValues.push(value);
       }
@@ -1143,6 +1184,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   checkInAuditLog: PostgresModel;
   leaderboardStanding: PostgresModel;
   highlight: PostgresModel;
+  votingAccessRequest: PostgresModel;
 
   constructor() {
     const useSsl = process.env.DATABASE_URL?.includes("supabase.co") || 
@@ -1182,6 +1224,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     this.checkInAuditLog = new PostgresModel(this.pool, "CheckInAuditLog", this);
     this.leaderboardStanding = new PostgresModel(this.pool, "LeaderboardStanding", this);
     this.highlight = new PostgresModel(this.pool, "Highlight", this);
+    this.votingAccessRequest = new PostgresModel(this.pool, "VotingAccessRequest", this);
   }
 
   async onModuleInit() {
@@ -1197,6 +1240,12 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
           ALTER TABLE "CommunityMember" ADD COLUMN IF NOT EXISTS "role" TEXT DEFAULT 'MEMBER';
           ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "title" TEXT;
           ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "sponsors" JSONB DEFAULT '[]'::jsonb;
+          
+          ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "votingActive" BOOLEAN DEFAULT FALSE;
+          ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "showLeaderboard" BOOLEAN DEFAULT FALSE;
+          ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "votingExpiresAt" TIMESTAMP WITH TIME ZONE;
+          ALTER TABLE "Event" ADD COLUMN IF NOT EXISTS "currentPerformerId" TEXT;
+          ALTER TABLE "Vote" ADD COLUMN IF NOT EXISTS "score" DOUBLE PRECISION DEFAULT 5.0;
 
           CREATE TABLE IF NOT EXISTS "Highlight" (
             "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1205,13 +1254,50 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
             "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
             "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
           );
+
+          CREATE TABLE IF NOT EXISTS "VotingAccessRequest" (
+            "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            "eventId" TEXT NOT NULL,
+            "userId" TEXT NOT NULL,
+            "status" TEXT NOT NULL DEFAULT 'PENDING',
+            "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "uq_event_user_voting_request" UNIQUE ("eventId", "userId")
+          );
         `);
-        this.logger.log("✅ PostgreSQL schema updated with Community, Member, Post, Event sponsors, and Highlight table");
+        this.logger.log("✅ PostgreSQL schema updated with Community, Member, Post, Event sponsors, voting states, vote scores, access requests, and Highlight table");
       } catch (migrationErr: any) {
         this.logger.warn(`⚠ PostgreSQL migration check failed: ${migrationErr.message}`);
       }
 
-      client.release();
+      // Execute status column type alter and enum alterations in separate try-catch blocks to bypass any PgBouncer / transaction mode errors
+      try {
+        await client.query(`
+          ALTER TABLE "StageVerseSubmission" ALTER COLUMN "status" TYPE TEXT;
+          ALTER TABLE "StageVerseSubmission" ALTER COLUMN "status" SET DEFAULT 'PENDING';
+        `);
+        this.logger.log("✅ Successfully converted StageVerseSubmission status column to TEXT");
+      } catch (alterErr: any) {
+        this.logger.warn(`⚠ Failed to alter StageVerseSubmission status column to TEXT: ${alterErr.message}`);
+      }
+
+      try {
+        await client.query(`ALTER TYPE "SubmissionStatus" ADD VALUE 'SKIPPED'`);
+        this.logger.log("✅ Added SKIPPED to SubmissionStatus enum");
+      } catch (enumErr: any) {
+        // Ignore if already added or restricted
+      }
+
+        try {
+          const usersCount = await client.query('SELECT COUNT(*) FROM "User"');
+          const profilesCount = await client.query('SELECT COUNT(*) FROM "ArtistProfile"');
+          const subsCount = await client.query('SELECT COUNT(*) FROM "StageVerseSubmission"');
+          this.logger.log(`[DEBUG DATABASE] Users: ${usersCount.rows[0].count}, ArtistProfiles: ${profilesCount.rows[0].count}, Submissions: ${subsCount.rows[0].count}`);
+        } catch (dbErr: any) {
+          this.logger.warn(`[DEBUG DATABASE] Failed to count rows: ${dbErr.message}`);
+        }
+
+        client.release();
     } catch (err: any) {
       this.logger.warn(
         `⚠ PostgreSQL unavailable: ${err?.message ?? err}. Running without database.`
@@ -1273,6 +1359,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
         checkInAuditLog: new PostgresModel(client, "CheckInAuditLog", this),
         leaderboardStanding: new PostgresModel(client, "LeaderboardStanding", this),
         highlight: new PostgresModel(client, "Highlight", this),
+        votingAccessRequest: new PostgresModel(client, "VotingAccessRequest", this),
       };
 
       const result = await callback(transactionService);

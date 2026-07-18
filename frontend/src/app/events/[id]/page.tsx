@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, useCallback, use } from "react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import Link from "next/link";
+import { io, Socket } from "socket.io-client";
 import {
   ArrowLeft, Calendar, MapPin, Users, Check, Vote, Flame,
   AlertCircle, Tag, Shield, ExternalLink, LayoutDashboard,
-  Clock, Ticket, BarChart2, PlusCircle, X, Radio
+  Clock, Ticket, BarChart2, PlusCircle, X, Radio, CheckCircle2
 } from "lucide-react";
 import QRTicket from "@/components/ui/QRTicket";
 import SupabaseUpload from "@/components/ui/SupabaseUpload";
@@ -27,6 +28,8 @@ interface BackendEvent {
   location?: EventLocation;
   ticketCategories: TicketCategory[];
   sponsors?: { name: string; logo: string }[];
+  showLeaderboard?: boolean;
+  votingActive?: boolean;
 }
 interface MyTicket { id: string; qrCode: string; isUsed: boolean; usedAt?: string; paymentStatus: string }
 
@@ -92,6 +95,22 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
   const [registrationStep, setRegistrationStep] = useState<"SELECT" | "PAYMENT">("SELECT");
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState("");
 
+  const [votingAccessStatus, setVotingAccessStatus] = useState<"APPROVED" | "PENDING" | "NOT_REQUESTED" | "LOADING">("LOADING");
+  const [requestingAccess, setRequestingAccess] = useState(false);
+  const [standings, setStandings] = useState<any[]>([]);
+  const [standingsLoading, setStandingsLoading] = useState(false);
+
+  // Live voting terminal embedded states
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isVotingOpen, setIsVotingOpen] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [selectedRatings, setSelectedRatings] = useState<Record<string, number>>({});
+  const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
+  const [votingSubmissionId, setVotingSubmissionId] = useState<string | null>(null);
+  const [currentPerformerId, setCurrentPerformerId] = useState<string | null>(null);
+
   const isOrganizer = user && event && (event.organizer?.id === user.id || ["SUPER_ADMIN","ORG_ADMIN"].includes(user.role));
   const isCompleted = event ? ["COMPLETED","ARCHIVED","CANCELLED"].includes(event.status) : false;
   const hasTickets = myTickets.length > 0;
@@ -130,6 +149,140 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
       })
       .catch(() => {});
   }, [user, event]);
+
+  // Check voting access request status
+  useEffect(() => {
+    if (!user || !event) {
+      setVotingAccessStatus("NOT_REQUESTED");
+      return;
+    }
+    setVotingAccessStatus("LOADING");
+    api.get(`/stageverse/${event.id}/voting/check-access`)
+      .then((res: any) => {
+        setVotingAccessStatus(res.status || "NOT_REQUESTED");
+      })
+      .catch(() => {
+        setVotingAccessStatus("NOT_REQUESTED");
+      });
+  }, [user, event]);
+
+  // Fetch standings if leaderboard is toggled on by organizer
+  useEffect(() => {
+    if (!event || !event.showLeaderboard) return;
+    setStandingsLoading(true);
+    api.get(`/stageverse/${event.id}/standings`)
+      .then((res: any) => {
+        setStandings(Array.isArray(res) ? res : []);
+      })
+      .catch(() => {})
+      .finally(() => setStandingsLoading(false));
+  }, [event]);
+
+  // Fetch embedded submissions list and set up socket updates
+  const fetchEmbeddedStatusAndSubmissions = useCallback(async () => {
+    if (!event) return;
+    try {
+      const statusRes = await api.get(`/stageverse/${event.id}/voting/status`);
+      setIsVotingOpen(statusRes.open);
+      setExpiresAt(statusRes.expiresAt ?? null);
+      setCurrentPerformerId(statusRes.currentPerformerId ?? null);
+
+      const subRes = await api.get(`/stageverse/${event.id}/submissions`);
+      setSubmissions(Array.isArray(subRes) ? subRes : []);
+    } catch {}
+  }, [event]);
+
+  useEffect(() => {
+    if (!event) return;
+    fetchEmbeddedStatusAndSubmissions();
+
+    const socketUrl = api.baseUrl.replace(/\/$/, "");
+    const socketInstance = io(`${socketUrl}/live`, {
+      transports: ["websocket"],
+      autoConnect: true
+    });
+
+    socketInstance.on("connect", () => {
+      socketInstance.emit("joinEvent", { eventId: event.id });
+    });
+
+    socketInstance.on("votingStatusUpdate", (data: { open: boolean; expiresAt?: number | null }) => {
+      setIsVotingOpen(data.open);
+      setExpiresAt(data.expiresAt ?? null);
+      if (data.open) {
+        triggerConfetti();
+      }
+    });
+
+    socketInstance.on("currentPerformerUpdate", (data: { currentPerformerId: string | null }) => {
+      setCurrentPerformerId(data.currentPerformerId);
+    });
+
+    socketInstance.on("leaderboardUpdate", (data: any) => {
+      setStandings(Array.isArray(data) ? data : []);
+    });
+
+    setSocket(socketInstance);
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, [event, fetchEmbeddedStatusAndSubmissions]);
+
+  // Ticking countdown effect for embedded voting
+  useEffect(() => {
+    if (!isVotingOpen || !expiresAt) {
+      setTimeLeft(null);
+      return;
+    }
+    const updateTime = () => {
+      const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setTimeLeft(diff);
+      if (diff <= 0) {
+        setIsVotingOpen(false);
+        setTimeLeft(null);
+        setExpiresAt(null);
+      }
+    };
+    updateTime();
+    const iv = setInterval(updateTime, 1000);
+    return () => clearInterval(iv);
+  }, [isVotingOpen, expiresAt]);
+
+  const handleVote = async (submissionId: string) => {
+    if (!user) {
+      alert("Please login to cast your live vote!");
+      return;
+    }
+
+    if (!isVotingOpen) {
+      alert("Voting is currently closed by the organizer!");
+      return;
+    }
+
+    const rating = selectedRatings[submissionId];
+    if (!rating) {
+      alert("Please select a score rating before submitting your vote!");
+      return;
+    }
+
+    if (votedIds.has(submissionId)) return;
+
+    setVotingSubmissionId(submissionId);
+
+    try {
+      await api.post(`/stageverse/submissions/${submissionId}/vote`, { score: rating });
+      setVotedIds(prev => new Set([...prev, submissionId]));
+      triggerConfetti();
+      alert("Vote cast successfully!");
+    } catch (err: any) {
+      alert(err.message || "Failed to submit vote.");
+    } finally {
+      setVotingSubmissionId(null);
+    }
+  };
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
   const triggerConfetti = async () => {
     const { default: confetti } = await import("canvas-confetti");
@@ -217,17 +370,22 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                 className="flex items-center gap-1.5 border-2 border-[#121212] bg-white font-black text-[10px] uppercase px-3 py-1.5 rounded hover:bg-yellow-festival/20 transition-colors">
                 <Users size={11} /> REGISTRATIONS
               </Link>
+              <Link href={`/events/organizer?tab=gate`}
+                className="flex items-center gap-1.5 border-2 border-[#121212] bg-white font-black text-[10px] uppercase px-3 py-1.5 rounded hover:bg-yellow-festival/20 transition-colors">
+                <Ticket size={11} /> TICKET GATE
+              </Link>
+              <Link href={`/events/organizer?tab=voting`}
+                className="flex items-center gap-1.5 border-2 border-[#121212] bg-white font-black text-[10px] uppercase px-3 py-1.5 rounded hover:bg-yellow-festival/20 transition-colors">
+                <Vote size={11} /> MANAGE VOTING
+              </Link>
               <Link href={`/events/organizer?tab=analytics`}
                 className="flex items-center gap-1.5 border-2 border-[#121212] bg-white font-black text-[10px] uppercase px-3 py-1.5 rounded hover:bg-yellow-festival/20 transition-colors">
                 <BarChart2 size={11} /> ANALYTICS
               </Link>
-              <Link href={`/events/organizer?tab=scanner`}
-                className="flex items-center gap-1.5 border-2 border-[#121212] bg-white font-black text-[10px] uppercase px-3 py-1.5 rounded hover:bg-yellow-festival/20 transition-colors">
-                <LayoutDashboard size={11} /> QR SCANNER
-              </Link>
             </div>
           </div>
         )}
+
 
         {/* ── Hero ───────────────────────────────────────────────────────── */}
         <div className="border-4 border-[#121212] bg-[#121212] text-[#FAF8F5] rounded shadow-brutal overflow-hidden">
@@ -430,6 +588,55 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
           </div>
         )}
 
+        {/* StageVerse Live Voting Banner (Yellow, prominent) */}
+        {isVotingOpen && (
+          <div className="border-3 border-[#121212] bg-[#FFDE4D] p-5 rounded shadow-brutal flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
+            <div className="space-y-1">
+              <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#121212] flex items-center gap-2">
+                <Radio size={18} className="text-red-stage animate-pulse" /> CAST YOUR VOTE LIVE!
+              </h3>
+              <p className="font-space text-xs text-[#121212] font-bold">
+                Open the secure Voting Terminal to support your favorite performers during this round.
+              </p>
+            </div>
+
+            <div className="flex-shrink-0">
+              {votingAccessStatus === "APPROVED" ? (
+                <Link
+                  href={`/stageverse/voting-system?eventId=${event.id}`}
+                  className="inline-block bg-[#121212] text-white font-display font-black text-xs uppercase px-5 py-3 rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-center cursor-pointer whitespace-nowrap"
+                >
+                  VOTING TERMINAL
+                </Link>
+              ) : votingAccessStatus === "PENDING" ? (
+                <span className="inline-block bg-gray-700 text-gray-400 font-display font-black text-xs uppercase px-5 py-3 rounded text-center select-none whitespace-nowrap">
+                  REQUEST PENDING...
+                </span>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (!user) { window.location.href = `/login?redirect=/events/${id}`; return; }
+                    setRequestingAccess(true);
+                    try {
+                      await api.post(`/stageverse/${event.id}/voting/request-access`);
+                      setVotingAccessStatus("PENDING");
+                      alert("Access request sent to organizers successfully!");
+                    } catch (err: any) {
+                      alert(err.message || "Failed to send request.");
+                    } finally {
+                      setRequestingAccess(false);
+                    }
+                  }}
+                  disabled={requestingAccess}
+                  className="inline-block bg-red-stage text-white font-display font-black text-xs uppercase px-5 py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all text-center cursor-pointer whitespace-nowrap"
+                >
+                  {requestingAccess ? "SENDING..." : "REQUEST VOTING ACCESS"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Venue & Details ──────────────────────────────────────────────── */}
         <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-6">
           <h2 className="font-display font-black text-2xl uppercase tracking-tight border-b-3 border-[#121212] pb-3">
@@ -478,6 +685,46 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
           )}
         </div>
 
+        {/* Leaderboard Standing (If Organizer enabled it) */}
+        {event.showLeaderboard && (
+          <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-6">
+            <div className="flex items-center gap-2 border-b-3 border-[#121212] pb-3">
+              <Radio size={20} className="text-red-stage animate-pulse" />
+              <h2 className="font-display font-black text-2xl uppercase tracking-tight">StageVerse Live Leaderboard</h2>
+            </div>
+            
+            {standingsLoading ? (
+              <p className="font-space text-sm font-bold text-center py-6 text-gray-400 uppercase animate-pulse">Calculating standings...</p>
+            ) : standings.length > 0 ? (
+              <div className="space-y-3">
+                {standings.map((sub, idx) => (
+                  <div key={sub.submissionId} className="border-2 border-[#121212] bg-white p-4 rounded shadow-sm flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <span className="font-display font-black text-sm text-gray-400 w-6 text-center">{idx + 1}</span>
+                      {sub.photoUrl && (
+                        <img src={sub.photoUrl} alt="" className="w-8 h-8 rounded-full object-cover border border-[#121212] flex-shrink-0" />
+                      )}
+                      <div>
+                        <h4 className="font-display font-bold text-sm uppercase leading-tight">{sub.performer}</h4>
+                        <p className="font-space text-[10px] text-gray-500 font-bold uppercase">{sub.trackTitle}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <span className="text-[8px] font-black uppercase text-gray-400 block">Total Score</span>
+                        <span className="font-display font-black text-base text-red-stage">{sub.totalScore.toFixed(1)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="font-space text-sm font-bold text-center py-6 text-gray-400 uppercase">No standings recorded yet.</p>
+            )}
+          </div>
+        )}
+
         {/* More Events Section */}
         <div className="space-y-6 pt-10 border-t-3 border-[#121212]/10">
           <div className="flex items-center justify-between">
@@ -517,8 +764,8 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 
       {/* Registration Selection & Payment Modal */}
       {showRegisterModal && event && (
-        <div className="fixed inset-0 z-[9999] bg-[#121212]/70 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border-4 border-[#121212] p-6 max-w-md w-full rounded shadow-brutal space-y-6 text-[#121212] font-space relative my-8">
+        <div className="fixed inset-0 z-[9999] bg-[#121212]/70 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white border-4 border-[#121212] p-6 max-w-md w-full rounded shadow-brutal space-y-6 text-[#121212] font-space relative my-8 max-h-[85vh] sm:max-h-none overflow-y-auto">
             {/* Close button */}
             <button 
               onClick={() => setShowRegisterModal(false)}

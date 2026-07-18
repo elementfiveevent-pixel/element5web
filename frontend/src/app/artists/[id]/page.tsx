@@ -253,18 +253,18 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
               </div>
 
               {/* Stats */}
-              <div className="flex gap-4 border-t border-b border-[#121212]/10 py-3 w-full justify-center md:justify-start">
-                <div className="text-center">
-                  <span className="block font-display font-black text-lg">{artist.followers.toLocaleString()}</span>
-                  <span className="text-[10px] font-black text-gray-400 uppercase">XP</span>
+              <div className="grid grid-cols-3 gap-2 border-t border-b border-[#121212]/10 py-3 w-full text-center">
+                <div>
+                  <span className="block font-display font-black text-lg truncate">{artist.followers.toLocaleString()}</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">XP</span>
                 </div>
-                <div className="text-center">
-                  <span className="block font-display font-black text-lg">{likes}</span>
-                  <span className="text-[10px] font-black text-gray-400 uppercase">Likes</span>
+                <div>
+                  <span className="block font-display font-black text-lg truncate">{likes}</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">Likes</span>
                 </div>
-                <div className="text-center">
-                  <span className="block font-display font-black text-lg">{artist.performancesCount}</span>
-                  <span className="text-[10px] font-black text-gray-400 uppercase">Shows</span>
+                <div>
+                  <span className="block font-display font-black text-lg truncate">{artist.performancesCount}</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">Shows</span>
                 </div>
               </div>
 

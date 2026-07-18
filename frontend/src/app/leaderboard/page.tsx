@@ -110,12 +110,12 @@ export default function LeaderboardPage() {
         {/* Filters and Search */}
         <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
           {/* Timeframe selector */}
-          <div className="flex border-3 border-[#121212] rounded overflow-hidden max-w-sm bg-white">
+          <div className="flex border-3 border-[#121212] rounded overflow-hidden max-w-sm bg-white w-full md:w-auto">
             {(["WEEKLY", "MONTHLY", "SEASON", "ALL_TIME"] as const).map(tf => (
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
-                className={`flex-1 py-3 px-3 font-display font-black text-[10px] uppercase transition-colors ${
+                className={`flex-1 py-2.5 px-1.5 sm:px-3 font-display font-black text-[8px] sm:text-[10px] uppercase transition-colors cursor-pointer ${
                   timeframe === tf ? "bg-[#121212] text-white" : "bg-white text-[#121212]"
                 }`}
               >
@@ -225,11 +225,11 @@ export default function LeaderboardPage() {
 
         {/* Leaderboard Table List */}
         <div className="border-3 border-[#121212] bg-white rounded overflow-hidden shadow-brutal">
-          <div className="bg-[#121212] text-white p-4 font-display font-black text-xs tracking-wider grid grid-cols-12 gap-4 uppercase select-none">
-            <div className="col-span-1 text-center">Rank</div>
-            <div className="col-span-6 md:col-span-7">Creator</div>
+          <div className="bg-[#121212] text-white p-4 font-display font-black text-[10px] sm:text-xs tracking-wider grid grid-cols-12 gap-2 sm:gap-4 uppercase select-none">
+            <div className="col-span-2 md:col-span-1 text-center">Rank</div>
+            <div className="col-span-7 md:col-span-7">Creator</div>
             <div className="col-span-3 md:col-span-2 text-center">Score / Votes</div>
-            <div className="col-span-2 text-center">Profile</div>
+            <div className="col-span-2 hidden md:block text-center">Profile</div>
           </div>
 
           <div className="divide-y-2 divide-[#121212]">
@@ -241,27 +241,27 @@ export default function LeaderboardPage() {
               remaining.map((item, index) => {
                 const rank = index + 4;
                 return (
-                  <div key={item.id} className="p-4 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors">
-                    <div className="col-span-1 font-display font-black text-center text-lg">{rank}</div>
-                    <div className="col-span-6 md:col-span-7 flex items-center gap-3">
+                  <div key={item.id} className="p-3 sm:p-4 grid grid-cols-12 gap-2 sm:gap-4 items-center hover:bg-gray-50 transition-colors">
+                    <div className="col-span-2 md:col-span-1 font-display font-black text-center text-base sm:text-lg">{rank}</div>
+                    <div className="col-span-7 md:col-span-7 flex items-center gap-2 sm:gap-3 min-w-0">
                       <img
                         src={item.avatar}
                         alt={item.name}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-[#121212]"
+                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-[#121212] flex-shrink-0"
                       />
-                      <div className="truncate">
-                        <Link href={`/artists/${item.id}`} className="font-display font-extrabold hover:underline block truncate text-sm">
+                      <div className="truncate min-w-0">
+                        <Link href={`/artists/${item.id}`} className="font-display font-extrabold hover:underline block truncate text-xs sm:text-sm">
                           {item.name}
                         </Link>
-                        <span className="text-xs text-gray-500 font-medium font-space flex items-center gap-1">
-                          <MapPin size={10} /> {item.location}
+                        <span className="text-[10px] text-gray-500 font-medium font-space flex items-center gap-0.5 truncate">
+                          <MapPin size={9} className="flex-shrink-0" /> {item.location.split(",")[0]}
                         </span>
                       </div>
                     </div>
-                    <div className="col-span-3 md:col-span-2 text-center font-space font-black text-sm">
-                      {item.votes} <span className="text-[10px] text-gray-400 block font-normal font-sans">Votes</span>
+                    <div className="col-span-3 md:col-span-2 text-center font-space font-black text-xs sm:text-sm">
+                      {item.votes} <span className="text-[9px] text-gray-400 block font-normal font-sans">Votes</span>
                     </div>
-                    <div className="col-span-2 flex justify-center">
+                    <div className="col-span-2 hidden md:flex justify-center">
                       <Link
                         href={`/artists/${item.id}`}
                         className="p-2 border-2 border-[#121212] bg-[#FAF8F5] text-[#121212] rounded hover:bg-yellow-festival hover:translate-x-[1px] hover:translate-y-[1px] transition-all"

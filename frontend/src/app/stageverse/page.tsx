@@ -28,6 +28,7 @@ export default function StageVerseArena() {
   const [viewerCount, setViewerCount] = useState(1);
   const [standings, setStandings] = useState<Submission[]>([]);
   const [liveVotes, setLiveVotes] = useState<{ performer: string; votedAt: string }[]>([]);
+  const [isVotingOpen, setIsVotingOpen] = useState(false);
 
 
 
@@ -35,6 +36,15 @@ export default function StageVerseArena() {
   const [isLive, setIsLive] = useState(false);
 
   useEffect(() => {
+    // Fetch initial voting status
+    if (activeEvent.id) {
+      api.get(`/stageverse/${activeEvent.id}/voting/status`)
+        .then((res: any) => {
+          setIsVotingOpen(res.open);
+        })
+        .catch(() => {});
+    }
+
     // Connect to NestJS live namespace
     const socketUrl = api.baseUrl.replace(/\/$/, "");
     const socketInstance = io(`${socketUrl}/live`, {
@@ -54,6 +64,10 @@ export default function StageVerseArena() {
 
     socketInstance.on("presenceUpdate", (data: { viewerCount: number }) => {
       setViewerCount(data.viewerCount);
+    });
+
+    socketInstance.on("votingStatusUpdate", (data: { open: boolean }) => {
+      setIsVotingOpen(data.open);
     });
 
     socketInstance.on("leaderboardUpdate", (data: Submission[]) => {
@@ -118,19 +132,20 @@ export default function StageVerseArena() {
           </div>
         </div>
 
-        <div className="border-3 border-[#121212] bg-[#FFDE4D] p-5 rounded shadow-brutal flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="space-y-1 text-center sm:text-left">
-            <span className="font-display font-black text-sm uppercase">CAST YOUR VOTE LIVE!</span>
-            <p className="font-space text-xs text-gray-700 font-bold">Open the secure Voting Terminal to support your favorite performers during this round.</p>
+        {isVotingOpen && (
+          <div className="border-3 border-[#121212] bg-[#FFDE4D] p-5 rounded shadow-brutal flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center sm:text-left">
+              <span className="font-display font-black text-sm uppercase">CAST YOUR VOTE LIVE!</span>
+              <p className="font-space text-xs text-gray-700 font-bold">Live voting is open for {activeEvent.title}! Support your favorite performers in the arena.</p>
+            </div>
+            <Link
+              href={`/events/${activeEvent.id}`}
+              className="bg-[#121212] text-[#FAF8F5] font-display font-black text-xs uppercase px-5 py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex-shrink-0 cursor-pointer"
+            >
+              VOTE IN ARENA
+            </Link>
           </div>
-          <Link
-            href="/stageverse/voting-system"
-            className="bg-[#121212] text-[#FAF8F5] font-display font-black text-xs uppercase px-5 py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex-shrink-0"
-          >
-            VOTING TERMINAL
-          </Link>
-        </div>
-
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-6 mt-12">
