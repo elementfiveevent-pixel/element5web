@@ -1,10 +1,11 @@
-import { Injectable, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from "@nestjs/common";
 import { Worker, Job } from "bullmq";
 import { RedisService } from "../../common/redis/redis.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
 export class NotificationProcessor implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(NotificationProcessor.name);
   private worker!: Worker;
 
   constructor(
@@ -26,11 +27,11 @@ export class NotificationProcessor implements OnModuleInit, OnModuleDestroy {
     );
 
     this.worker.on("completed", (job) => {
-      console.log(`✅ Notification job ${job.id} completed`);
+      this.logger.log(`Notification job ${job.id} completed`);
     });
 
     this.worker.on("failed", (job, err) => {
-      console.error(`❌ Notification job ${job?.id} failed:`, err);
+      this.logger.error(`Notification job ${job?.id} failed: ${(err as Error)?.message}`);
     });
   }
 
@@ -39,13 +40,13 @@ export class NotificationProcessor implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processEmail(data: { to: string; subject: string; text: string }) {
-    console.log(`📧 [Worker] Sending email to ${data.to}: ${data.subject}`);
+    this.logger.log(`[Email Worker] Sending to ${data.to}: ${data.subject}`);
     // Integrates with SMTP / Brevo API in production
     // (Stubbed here for local runs, which logs the payload and prints trace logs)
   }
 
   private async processPush(data: { userId: string; title: string; body: string }) {
-    console.log(`📱 [Worker] Sending push to user ${data.userId}: ${data.title}`);
+    this.logger.log(`[Push Worker] Sending to userId ${data.userId}: ${data.title}`);
     
     // Save push notification to database
     await this.prisma.notification.create({

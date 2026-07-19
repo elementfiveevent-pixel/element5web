@@ -1,4 +1,7 @@
 import * as crypto from "crypto";
+import { Logger } from "@nestjs/common";
+
+const logger = new Logger("TotpUtil");
 
 function decodeBase32(base32: string): Buffer {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -46,7 +49,8 @@ export function verifyTOTP(token: string, secret: string): boolean {
       }
     }
   } catch (err) {
-    console.error("TOTP verification error:", err);
+    logger.error(`TOTP verification error: ${(err as Error)?.message}`);
   }
   return false;
 }
+

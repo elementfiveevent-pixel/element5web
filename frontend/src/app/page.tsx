@@ -7,8 +7,10 @@ import HeroBackground from "@/components/ui/HeroBackground";
 import { Play, Flame, Star, Trophy, Users, Award, Calendar, MapPin, Clock, ArrowRight, Check, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 
 export default function Home() {
+  const { showToast } = useToast();
   const { artists, events, userVotes, registeredEvents, voteForArtist, registerForEvent } = useApp();
   const nextEvent = events[0] || {
     id: "stageverse-3.0",
@@ -82,8 +84,8 @@ export default function Home() {
       .then((d) => {
         setHighlights(Array.isArray(d) ? d : []);
       })
-      .catch((err) => {
-        console.warn("Failed to load dynamic highlights:", err);
+      .catch((err: any) => {
+        showToast("Failed to load dynamic highlights: " + (err?.message || ""), "warning");
       })
       .finally(() => {
         setHighlightsLoading(false);
@@ -375,7 +377,7 @@ export default function Home() {
             </div>
 
             <div className="space-y-3">
-              {sortedArtists.map((artist, idx) => {
+              {sortedArtists.slice(0, 6).map((artist, idx) => {
                 const isVoted = votedIds[artist.id];
                 return (
                   <div

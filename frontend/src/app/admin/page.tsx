@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import {
   Users, Vote, Calendar, TrendingUp, Check, ShieldAlert,
   Award, Database, Cpu, Activity, RefreshCw, AlertCircle, FileText, Eye, X, Scan
@@ -95,16 +96,18 @@ export default function AdminDashboard() {
     }
   }, [user, loading, router]);
 
+  const { showToast } = useToast();
+
   useEffect(() => {
     if (!user) return;
     (async () => {
-      try { setStatsLoading(true); const d = await api.get("/admin/stats"); setBackendStats(d); } catch {} finally { setStatsLoading(false); }
+      try { setStatsLoading(true); const d = await api.get("/admin/stats"); setBackendStats(d); } catch (e: any) { showToast("Failed to load stats: " + (e?.message || ""), "warning"); } finally { setStatsLoading(false); }
     })();
     (async () => {
-      try { setReportsLoading(true); const d = await api.get("/admin/reports"); if (Array.isArray(d)) setReports(d); } catch {} finally { setReportsLoading(false); }
+      try { setReportsLoading(true); const d = await api.get("/admin/reports"); if (Array.isArray(d)) setReports(d); } catch (e: any) { showToast("Failed to load reports: " + (e?.message || ""), "warning"); } finally { setReportsLoading(false); }
     })();
     (async () => {
-      try { const d = await api.get("/admin/audits"); if (Array.isArray(d)) setAuditLogs(d.slice(0, 20)); } catch {}
+      try { const d = await api.get("/admin/audits"); if (Array.isArray(d)) setAuditLogs(d.slice(0, 20)); } catch (e: any) { showToast("Failed to load audit logs: " + (e?.message || ""), "warning"); }
     })();
   }, [user]);
 
@@ -163,8 +166,8 @@ export default function AdminDashboard() {
       } else {
         setAllOrganizers(prev => prev.filter(org => org.id !== userId));
       }
-    } catch (err) {
-      console.error("Failed to verify organizer:", err);
+    } catch (err: any) {
+      showToast("Failed to verify organizer: " + (err?.message || "Unknown error"), "error");
     } finally {
       setVerifyingOrganizerId(null);
     }
@@ -177,8 +180,8 @@ export default function AdminDashboard() {
       setCreators(prev =>
         prev.map(c => (c.id === artistId ? { ...c, isVerified: !currentStatus } : c))
       );
-    } catch (err) {
-      console.error("Failed to verify creator:", err);
+    } catch (err: any) {
+      showToast("Failed to update creator verification: " + (err?.message || "Unknown error"), "error");
     } finally {
       setVerifyingCreatorId(null);
     }
@@ -554,12 +557,12 @@ export default function AdminDashboard() {
               <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
                 <h4 className="font-display font-black text-base uppercase">Event Flyer Upload</h4>
                 <SupabaseUpload folder="element5/flyers" accept="image/*" label="UPLOAD EVENT FLYER" maxSizeMB={10}
-                  onUploadSuccess={r => console.log("Uploaded:", r.secure_url)} />
+                  onUploadSuccess={r => showToast("Event flyer uploaded: " + r.secure_url, "success")} />
               </div>
               <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-4">
                 <h4 className="font-display font-black text-base uppercase">Performance Media</h4>
                 <SupabaseUpload folder="element5/performances" accept="image/*,video/*" label="UPLOAD PERFORMANCE MEDIA" maxSizeMB={50}
-                  onUploadSuccess={r => console.log("Uploaded:", r.secure_url)} />
+                  onUploadSuccess={r => showToast("Performance media uploaded: " + r.secure_url, "success")} />
               </div>
             </div>
           </div>
@@ -630,6 +633,7 @@ export default function AdminDashboard() {
 }
 
 function HighlightsPanel() {
+  const { showToast } = useToast();
   const [highlights, setHighlights] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   
@@ -647,11 +651,11 @@ function HighlightsPanel() {
       const data = await api.get("/highlights");
       setHighlights(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      console.error("Failed to fetch highlights:", err);
+      showToast("Failed to fetch highlights: " + (err?.message || "Unknown error"), "error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showToast]);
 
   React.useEffect(() => {
     fetchHighlights();
@@ -690,6 +694,7 @@ function HighlightsPanel() {
       
       // Reset pending items to a single empty row
       setPendingItems([{ id: Math.random().toString(), imageUrl: "", description: "" }]);
+      showToast("Highlights published successfully! 🎉", "success");
     } catch (err: any) {
       setError(err?.message || "Failed to publish highlights.");
     } finally {
@@ -702,8 +707,9 @@ function HighlightsPanel() {
     try {
       await api.delete(`/highlights/${id}`);
       setHighlights((prev) => prev.filter((h) => h.id !== id));
+      showToast("Highlight deleted successfully.", "success");
     } catch (err: any) {
-      alert("Failed to delete highlight: " + (err?.message || err));
+      showToast("Failed to delete highlight: " + (err?.message || err), "error");
     } finally {
       setDeletingId(null);
     }

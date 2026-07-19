@@ -68,4 +68,12 @@ export class AuthController {
   async me(@CurrentUser() user: any) {
     return user;
   }
+
+  @Post("profile-photo")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Update user profile photo url" })
+  async updateProfilePhoto(@CurrentUser() user: any, @Body("profilePhotoUrl") profilePhotoUrl: string) {
+    return this.authService.updateProfilePhoto(user.id, profilePhotoUrl);
+  }
 }

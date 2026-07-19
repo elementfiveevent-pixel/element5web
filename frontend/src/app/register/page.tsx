@@ -5,9 +5,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserPlus, AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 export default function RegisterPage() {
   const { register, signInWithGoogle } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
   const [fullName, setFullName] = useState("");
@@ -27,7 +29,7 @@ export default function RegisterPage() {
       const res = await register(fullName, email, password, role, mobileNumber);
       if (res.success) {
         if (res.mode === "local") {
-          console.warn("Registered locally using fallback simulation:", res.message);
+          showToast("Registered locally using fallback simulation: " + res.message, "warning");
         }
         if (role === "ARTIST") {
           router.push("/onboarding");
@@ -51,7 +53,7 @@ export default function RegisterPage() {
       const res = await signInWithGoogle(role as "ARTIST" | "AUDIENCE");
       if (res.success) {
         if (res.mode === "local") {
-          console.warn("Registered locally via Google fallback simulation:", res.message);
+          showToast("Registered locally via Google fallback simulation: " + res.message, "warning");
         }
         if (role === "ARTIST") {
           router.push("/onboarding");

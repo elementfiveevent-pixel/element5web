@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, use } from "react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import {
@@ -80,6 +81,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
   const { id } = use(params);
   const { events: localEvents, artists, userVotes, voteForArtist, addUserXP } = useApp();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [event, setEvent] = useState<BackendEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -189,7 +191,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 
       const subRes = await api.get(`/stageverse/${event.id}/submissions`);
       setSubmissions(Array.isArray(subRes) ? subRes : []);
-    } catch {}
+    } catch { /* non-critical — voting/submission data is optional UI state */ }
   }, [event]);
 
   useEffect(() => {

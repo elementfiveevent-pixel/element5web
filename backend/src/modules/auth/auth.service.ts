@@ -167,11 +167,15 @@ export class AuthService {
     // Verify TOTP if the user is a SUPER_ADMIN
     const userRoles = user.roles.map((r: any) => r.role);
     if (userRoles.includes(UserRole.SUPER_ADMIN)) {
-      const totpSecret = process.env.ADMIN_TOTP_SECRET || "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+      const totpSecret = process.env.ADMIN_TOTP_SECRET;
+      if (!totpSecret && process.env.NODE_ENV === "production") {
+        throw new UnauthorizedException("2FA Configuration Error: Contact administrator.");
+      }
+      const actualSecret = totpSecret || "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
       if (!dto.totpToken) {
         throw new UnauthorizedException("2FA_REQUIRED");
       }
-      const isValidTotp = verifyTOTP(dto.totpToken, totpSecret);
+      const isValidTotp = verifyTOTP(dto.totpToken, actualSecret);
       if (!isValidTotp) {
         throw new UnauthorizedException("Invalid 2FA verification code");
       }
@@ -248,6 +252,9 @@ export class AuthService {
 
     try {
       if (idToken.startsWith("mock_")) {
+        if (process.env.NODE_ENV === "production") {
+          throw new UnauthorizedException("Mock Google logins are disabled in production environment");
+        }
         email = idToken.replace("mock_", "");
         fullName = email.split("@")[0];
       } else {
@@ -318,5 +325,12 @@ export class AuthService {
     }
 
     return this.generateTokens(user.id, user.email, user.roles.map((r: any) => r.role));
+  }
+
+  async updateProfilePhoto(userId: string, profilePhotoUrl: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { profilePhotoUrl },
+    });
   }
 }

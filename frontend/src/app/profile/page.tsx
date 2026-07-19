@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { LogOut, Shield, Award, Mail, User, Ticket, Share2, Video, Globe, Star, Music, Edit2, Play, MapPin } from "lucide-react";
+import { LogOut, Shield, Award, Mail, User, Ticket, Share2, Video, Globe, Star, Music, Edit2, Play, MapPin, Camera, X } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
+import SupabaseUpload from "@/components/ui/SupabaseUpload";
 
 function getYoutubeEmbedUrl(url: string) {
   if (!url) return null;
@@ -27,11 +29,29 @@ function getYoutubeEmbedUrl(url: string) {
 }
 
 export default function ProfilePage() {
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, refreshUser } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [tickets, setTickets] = useState<any[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  useEffect(() => {
+    if (user && user.role !== "ARTIST") {
+      setTicketsLoading(true);
+      api.get("/events/attendee/my-tickets")
+        .then((data) => {
+          setTickets(Array.isArray(data) ? data : []);
+        })
+        .catch((err: any) => {
+          showToast("Failed to load tickets: " + (err?.message || "Unknown error"), "error");
+        })
+        .finally(() => {
+          setTicketsLoading(false);
+        });
+    }
+  }, [user]);
 
   if (loading) {
     return (
@@ -75,22 +95,6 @@ export default function ProfilePage() {
       confetti({ particleCount: 40, spread: 30, colors: ["#FFDE4D", "#D80032"] });
     }
   };
-
-  useEffect(() => {
-    if (user && user.role !== "ARTIST") {
-      setTicketsLoading(true);
-      api.get("/events/attendee/my-tickets")
-        .then((data) => {
-          setTickets(Array.isArray(data) ? data : []);
-        })
-        .catch((err) => {
-          console.error("Failed to load tickets:", err);
-        })
-        .finally(() => {
-          setTicketsLoading(false);
-        });
-    }
-  }, [user]);
 
   // Safe checks for artist profile details
   const isArtist = user.role === "ARTIST";
@@ -179,14 +183,23 @@ export default function ProfilePage() {
             <div className="md:col-span-1 flex flex-col items-center md:items-start text-center md:text-left space-y-4">
               
               {/* Square Avatar Overlay */}
-              <div className="w-36 h-36 border-4 border-[#121212] bg-white -mt-24 shadow-brutal relative z-10 overflow-hidden rounded">
+              <div 
+                onClick={() => setShowUploadModal(true)}
+                className="w-36 h-36 border-4 border-[#121212] bg-white -mt-24 shadow-brutal relative z-10 overflow-hidden rounded group cursor-pointer"
+                title="Click to update profile photo"
+              >
                 {avatarImage ? (
-                  <img src={avatarImage} alt={stageName} className="w-full h-full object-cover" />
+                  <img src={avatarImage} alt={stageName} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                 ) : (
                   <div className="w-full h-full bg-[#121212] flex items-center justify-center text-yellow-festival font-display font-black text-4xl uppercase select-none">
                     {stageName.charAt(0)}
                   </div>
                 )}
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-[#121212]/70 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1.5 transition-opacity duration-200 z-20">
+                  <Camera className="text-yellow-festival w-6 h-6 animate-bounce" />
+                  <span className="text-[10px] font-display font-black uppercase text-white tracking-wider">Change Photo</span>
+                </div>
               </div>
 
               {/* Identity info */}
@@ -461,6 +474,46 @@ export default function ProfilePage() {
         )}
 
       </div>
+
+      {/* Profile Photo Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-[#121212]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="border-4 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal max-w-md w-full relative space-y-6">
+            <button
+              onClick={() => setShowUploadModal(false)}
+              className="absolute top-4 right-4 border-2 border-[#121212] bg-white p-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+
+            <div className="space-y-2">
+              <h3 className="font-display font-black text-xl uppercase tracking-tight">Update Profile Photo</h3>
+              <p className="font-space text-xs text-gray-500 font-bold">
+                Upload a new photo for your artist or audience profile. Supported formats: JPEG, PNG, WEBP.
+              </p>
+            </div>
+
+            <SupabaseUpload
+              folder="profile-photos"
+              accept="image/*"
+              label="Select Profile Photo"
+              onUploadSuccess={async (result) => {
+                try {
+                  await api.post("/auth/profile-photo", { profilePhotoUrl: result.secure_url });
+                  await refreshUser();
+                  setShowUploadModal(false);
+                  alert("Profile photo updated successfully!");
+                } catch (err: any) {
+                  alert(err.message || "Failed to update profile photo.");
+                }
+              }}
+              onUploadError={(err) => {
+                alert(`Upload failed: ${err}`);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

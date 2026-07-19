@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import { auth as firebaseAuth, googleProvider, signInWithPopup } from "@/lib/firebase";
 
 export interface User {
@@ -49,6 +50,7 @@ const normalizeUser = (data: any): User => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -102,8 +104,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, mode: "live" as const, message: "Invalid credentials received from server." };
     } catch (err: any) {
-      console.error("Backend login failed:", err);
-      return { success: false, mode: "live" as const, message: err?.message || "Server connection failed. Please make sure the backend is running." };
+      const msg = err?.message || "Server connection failed. Please make sure the backend is running.";
+      showToast(msg, "error");
+      return { success: false, mode: "live" as const, message: msg };
     }
   };
 
@@ -117,8 +120,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, mode: "live" as const, message: "Failed to register on production server." };
     } catch (err: any) {
-      console.error("Backend registration failed:", err);
-      return { success: false, mode: "live" as const, message: err?.message || "Server connection failed. Please make sure the backend is running." };
+      const msg = err?.message || "Server connection failed. Please make sure the backend is running.";
+      showToast(msg, "error");
+      return { success: false, mode: "live" as const, message: msg };
     }
   };
 
@@ -135,14 +139,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return { success: false, mode: "live" as const, message: "Failed to authenticate Google user on backend." };
     } catch (err: any) {
-      console.error("Google login failed:", err);
-      return { success: false, mode: "live" as const, message: err?.message || "Google authentication failed or backend server offline." };
+      const msg = err?.message || "Google authentication failed or backend server offline.";
+      showToast(msg, "error");
+      return { success: false, mode: "live" as const, message: msg };
     }
   };
 
   const logout = () => {
     clearTokens();
     setUser(null);
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
   };
 
   return (

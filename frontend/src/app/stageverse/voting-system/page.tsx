@@ -7,6 +7,7 @@ import { api } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
 import { Vote, Radio, AlertCircle, Heart, CheckCircle2 } from "lucide-react";
 import confetti from "canvas-confetti";
+import { useToast } from "@/components/ui/Toast";
 
 interface Submission {
   id: string;
@@ -19,6 +20,7 @@ interface Submission {
 
 export default function AudienceVotingSystem() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { events } = useApp();
 
   const [eventId, setEventId] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export default function AudienceVotingSystem() {
       const subRes = await api.get(`/stageverse/${eventId}/submissions`);
       setSubmissions(Array.isArray(subRes) ? subRes : []);
     } catch (e) {
-      console.warn("Using offline fallback values.");
+      showToast("Using offline fallback values.", "warning");
       setIsOpen(true);
       setSubmissions([
         { id: "1", trackTitle: "Rhyme & Reason", user: { fullName: "Aarav Mehta" } },
@@ -75,7 +77,7 @@ export default function AudienceVotingSystem() {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, showToast]);
 
   const checkAccess = useCallback(async () => {
     if (!eventId) return;
@@ -104,7 +106,7 @@ export default function AudienceVotingSystem() {
     });
 
     socketInstance.on("connect", () => {
-      console.log("⚡ Voting terminal connected to live socket");
+      showToast("Voting terminal connected to live arena!", "success");
       socketInstance.emit("joinEvent", { eventId });
     });
 

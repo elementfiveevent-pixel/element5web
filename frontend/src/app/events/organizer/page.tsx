@@ -14,6 +14,8 @@ import {
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabaseClient";
 import SupabaseUpload from "@/components/ui/SupabaseUpload";
+import { useToast } from "@/components/ui/Toast";
+
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface OrgEvent {
@@ -96,6 +98,7 @@ function MiniBarChart({ data, label }: { data: { label: string; count: number }[
 
 // ── Registrations panel ───────────────────────────────────────────────────────
 function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTitle: string }) {
+  const { showToast } = useToast();
   const [regs, setRegs] = useState<Registration[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -111,12 +114,12 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
       .then((d) => {
         setRegs(Array.isArray(d) ? d : []);
       })
-      .catch((err) => {
-        console.error("Failed to fetch registrations:", err);
+      .catch((err: any) => {
+        showToast("Failed to fetch registrations: " + (err?.message || "Unknown error"), "error");
         setRegs([]);
       })
       .finally(() => setLoading(false));
-  }, [eventId]);
+  }, [eventId, showToast]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -491,6 +494,7 @@ function AnalyticsPanel({ eventId }: { eventId: string }) {
 }
 
 function VotingPanel({ eventId }: { eventId: string }) {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<"control" | "performers" | "leaderboard" | "requests">("control");
   const [isOpen, setIsOpen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -557,12 +561,12 @@ function VotingPanel({ eventId }: { eventId: string }) {
 
       const artistsRes = await api.get(`/stageverse/${eventId}/registered-artists`);
       setAllArtists(Array.isArray(artistsRes) ? artistsRes : []);
-    } catch (e) {
-      console.error("Failed to load voting details", e);
+    } catch (e: any) {
+      showToast("Failed to load voting details: " + (e?.message || ""), "error");
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, showToast]);
 
   useEffect(() => { fetchStatusAndSubmissions(); }, [fetchStatusAndSubmissions]);
 
@@ -1332,6 +1336,7 @@ function VotingPanel({ eventId }: { eventId: string }) {
 }
 
 function TicketGatewayPanel({ eventId }: { eventId: string }) {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [regs, setRegs] = useState<Registration[]>([]);
   const [search, setSearch] = useState("");
@@ -1347,13 +1352,13 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
     try {
       const res = await api.get(`/events/${eventId}/registrations`);
       setRegs(Array.isArray(res) ? res : []);
-    } catch (err) {
-      console.error("Failed to fetch tickets:", err);
+    } catch (err: any) {
+      showToast("Failed to fetch tickets: " + (err?.message || "Unknown error"), "error");
       setRegs([]);
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, showToast]);
 
   useEffect(() => {
     fetchTickets();
@@ -1411,7 +1416,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
       );
       import("canvas-confetti").then(({ default: c }) => c({ particleCount: 30, spread: 40, colors: ["#50C878", "#FFDE4D"] }));
     } catch (err: any) {
-      alert(err.message || "Failed to check in ticket.");
+      showToast(err.message || "Failed to check in ticket.", "error");
     } finally {
       setCheckingIn(null);
     }
@@ -1439,7 +1444,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
       setScanFeedback({ type: "success", message: `Successfully checked in ticket ${targetCode}!` });
       import("canvas-confetti").then(({ default: c }) => c({ particleCount: 40, spread: 50, colors: ["#50C878", "#FFDE4D"] }));
     } catch (err: any) {
-      console.warn("Check-in error:", err);
+      showToast("Check-in error: " + (err?.message || "Invalid or already used ticket code."), "warning");
       setScanFeedback({ type: "error", message: err?.message || "Invalid or already used ticket code." });
     } finally {
       setCheckingInScan(false);
@@ -1466,7 +1471,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
             setShowScanner(false);
             handleScanSubmitWithCode(decodedText);
           }).catch((err: any) => {
-            console.error("Stop failed:", err);
+            showToast("Scanner stop failed: " + (err?.message || ""), "error");
             setShowScanner(false);
           });
         },
@@ -1474,7 +1479,7 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
           // Ignore scanner noise
         }
       ).catch((err: any) => {
-        console.error("Camera access failed:", err);
+        showToast("Camera access failed: " + (err?.message || ""), "error");
         setScanFeedback({ type: "error", message: "Failed to access camera. Please allow camera permissions." });
         setShowScanner(false);
       });
@@ -1484,14 +1489,14 @@ function TicketGatewayPanel({ eventId }: { eventId: string }) {
       if (html5QrCode) {
         try {
           if (html5QrCode.isScanning) {
-            html5QrCode.stop().catch(console.error);
+            html5QrCode.stop().catch(() => {});
           }
         } catch (e) {
-          console.error(e);
+          // Silent cleanup
         }
       }
     };
-  }, [showScanner]);
+  }, [showScanner, showToast]);
 
   const ticketsList = regs.flatMap((r) =>
     (r.tickets || []).map((t) => ({

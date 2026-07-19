@@ -84,6 +84,15 @@ export class SocialController {
     return this.socialService.addComment(user.id, postId, content);
   }
 
+  @Delete("comments/:commentId")
+  @ApiOperation({ summary: "Delete your comment" })
+  async deleteComment(
+    @CurrentUser() user: any,
+    @Param("commentId") commentId: string,
+  ) {
+    return this.socialService.deleteComment(user.id, commentId);
+  }
+
   @Post("messages")
   @ApiOperation({ summary: "Send a direct private message" })
   async sendMessage(

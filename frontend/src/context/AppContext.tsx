@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 
 // Types
 export interface Artist {
@@ -110,6 +111,7 @@ const initialMessages: Message[] = [];
 const initialCollabs: CollabRequest[] = [];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { showToast } = useToast();
   const [artists, setArtists] = useState<Artist[]>(initialArtists);
   const [events, setEvents] = useState<Event[]>(initialEvents);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -168,8 +170,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setEvents(mapped);
         }
       })
-      .catch((err) => {
-        console.warn("Failed to fetch events in AppContext:", err);
+      .catch((err: any) => {
+        showToast("Failed to fetch events: " + (err?.message || ""), "warning");
       });
   }, []);
 
@@ -209,8 +211,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setArtists(mapped);
         }
       })
-      .catch((err) => {
-        console.warn("Failed to fetch artists in AppContext:", err);
+      .catch((err: any) => {
+        showToast("Failed to fetch creators: " + (err?.message || ""), "warning");
       });
   }, []);
 
@@ -238,8 +240,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const voteForArtist = async (artistId: string, eventId: string) => {
     try {
       await api.post(`/stageverse/submissions/${artistId}/vote`);
-    } catch (err) {
-      console.warn("Backend vote failed, falling back to local simulation:", err);
+    } catch (err: any) {
+      showToast("Backend vote failed, falling back to local simulation.", "warning");
     }
 
     // Cast user vote locally
@@ -277,8 +279,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const registerForEvent = async (eventId: string) => {
     try {
       await api.post(`/events/${eventId}/register`);
-    } catch (err) {
-      console.warn("Backend registration failed, falling back to local simulation:", err);
+    } catch (err: any) {
+      showToast("Backend registration failed, falling back to local simulation.", "warning");
     }
 
     if (registeredEvents.includes(eventId)) return;
@@ -308,8 +310,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const sendMessage = async (receiverId: string, text: string) => {
     try {
       await api.post("/social/messages", { recipientId: receiverId, content: text });
-    } catch (err) {
-      console.warn("Backend message send failed, falling back to local simulation:", err);
+    } catch (err: any) {
+      showToast("Backend message send failed, falling back to local simulation.", "warning");
     }
 
     const newMsg: Message = {
@@ -328,8 +330,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createCollabRequest = async (category: CollabRequest["category"], title: string, description: string) => {
     try {
       await api.post("/social/communities", { name: title, description: `${category}: ${description}` });
-    } catch (err) {
-      console.warn("Backend community creation failed, falling back to local simulation:", err);
+    } catch (err: any) {
+      showToast("Backend community creation failed, falling back to local simulation.", "warning");
     }
 
     const newRequest: CollabRequest = {

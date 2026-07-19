@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from "@nestjs/common";
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from "@nestjs/common";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
@@ -127,6 +127,25 @@ export class SocialService {
         where: { postId: post.id }
       });
 
+      const comments = await this.prisma.comment.findMany({
+        where: { postId: post.id },
+        orderBy: { createdAt: "asc" }
+      });
+
+      const enrichedComments = await Promise.all(comments.map(async (comment: any) => {
+        const commentAuthor = await this.prisma.user.findUnique({
+          where: { id: comment.authorId }
+        });
+        return {
+          ...comment,
+          author: commentAuthor ? {
+            id: commentAuthor.id,
+            fullName: commentAuthor.fullName,
+            profilePhotoUrl: commentAuthor.profilePhotoUrl
+          } : null
+        };
+      }));
+
       return {
         ...post,
         author: author ? {
@@ -137,7 +156,8 @@ export class SocialService {
         _count: {
           likes: likesCount,
           comments: commentsCount
-        }
+        },
+        comments: enrichedComments
       };
     }));
 
@@ -202,6 +222,24 @@ export class SocialService {
     });
   }
 
+  async deleteComment(userId: string, commentId: string) {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: commentId }
+    });
+
+    if (!comment) {
+      throw new NotFoundException("Comment not found");
+    }
+
+    if (comment.authorId !== userId) {
+      throw new ForbiddenException("You can only delete your own comments");
+    }
+
+    return this.prisma.comment.delete({
+      where: { id: commentId }
+    });
+  }
+
   // 4. Direct Messaging
   async sendMessage(senderId: string, recipientId: string, content: string) {
     return this.prisma.message.create({
@@ -222,9 +260,34 @@ export class SocialService {
   }
 
   async getContacts(currentUserId: string) {
+    // 1. Find all user IDs who have sent or received messages with currentUserId
+    const messages = await this.prisma.message.findMany({
+      where: {
+        OR: [
+          { senderId: currentUserId },
+          { recipientId: currentUserId }
+        ]
+      },
+      select: {
+        senderId: true,
+        recipientId: true
+      }
+    });
+
+    const contactIds = new Set<string>();
+    messages.forEach((m: any) => {
+      if (m.senderId !== currentUserId) contactIds.add(m.senderId);
+      if (m.recipientId !== currentUserId) contactIds.add(m.recipientId);
+    });
+
+    if (contactIds.size === 0) {
+      return [];
+    }
+
+    // 2. Fetch user details for those contact IDs
     return this.prisma.user.findMany({
       where: {
-        id: { not: currentUserId }
+        id: { in: Array.from(contactIds) }
       },
       select: {
         id: true,

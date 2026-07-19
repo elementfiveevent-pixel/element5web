@@ -8,6 +8,7 @@ import Link from "next/link";
 import { io, Socket } from "socket.io-client";
 import { Play, Send, Users, Radio, Award, Vote, Star, AlertCircle, Heart, PlusCircle } from "lucide-react";
 import confetti from "canvas-confetti";
+import { useToast } from "@/components/ui/Toast";
 
 interface Submission {
   submissionId: string;
@@ -21,6 +22,7 @@ interface Submission {
 
 export default function StageVerseArena() {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { artists, events } = useApp();
   const activeEvent = events[0] || { id: "stageverse-3.0", title: "StageVerse 3.0" };
 
@@ -53,7 +55,7 @@ export default function StageVerseArena() {
     });
 
     socketInstance.on("connect", () => {
-      console.log("⚡ Connected to StageVerse live arena socket");
+      showToast("Connected to StageVerse live arena!", "success");
       setIsLive(true);
       socketInstance.emit("joinEvent", { eventId: activeEvent.id });
     });

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import { Send, Check, Users, MessageSquare, Plus, Award, User, Sparkles, RefreshCw, AlertCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 
@@ -33,6 +34,7 @@ interface BackendPost {
     fullName: string;
     profilePhotoUrl?: string;
   } | null;
+  comments?: any[];
 }
 
 // ─────────────────────────────────────────────
@@ -60,6 +62,7 @@ export default function ArtistNetwork() {
     addUserXP,
   } = useApp();
   const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<"circles" | "messages">("circles");
 
@@ -71,13 +74,14 @@ export default function ArtistNetwork() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const prevMessagesCountRef = useRef(0);
 
   // ── Community Hubs & Posts ──
   const [posts, setPosts] = useState<BackendPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
-  const [commentingOn, setCommentingOn] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState("");
+  const [commentTextMap, setCommentTextMap] = useState<Record<string, string>>({});
   const [submittingComment, setSubmittingComment] = useState(false);
 
   const [communities, setCommunities] = useState<any[]>([]);
@@ -111,8 +115,8 @@ export default function ArtistNetwork() {
             setSelectedRecipientId(mappedContacts[0].id);
           }
         }
-      } catch (err) {
-        console.error("Failed to load contacts:", err);
+      } catch (err: any) {
+        showToast("Failed to load contacts: " + (err?.message || "Unknown error"), "error");
       } finally {
         setContactsLoading(false);
       }
@@ -160,7 +164,13 @@ export default function ArtistNetwork() {
 
   // ── Auto-scroll chat to bottom ──
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const totalMessages = backendMessages.length + localMessages.length;
+    if (totalMessages > prevMessagesCountRef.current) {
+      if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+      prevMessagesCountRef.current = totalMessages;
+    }
   }, [backendMessages, localMessages]);
 
   // Fetch communities from backend
@@ -173,8 +183,8 @@ export default function ArtistNetwork() {
       if (list.length > 0 && !selectedCommunityId) {
         setSelectedCommunityId(list[0].id);
       }
-    } catch (err) {
-      console.error("Failed to load communities:", err);
+    } catch (err: any) {
+      showToast("Failed to load communities: " + (err?.message || "Unknown error"), "error");
       setCommunities([]);
     } finally {
       setCommunitiesLoading(false);
@@ -201,8 +211,8 @@ export default function ArtistNetwork() {
         } else {
           setPosts([]);
         }
-      } catch (err) {
-        console.error("Failed to fetch community posts:", err);
+      } catch (err: any) {
+        showToast("Failed to fetch posts: " + (err?.message || "Unknown error"), "error");
         setPosts([]);
       } finally {
         setPostsLoading(false);
@@ -303,7 +313,7 @@ export default function ArtistNetwork() {
   // ── Send DM ──
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!chatInput.trim()) return;
+    if (!chatInput.trim() || sendingMessage) return;
     setSendingMessage(true);
 
     const optimisticMsg: BackendMessage = {
@@ -362,24 +372,56 @@ export default function ArtistNetwork() {
 
   // ── Submit comment ──
   const handleSubmitComment = async (postId: string) => {
-    if (!commentText.trim()) return;
+    const text = commentTextMap[postId] || "";
+    if (!text.trim()) return;
     setSubmittingComment(true);
     try {
-      await api.post(`/social/posts/${postId}/comments`, { content: commentText });
+      const newComment = await api.post(`/social/posts/${postId}/comments`, { content: text });
       setPosts((prev) =>
         prev.map((p) =>
           p.id === postId
-            ? { ...p, _count: { likes: p._count?.likes || 0, comments: (p._count?.comments || 0) + 1 } }
+            ? { 
+                ...p, 
+                _count: { likes: p._count?.likes || 0, comments: (p._count?.comments || 0) + 1 },
+                comments: [...(p.comments || []), {
+                  ...newComment,
+                  author: {
+                    id: user?.id,
+                    fullName: user?.fullName || "You",
+                    profilePhotoUrl: user?.profilePhotoUrl
+                  }
+                }]
+              }
             : p
         )
       );
       addUserXP(5);
-    } catch {
-      // best-effort
+    } catch (err: any) {
+      showToast("Failed to post comment: " + (err?.message || "Unknown error"), "error");
     } finally {
-      setCommentText("");
-      setCommentingOn(null);
+      setCommentTextMap((prev) => ({ ...prev, [postId]: "" }));
       setSubmittingComment(false);
+    }
+  };
+
+  // ── Delete comment ──
+  const handleDeleteComment = async (postId: string, commentId: string) => {
+    if (!confirm("Are you sure you want to delete this comment?")) return;
+    try {
+      await api.delete(`/social/comments/${commentId}`);
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? {
+                ...p,
+                _count: { likes: p._count?.likes || 0, comments: Math.max(0, (p._count?.comments || 1) - 1) },
+                comments: (p.comments || []).filter((c: any) => c.id !== commentId)
+              }
+            : p
+        )
+      );
+    } catch (err: any) {
+      alert(err.message || "Failed to delete comment.");
     }
   };
 
@@ -395,6 +437,7 @@ export default function ArtistNetwork() {
       (m.senderId === selectedRecipientId && m.receiverId === "currentUser")
   );
   const allMessages = user ? backendMessages : localThreadMessages;
+  const uniqueMessages = Array.from(new Map(allMessages.map((m: any) => [m.id, m])).values());
 
   return (
     <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-16 px-6">
@@ -555,12 +598,9 @@ export default function ArtistNetwork() {
                             >
                               ♥ {post._count?.likes || 0}
                             </button>
-                            <button
-                              onClick={() => setCommentingOn(commentingOn === post.id ? null : post.id)}
-                              className="text-[9px] font-black uppercase flex items-center gap-1 px-2.5 py-1  rounded border-2 border-[#121212] bg-white hover:bg-gray-50 transition-all cursor-pointer"
-                            >
+                            <div className="text-[9px] font-black uppercase flex items-center gap-1 px-2.5 py-1 rounded border-2 border-[#121212] bg-[#FAF8F5] select-none">
                               💬 {post._count?.comments || 0} Comments
-                            </button>
+                            </div>
 
                             {post.authorId === user?.id && (
                               <button
@@ -572,12 +612,45 @@ export default function ArtistNetwork() {
                             )}
                           </div>
 
-                          {commentingOn === post.id && (
-                            <div className="flex gap-2 pt-2">
+                          <div className="space-y-3 pt-2 border-t border-[#121212]/10">
+                            {/* Comments List */}
+                            {post.comments && post.comments.length > 0 && (
+                              <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                                {post.comments.map((comment: any) => (
+                                  <div key={comment.id} className="bg-[#FAF8F5] border border-[#121212]/10 p-2.5 rounded text-left space-y-1">
+                                    <div className="flex items-center gap-1.5 w-full">
+                                      <div className="w-4 h-4 rounded-full bg-red-stage/10 flex items-center justify-center font-display font-black text-[8px] border border-[#121212]/10">
+                                        {(comment.author?.fullName || "?")[0]}
+                                      </div>
+                                      <span className="font-display font-bold text-[10px] text-gray-700">
+                                        {comment.author?.fullName || "Creator"}
+                                      </span>
+                                      <span className="text-[7px] text-gray-400 font-mono">
+                                        {timeAgo(comment.createdAt)}
+                                      </span>
+                                      {comment.authorId === user?.id && (
+                                        <button
+                                          onClick={() => handleDeleteComment(post.id, comment.id)}
+                                          className="text-[8px] font-black uppercase text-red-600 hover:text-red-800 ml-auto cursor-pointer flex items-center gap-0.5"
+                                        >
+                                          🗑 Delete
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="font-space text-xs text-gray-600 leading-normal pl-5">
+                                      {comment.content}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Write Comment Box */}
+                            <div className="flex gap-2">
                               <input
                                 type="text"
-                                value={commentText}
-                                onChange={(e) => setCommentText(e.target.value)}
+                                value={commentTextMap[post.id] || ""}
+                                onChange={(e) => setCommentTextMap(prev => ({ ...prev, [post.id]: e.target.value }))}
                                 placeholder="Write a comment..."
                                 className="flex-1 p-2 border-2 border-[#121212] rounded font-space text-xs focus:outline-none bg-white"
                               />
@@ -589,7 +662,7 @@ export default function ArtistNetwork() {
                                 {submittingComment ? "..." : "POST"}
                               </button>
                             </div>
-                          )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -663,13 +736,13 @@ export default function ArtistNetwork() {
                 </div>
 
                 {/* Message Log */}
-                <div className="flex-grow p-4 space-y-4 overflow-y-auto max-h-[360px]">
+                <div ref={chatContainerRef} className="flex-grow p-4 space-y-4 overflow-y-auto max-h-[360px]">
                   {messagesLoading ? (
                     <div className="flex items-center justify-center h-full">
                       <RefreshCw size={24} className="text-white/20 animate-spin" />
                     </div>
-                  ) : allMessages.length > 0 ? (
-                    allMessages.map((msg) => {
+                  ) : uniqueMessages.length > 0 ? (
+                    uniqueMessages.map((msg) => {
                       const isMe =
                         ("senderId" in msg && msg.senderId === (user?.id || "currentUser")) ||
                         ("senderId" in msg && msg.senderId === "currentUser");

@@ -1,6 +1,6 @@
-import { NestFactory } from "@nestjs/core";
+import { NestFactory, Reflector } from "@nestjs/core";
 import { AppModule } from "./app.module";
-import { ValidationPipe } from "@nestjs/common";
+import { ValidationPipe, Logger } from "@nestjs/common";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { PrismaExceptionFilter } from "./common/filters/prisma-exception.filter";
 import helmet from "helmet";
@@ -12,6 +12,9 @@ import { gzipMiddleware } from "./common/middleware/gzip.middleware";
 async function bootstrap() {
   if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
     throw new Error("FATAL: JWT_SECRET environment variable is required in production mode.");
+  }
+  if (process.env.NODE_ENV === "production" && !process.env.ADMIN_TOTP_SECRET) {
+    throw new Error("FATAL: ADMIN_TOTP_SECRET environment variable is required in production mode.");
   }
 
   const app = await NestFactory.create(AppModule);
@@ -66,7 +69,7 @@ async function bootstrap() {
   // 4. Server Start
   const port = process.env.PORT || 4000;
   await app.listen(port, "0.0.0.0");
-  console.log(`🚀 Element 5 Core Backend is running on: http://localhost:${port}`);
-  console.log(`📖 API Documentation is available at: http://localhost:${port}/api/docs`);
+  Logger.log(`🚀 Element 5 Core Backend running on: http://localhost:${port}`, "Bootstrap");
+  Logger.log(`📖 API docs: http://localhost:${port}/api/docs`, "Bootstrap");
 }
 bootstrap();

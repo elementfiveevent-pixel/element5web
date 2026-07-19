@@ -5,9 +5,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LogIn, AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 export default function LoginPage() {
   const { login, signInWithGoogle } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
   
   const [email, setEmail] = useState("");
@@ -27,7 +29,7 @@ export default function LoginPage() {
       const res = await login(email, password, show2FA ? totpCode : undefined);
       if (res.success) {
         if (res.mode === "local") {
-          console.warn("Signed in locally using fallback simulation:", res.message);
+          showToast("Signed in locally using fallback simulation: " + res.message, "warning");
         }
         const loggedUser = res.user;
         if (loggedUser?.role === "SUPER_ADMIN") {
@@ -74,7 +76,7 @@ export default function LoginPage() {
       const res = await signInWithGoogle(role);
       if (res.success) {
         if (res.mode === "local") {
-          console.warn("Signed in locally via Google fallback simulation:", res.message);
+          showToast("Signed in locally via Google fallback simulation: " + res.message, "warning");
         }
         const loggedUser = res.user;
         if (loggedUser?.role === "SUPER_ADMIN") {

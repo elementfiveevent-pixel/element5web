@@ -3,6 +3,7 @@ import { Syne, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { ToastProvider } from "@/components/ui/Toast";
 import CustomCursor from "@/components/ui/CustomCursor";
 import SmoothScroll from "@/components/ui/SmoothScroll";
 import Header from "@/components/ui/Header";
@@ -24,6 +25,12 @@ export const metadata: Metadata = {
   title: "ELEMENT 5 | Future Creator Ecosystem",
   description: "Gujarat's premier youth-first creative community platform. Discover artists, register for events, and experience StageVerse open mics.",
   keywords: ["Element 5", "StageVerse", "Open Mic", "Gujarat", "Creators", "Ahmedabad", "Poetry", "Rap", "Music Festival"],
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -40,6 +47,7 @@ export default function RootLayout({
         {/* Paper Grain Overlay */}
         <div className="bg-grain" />
 
+        <ToastProvider>
         <AppProvider>
           <AuthProvider>
             <SmoothScroll>
@@ -144,6 +152,7 @@ export default function RootLayout({
             </SmoothScroll>
           </AuthProvider>
         </AppProvider>
+        </ToastProvider>
       </body>
     </html>
   );

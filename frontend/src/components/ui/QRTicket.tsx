@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { QrCode, Download, Share2, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 interface QRTicketProps {
   ticketId: string;
@@ -37,6 +38,7 @@ export default function QRTicket({
 }: QRTicketProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dataUrl, setDataUrl] = useState<string>("");
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (!qrCode) return;
@@ -50,7 +52,9 @@ export default function QRTicket({
         errorCorrectionLevel: "H",
       },
       (err) => {
-        if (err) console.error("QR render error", err);
+        if (err) {
+          showToast("QR render error: " + (err.message || ""), "error");
+        }
       }
     );
     QRCode.toDataURL(qrCode, {
@@ -58,7 +62,7 @@ export default function QRTicket({
       margin: 2,
       color: { dark: "#121212", light: "#FAF8F5" },
     }).then(setDataUrl);
-  }, [qrCode, compact]);
+  }, [qrCode, compact, showToast]);
 
   const handleDownload = () => {
     if (!dataUrl) return;

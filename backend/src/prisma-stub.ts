@@ -49,8 +49,7 @@ export enum PaymentStatus {
 export enum SubmissionStatus {
   PENDING = "PENDING",
   APPROVED = "APPROVED",
-  REJECTED = "REJECTED",
-  SKIPPED = "SKIPPED"
+  REJECTED = "REJECTED"
 }
 
 export enum ReportStatus {
@@ -62,19 +61,5 @@ export enum ReportStatus {
 
 export namespace Prisma {
   export type InputJsonValue = any;
-  export type EventWhereInput = any;
-  export class PrismaClientKnownRequestError extends Error {
-    code: string;
-    meta?: any;
-    constructor(message: string, code: string, meta?: any) {
-      super(message);
-      this.code = code;
-      this.meta = meta;
-    }
-  }
-}
-
-export class PrismaClient {
-  async $connect() {}
-  async $disconnect() {}
+  export type JsonValue = any;
 }

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import { 
   Scan, Keyboard, ArrowLeft, CheckCircle, XCircle, 
   Users, Ticket, Clock, ShieldAlert, Shield, 
@@ -33,6 +34,7 @@ interface ScanLog {
 
 export default function TicketScannerPage() {
   const { user, loading } = useAuth();
+  const { showToast } = useToast();
   const router = useRouter();
 
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -78,8 +80,8 @@ export default function TicketScannerPage() {
             if (publicEvents.data.length > 0) setSelectedEventId(publicEvents.data[0].id);
           }
         }
-      } catch (err) {
-        console.error("Failed to load events", err);
+      } catch (err: any) {
+        showToast("Failed to load events: " + (err?.message || "Unknown error"), "error");
       } finally {
         setEventsLoading(false);
       }
@@ -98,8 +100,8 @@ export default function TicketScannerPage() {
           remaining: res.notCheckedIn ?? 0,
         });
       }
-    } catch (err) {
-      console.warn("Could not load event stats, using client logs count", err);
+    } catch {
+      // Stats are non-critical — silently fall back to client log count
     }
   }, []);
 
@@ -138,14 +140,14 @@ export default function TicketScannerPage() {
               // Verbose scan failure callback can be ignored
             }
           );
-        } catch (err) {
-          console.error("Failed to start scanner instance", err);
+        } catch (err: any) {
+          showToast("Failed to start camera scanner: " + (err?.message || "Unknown error"), "error");
           setIsScannerActive(false);
         }
       }, 300);
 
-    } catch (err) {
-      console.error("Failed to load html5-qrcode", err);
+    } catch (err: any) {
+      showToast("Failed to load QR scanner: " + (err?.message || "Unknown error"), "error");
       setIsScannerActive(false);
     }
   };
@@ -155,8 +157,8 @@ export default function TicketScannerPage() {
       try {
         await html5QrCodeRef.current.stop();
         html5QrCodeRef.current.clear();
-      } catch (err) {
-        console.warn("Scanner stop cleanup warning:", err);
+      } catch {
+        // Scanner stop is non-critical — ignore cleanup warning
       }
       html5QrCodeRef.current = null;
     }

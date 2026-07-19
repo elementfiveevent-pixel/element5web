@@ -6,8 +6,9 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   Calendar, ChevronDown, Ticket, PlusCircle, LayoutDashboard,
-  BarChart2, Mic2, Users, Trophy, Radio, Menu, X, LogOut, User, ShieldAlert
+  BarChart2, Mic2, Users, Trophy, Radio, Menu, X, LogOut, User, ShieldAlert, Download
 } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 // ── Dropdown item shape ──────────────────────────────────────────────────────
 interface NavItem {
@@ -143,8 +144,61 @@ function NavDropdown({
 // ── Main Header ──────────────────────────────────────────────────────────────
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
+  const { showToast } = useToast();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    // Check if iOS
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(ios);
+    
+    // If iOS and not running in standalone (PWA) mode, show install button
+    if (ios && !(window.navigator as any).standalone) {
+      setShowInstallBtn(true);
+    }
+
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setShowInstallBtn(false);
+    };
+
+    window.addEventListener("appinstalled", handleAppInstalled);
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      });
+    }
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (isIOS) {
+      showToast("To install on iOS: Tap the Share button in Safari, then select 'Add to Home Screen'. 📲", "info");
+      return;
+    }
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    setDeferredPrompt(null);
+    setShowInstallBtn(false);
+  };
 
   const isOrganizerOrAdmin =
     user && ["SUPER_ADMIN", "ORG_ADMIN"].includes(user.role);
@@ -359,6 +413,14 @@ export const Header: React.FC = () => {
                 </Link>
               ) : hasOnboarded ? (
                 <>
+                  {showInstallBtn && (
+                    <button
+                      onClick={handleInstallClick}
+                      className="flex items-center gap-1.5 border border-yellow-festival/50 text-yellow-festival hover:bg-yellow-festival hover:text-[#121212] font-bold px-3 py-1.5 text-[11px] tracking-widest rounded transition-all cursor-pointer"
+                    >
+                      <Download size={12} /> INSTALL APP
+                    </button>
+                  )}
                   <Link
                     href="/events/my-tickets"
                     className="flex items-center gap-1.5 border border-[#FAF8F5]/20 text-[#FAF8F5]/70 hover:text-yellow-festival hover:border-yellow-festival font-bold px-3 py-1.5 text-[11px] tracking-widest rounded transition-all"
@@ -383,6 +445,14 @@ export const Header: React.FC = () => {
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-2">
+              {showInstallBtn && (
+                <button
+                  onClick={handleInstallClick}
+                  className="flex items-center gap-1.5 border border-yellow-festival/50 text-yellow-festival hover:bg-yellow-festival hover:text-[#121212] font-bold px-3 py-1.5 text-[11px] tracking-widest rounded transition-all cursor-pointer mr-1.5"
+                >
+                  <Download size={12} /> INSTALL APP
+                </button>
+              )}
               <Link
                 href="/login"
                 className="border-2 border-[#FAF8F5]/30 text-[#FAF8F5] font-bold px-4 py-1.5 text-xs tracking-wider hover:bg-[#FAF8F5]/10 transition-all rounded"
@@ -522,51 +592,71 @@ export const Header: React.FC = () => {
 
           <div className="pt-4 border-t border-[#FAF8F5]/10">
             {user ? (
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div>
-                  <span className="text-xs font-black text-yellow-festival uppercase block truncate max-w-[180px]">
-                    {user.fullName} ({user.reputationXp} XP)
-                  </span>
-                  <span className="text-[10px] font-bold text-[#FAF8F5]/40 uppercase">{user.role.replace("_", " ")}</span>
-                </div>
-                <div className="flex gap-2">
-                  {user?.role === "ORG_ADMIN" ? (
-                    <Link
-                      href="/events/organizer"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-1.5 text-xs font-black text-yellow-festival uppercase border border-yellow-festival px-3 py-1.5 rounded"
-                    >
-                      <User size={12} /> ORGANIZER PROFILE
-                    </Link>
-                  ) : user?.role === "SUPER_ADMIN" ? (
-                    <Link
-                      href="/admin"
-                      onClick={() => setMobileOpen(false)}
+              <div className="flex flex-col gap-3">
+                {showInstallBtn && (
+                  <button
+                    onClick={handleInstallClick}
+                    className="w-full text-center bg-yellow-festival text-[#121212] font-black border-2 border-[#121212] py-2 text-xs rounded cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Download size={14} /> DOWNLOAD ELEMENT 5 APP
+                  </button>
+                )}
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <span className="text-xs font-black text-yellow-festival uppercase block truncate max-w-[180px]">
+                      {user.fullName} ({user.reputationXp} XP)
+                    </span>
+                    <span className="text-[10px] font-bold text-[#FAF8F5]/40 uppercase">{user.role.replace("_", " ")}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {user?.role === "ORG_ADMIN" ? (
+                      <Link
+                        href="/events/organizer"
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-1.5 text-xs font-black text-yellow-festival uppercase border border-yellow-festival px-3 py-1.5 rounded"
+                      >
+                        <User size={12} /> ORGANIZER PROFILE
+                      </Link>
+                    ) : user?.role === "SUPER_ADMIN" ? (
+                      <Link
+                        href="/admin"
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-1.5 text-xs font-black text-red-stage uppercase border border-red-stage px-3 py-1.5 rounded"
+                      >
+                        <User size={12} /> ADMIN PROFILE
+                      </Link>
+                    ) : hasOnboarded && (
+                      <Link
+                        href="/profile"
+                        onClick={() => setMobileOpen(false)}
+                        className="flex items-center gap-1.5 text-xs font-black text-yellow-festival uppercase border border-yellow-festival/30 px-3 py-1.5 rounded"
+                      >
+                        <User size={12} /> PROFILE
+                      </Link>
+                    )}
+                    <button
+                      onClick={() => { logout(); setMobileOpen(false); }}
                       className="flex items-center gap-1.5 text-xs font-black text-red-stage uppercase border border-red-stage px-3 py-1.5 rounded"
                     >
-                      <User size={12} /> ADMIN PROFILE
-                    </Link>
-                  ) : hasOnboarded && (
-                    <Link
-                      href="/profile"
-                      onClick={() => setMobileOpen(false)}
-                      className="flex items-center gap-1.5 text-xs font-black text-yellow-festival uppercase border border-yellow-festival/30 px-3 py-1.5 rounded"
-                    >
-                      <User size={12} /> PROFILE
-                    </Link>
-                  )}
-                  <button
-                    onClick={() => { logout(); setMobileOpen(false); }}
-                    className="flex items-center gap-1.5 text-xs font-black text-red-stage uppercase border border-red-stage px-3 py-1.5 rounded"
-                  >
-                    <LogOut size={12} /> LOGOUT
-                  </button>
+                      <LogOut size={12} /> LOGOUT
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div className="flex gap-3">
-                <Link href="/login" onClick={() => setMobileOpen(false)} className="flex-1 text-center border-2 border-[#FAF8F5]/30 text-[#FAF8F5] font-bold py-2.5 text-xs rounded">LOGIN</Link>
-                <Link href="/register" onClick={() => setMobileOpen(false)} className="flex-1 text-center bg-yellow-festival text-[#121212] font-black border-2 border-[#121212] py-2.5 text-xs rounded">JOIN FREE</Link>
+              <div className="flex flex-col gap-3">
+                {showInstallBtn && (
+                  <button
+                    onClick={handleInstallClick}
+                    className="w-full text-center bg-yellow-festival text-[#121212] font-black border-2 border-[#121212] py-2.5 text-xs rounded cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Download size={14} /> INSTALL APP
+                  </button>
+                )}
+                <div className="flex gap-3">
+                  <Link href="/login" onClick={() => setMobileOpen(false)} className="flex-1 text-center border-2 border-[#FAF8F5]/30 text-[#FAF8F5] font-bold py-2.5 text-xs rounded">LOGIN</Link>
+                  <Link href="/register" onClick={() => setMobileOpen(false)} className="flex-1 text-center bg-yellow-festival text-[#121212] font-black border-2 border-[#121212] py-2.5 text-xs rounded">JOIN FREE</Link>
+                </div>
               </div>
             )}
           </div>

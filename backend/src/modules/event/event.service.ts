@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { PaymentStatus, UserRole, Prisma } from "@prisma/client";
@@ -18,6 +19,7 @@ const ORGANIZER_ROLES: UserRole[] = [
 
 @Injectable()
 export class EventService {
+  private readonly logger = new Logger(EventService.name);
   constructor(private prisma: PrismaService) {}
 
   async createEvent(userId: string, dto: CreateEventDto) {
@@ -94,10 +96,14 @@ export class EventService {
     // then apply search/city filtering in application code.
     const where: any = {};
 
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
     if (filters.period === "past") {
-      where.status = { in: ["COMPLETED", "ARCHIVED", "CANCELLED"] };
+      where.status = { in: ["COMPLETED", "ARCHIVED", "CANCELLED", "PUBLISHED"] };
     } else {
       where.status = "PUBLISHED";
+      where.startDate = { gte: now };
     }
 
     if (filters.category) {
@@ -124,11 +130,18 @@ export class EventService {
       }),
     ]);
 
-    // Post-fetch city filter (PostgresModel can't filter across relations)
+    // Post-fetch filtering
     let filtered = data;
+
+    if (filters.period === "past") {
+      filtered = filtered.filter((e: any) =>
+        ["COMPLETED", "ARCHIVED", "CANCELLED"].includes(e.status) || new Date(e.startDate) < now
+      );
+    }
+
     if (filters.city) {
       const cityLower = filters.city.toLowerCase();
-      filtered = data.filter((e: any) =>
+      filtered = filtered.filter((e: any) =>
         e.location?.city?.toLowerCase().includes(cityLower)
       );
     }
@@ -470,7 +483,7 @@ export class EventService {
         where: { eventId },
         data: { paymentScreenshotUrl: null }
       });
-      console.log(`[Storage Cleanup] Cleared payment screenshots for event ${eventId} (Status: ${dto.status})`);
+      this.logger.log(`[Storage Cleanup] Cleared payment screenshots for event ${eventId} (Status: ${dto.status})`);
     }
 
     // PostgresModel.update() doesn't support nested relation upserts.

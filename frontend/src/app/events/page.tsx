@@ -89,10 +89,13 @@ function EventsContent() {
         // Backend doesn't have a tab param yet — filter by status client-side
         const data = await api.get("/events", { params });
         const list: BackendEvent[] = Array.isArray(data) ? data : (data?.data ?? []);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         const filtered = list.filter((e) =>
           tab === "past"
-            ? ["COMPLETED", "ARCHIVED", "CANCELLED"].includes(e.status)
-            : e.status === "PUBLISHED"
+            ? ["COMPLETED", "ARCHIVED", "CANCELLED"].includes(e.status) || new Date(e.startDate) < today
+            : e.status === "PUBLISHED" && new Date(e.startDate) >= today
         );
         setEvents(filtered.length > 0 ? filtered : mapLocal(tab));
       } catch {
