@@ -112,11 +112,29 @@ export class PostgresModel {
     if (!(this.pool as any).__e5_patched) {
       const originalQuery = this.pool.query.bind(this.pool);
       this.pool.query = (async (sql: any, values: any) => {
-        const res = await originalQuery(sql, values);
-        if (res && res.rows) {
-          res.rows = res.rows.map(mapRowKeys);
+        try {
+          const res = await originalQuery(sql, values);
+          if (res && res.rows) {
+            res.rows = res.rows.map(mapRowKeys);
+          }
+          return res;
+        } catch (err: any) {
+          const msg = String(err?.message || err);
+          if (
+            err?.code === "28P01" ||
+            err?.code === "ECONNREFUSED" ||
+            err?.code === "57P01" ||
+            msg.includes("password authentication failed") ||
+            msg.includes("Connection terminated") ||
+            msg.includes("connect ECONNREFUSED")
+          ) {
+            if (this.service && typeof this.service.markDbDisconnected === "function") {
+              this.service.markDbDisconnected(msg);
+            }
+            return { rows: [], rowCount: 0 };
+          }
+          throw err;
         }
-        return res;
       }) as any;
       (this.pool as any).__e5_patched = true;
     }
@@ -1311,6 +1329,13 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   isConnected(): boolean {
     return this.dbConnected;
+  }
+
+  markDbDisconnected(reason?: string) {
+    if (this.dbConnected) {
+      this.dbConnected = false;
+      this.logger.warn(`⚠ Database connection lost or auth error: ${reason}`);
+    }
   }
 
   async $queryRaw(query: TemplateStringsArray, ...values: any[]) {

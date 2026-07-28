@@ -30,27 +30,30 @@ export class PrismaExceptionFilter implements ExceptionFilter {
     const code = exception?.code;
     if (code) {
       switch (code) {
-        case "23505": // Unique violation
-          status = HttpStatus.CONFLICT;
-          message = `Unique constraint violation: ${exception.detail || exception.message}`;
-          errorCode = "UNIQUE_CONSTRAINT_VIOLATION";
+        case "28P01": // Password authentication failed
+          status = HttpStatus.SERVICE_UNAVAILABLE;
+          message = "Database authentication failed. Please verify DATABASE_URL credentials in server environment settings.";
+          errorCode = "DATABASE_AUTHENTICATION_FAILED";
           break;
-        case "23503": // Foreign key violation
-          status = HttpStatus.BAD_REQUEST;
-          message = `Foreign key violation: ${exception.detail || exception.message}`;
-          errorCode = "FOREIGN_KEY_VIOLATION";
-          break;
-        case "22001": // Value too long
-          status = HttpStatus.BAD_REQUEST;
-          message = "Database input value length limits exceeded";
-          errorCode = "VALUE_TOO_LONG";
+        case "ECONNREFUSED":
+        case "57P01":
+          status = HttpStatus.SERVICE_UNAVAILABLE;
+          message = "Database service is currently offline or unreachable.";
+          errorCode = "DATABASE_UNAVAILABLE";
           break;
         default:
           message = exception.message || message;
           break;
       }
     } else {
-      message = exception?.message || message;
+      const excMsg = String(exception?.message || exception);
+      if (excMsg.includes("password authentication failed")) {
+        status = HttpStatus.SERVICE_UNAVAILABLE;
+        message = "Database authentication failed. Please verify DATABASE_URL credentials in server environment settings.";
+        errorCode = "DATABASE_AUTHENTICATION_FAILED";
+      } else {
+        message = excMsg || message;
+      }
     }
 
     response.status(status).json({

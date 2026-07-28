@@ -17,7 +17,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from "@nestjs/swagger";
 export class EventController {
   constructor(private eventService: EventService) {}
 
-  // ─── Public: list + detail ───────────────────────────────────────────────────
+  // ─── Public: list ───────────────────────────────────────────────────────────
 
   @Get()
   @ApiOperation({ summary: "List and filter upcoming published events" })
@@ -30,12 +30,6 @@ export class EventController {
     @Query("offset") offset?: number,
   ) {
     return this.eventService.listEvents({ search, category, city, period, limit, offset });
-  }
-
-  @Get(":idOrSlug")
-  @ApiOperation({ summary: "Get event metadata by ID or Slug" })
-  async get(@Param("idOrSlug") idOrSlug: string) {
-    return this.eventService.getEvent(idOrSlug);
   }
 
   // ─── Auth required ───────────────────────────────────────────────────────────
@@ -108,6 +102,12 @@ export class EventController {
   @ApiOperation({ summary: "Get organizer's own events" })
   async myEvents(@CurrentUser() user: any) {
     return this.eventService.getOrganizerEvents(user.id, user.roles ?? []);
+  }
+
+  @Get(":idOrSlug")
+  @ApiOperation({ summary: "Get event metadata by ID or Slug" })
+  async get(@Param("idOrSlug") idOrSlug: string) {
+    return this.eventService.getEvent(idOrSlug);
   }
 
   @Get(":eventId/registrations")
