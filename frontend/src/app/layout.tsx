@@ -13,12 +13,16 @@ const syne = Syne({
   variable: "--font-syne",
   subsets: ["latin"],
   weight: ["700", "800"],
+  display: "swap",
+  preload: false,
 });
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
   subsets: ["latin"],
   weight: ["400", "500", "700"],
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -97,11 +101,6 @@ export default function RootLayout({
                       <li>
                         <Link href="/artists" className="hover:text-yellow-festival transition-colors">
                           Creator Directory
-                        </Link>
-                      </li>
-                      <li>
-                        <Link href="/network" className="hover:text-orange-burnt transition-colors">
-                          Collaborator Search
                         </Link>
                       </li>
                       <li>

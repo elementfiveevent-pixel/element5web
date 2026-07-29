@@ -35,6 +35,11 @@ export class PrismaExceptionFilter implements ExceptionFilter {
           message = "Database authentication failed. Please verify DATABASE_URL credentials in server environment settings.";
           errorCode = "DATABASE_AUTHENTICATION_FAILED";
           break;
+        case "ECIRCUITBREAKER":
+          status = HttpStatus.SERVICE_UNAVAILABLE;
+          message = "Supabase connection circuit breaker triggered due to repeated authentication failures. Please update database password in Supabase and server environment settings.";
+          errorCode = "DATABASE_CIRCUIT_BREAKER_TRIGGERED";
+          break;
         case "ECONNREFUSED":
         case "57P01":
           status = HttpStatus.SERVICE_UNAVAILABLE;
@@ -51,6 +56,10 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         status = HttpStatus.SERVICE_UNAVAILABLE;
         message = "Database authentication failed. Please verify DATABASE_URL credentials in server environment settings.";
         errorCode = "DATABASE_AUTHENTICATION_FAILED";
+      } else if (excMsg.includes("ECIRCUITBREAKER") || excMsg.includes("too many authentication failures")) {
+        status = HttpStatus.SERVICE_UNAVAILABLE;
+        message = "Supabase connection circuit breaker triggered due to repeated authentication failures. Please update database password in Supabase and server environment settings.";
+        errorCode = "DATABASE_CIRCUIT_BREAKER_TRIGGERED";
       } else {
         message = excMsg || message;
       }

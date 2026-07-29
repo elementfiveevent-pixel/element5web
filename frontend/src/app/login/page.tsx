@@ -8,7 +8,7 @@ import { LogIn, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
 export default function LoginPage() {
-  const { login, signInWithGoogle } = useAuth();
+  const { login, signInWithGoogle, pendingGoogleToken } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
   
@@ -19,6 +19,12 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+
+  React.useEffect(() => {
+    if (pendingGoogleToken) {
+      setShowRoleModal(true);
+    }
+  }, [pendingGoogleToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,8 +70,46 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    setShowRoleModal(true);
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      // Try direct login first for existing accounts
+      const res = await signInWithGoogle();
+      if (res.success) {
+        if (res.mode === "local") {
+          showToast("Signed in locally via Google fallback simulation: " + res.message, "warning");
+        }
+        const loggedUser = res.user;
+        if (loggedUser?.role === "SUPER_ADMIN") {
+          router.push("/admin");
+        } else if (loggedUser?.role === "ORG_ADMIN") {
+          router.push("/events/organizer");
+        } else if (
+          loggedUser?.role === "ARTIST" &&
+          (!loggedUser?.artistProfile ||
+            !loggedUser.artistProfile.genres ||
+            loggedUser.artistProfile.genres.length === 0)
+        ) {
+          router.push("/onboarding");
+        } else {
+          router.push("/");
+        }
+      } else if (res.message?.includes("NEW_USER_ROLE_REQUIRED") || res.message?.includes("role")) {
+        // First-time signup requires role selection
+        setShowRoleModal(true);
+      } else {
+        setError(res.message || "Failed to authenticate Google user");
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("NEW_USER_ROLE_REQUIRED")) {
+        setShowRoleModal(true);
+      } else {
+        setError(err?.message || "Failed to authenticate Google user");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const completeGoogleSignIn = async (role: "ARTIST" | "AUDIENCE") => {

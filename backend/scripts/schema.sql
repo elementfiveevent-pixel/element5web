@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS "ArtistProfile" (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "userId" UUID UNIQUE NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
   "stageName" TEXT UNIQUE NOT NULL,
+  "instagramHandle" TEXT,
+  "pastAchievement" TEXT,
   "biography" TEXT,
   "portfolioUrls" TEXT[] DEFAULT ARRAY[]::TEXT[],
   "genres" TEXT[] DEFAULT ARRAY[]::TEXT[],

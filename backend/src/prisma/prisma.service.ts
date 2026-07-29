@@ -10,6 +10,38 @@ function toPgArray(arr: any[]): string {
   return `{${escaped.join(',')}}`;
 }
 
+const JSON_COLUMNS = [
+  "sponsors",
+  "customfields",
+  "customfields",
+  "metadata",
+  "settings",
+  "options",
+  "artistprofile",
+  "payload"
+];
+
+function formatColumnValue(key: string, value: any): any {
+  if (value === null || value === undefined) return value;
+
+  const keyLower = key.toLowerCase();
+  if (JSON_COLUMNS.includes(keyLower)) {
+    return typeof value === "string" ? value : JSON.stringify(value);
+  }
+
+  if (typeof value === "object" && !(value instanceof Date)) {
+    if (!Array.isArray(value) || (Array.isArray(value) && value.length > 0 && typeof value[0] === "object")) {
+      return JSON.stringify(value);
+    }
+  }
+
+  if (Array.isArray(value)) {
+    return toPgArray(value);
+  }
+
+  return value;
+}
+
 const KEY_MAP: Record<string, string> = {
   userid: "userId",
   passwordhash: "passwordHash",
@@ -124,7 +156,10 @@ export class PostgresModel {
             err?.code === "28P01" ||
             err?.code === "ECONNREFUSED" ||
             err?.code === "57P01" ||
+            err?.code === "ECIRCUITBREAKER" ||
             msg.includes("password authentication failed") ||
+            msg.includes("ECIRCUITBREAKER") ||
+            msg.includes("too many authentication failures") ||
             msg.includes("Connection terminated") ||
             msg.includes("connect ECONNREFUSED")
           ) {
@@ -143,7 +178,6 @@ export class PostgresModel {
   private tableColumns: string[] | null = null;
 
   async getTableColumns(): Promise<string[]> {
-    if (this.tableColumns) return this.tableColumns;
     const res = await this.pool.query(
       `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
       [this.tableName]
@@ -177,9 +211,13 @@ export class PostgresModel {
         for (const op of operators) {
           const val = (value as any)[op];
           if (op === "in") {
-            const placeholders = val.map(() => `$${placeholderIndex++}`).join(", ");
-            clauses.push(`"${key}" IN (${placeholders})`);
-            values.push(...val);
+            if (!Array.isArray(val) || val.length === 0) {
+              clauses.push("1=0");
+            } else {
+              const placeholders = val.map(() => `$${placeholderIndex++}`).join(", ");
+              clauses.push(`"${key}" IN (${placeholders})`);
+              values.push(...val);
+            }
           } else if (op === "not") {
             if (val === null) {
               clauses.push(`"${key}" IS NOT NULL`);
@@ -323,6 +361,9 @@ export class PostgresModel {
             [row.id]
           );
           row.artistProfile = profileRes.rows[0] || null;
+          if (row.artistProfile) {
+            await this.service.artistProfile.loadIncludes([row.artistProfile], { achievements: true });
+          }
         } else if (relation === "user" && this.tableName === "ArtistProfile") {
           const userRes = await this.pool.query(
             `SELECT * FROM "User" WHERE "id" = $1`,
@@ -332,10 +373,14 @@ export class PostgresModel {
         } else if (relation === "achievements" && this.tableName === "ArtistProfile") {
           try {
             const achRes = await this.pool.query(
-              `SELECT * FROM "ArtistAchievement" WHERE "artistProfileId" = $1`,
+              `SELECT aa.*, ach.title, ach."badgeIconUrl", ach."xpReward" FROM "ArtistAchievement" aa JOIN "Achievement" ach ON aa."achievementId" = ach.id WHERE aa."artistProfileId" = $1`,
               [row.id]
             );
-            row.achievements = achRes.rows;
+            row.achievements = achRes.rows.map((r: any) => ({
+              id: r.id,
+              achievement: { title: r.title, badgeIconUrl: r.badgeIconUrl, xpReward: r.xpReward },
+              title: r.title,
+            }));
           } catch {
             row.achievements = [];
           }
@@ -665,6 +710,9 @@ export class PostgresModel {
         for (const row of rows) {
           row.artistProfile = profileMap.get(row.id) || null;
         }
+        if (profileRes.rows.length > 0) {
+          await this.service.artistProfile.loadIncludes(profileRes.rows, { achievements: true });
+        }
       } else if (relation === "user" && this.tableName === "ArtistProfile") {
         const userIds = [...new Set(rows.map((r) => r.userId).filter(Boolean))];
         if (userIds.length > 0) {
@@ -685,12 +733,16 @@ export class PostgresModel {
         const profileIds = rows.map((r) => r.id);
         try {
           const achRes = await this.pool.query(
-            `SELECT * FROM "ArtistAchievement" WHERE "artistProfileId" = ANY($1)`,
+            `SELECT aa.*, ach.title, ach."badgeIconUrl", ach."xpReward" FROM "ArtistAchievement" aa JOIN "Achievement" ach ON aa."achievementId" = ach.id WHERE aa."artistProfileId" = ANY($1)`,
             [profileIds]
           );
           const achsGrouped = achRes.rows.reduce((acc: any, a: any) => {
             if (!acc[a.artistProfileId]) acc[a.artistProfileId] = [];
-            acc[a.artistProfileId].push(a);
+            acc[a.artistProfileId].push({
+              id: a.id,
+              achievement: { title: a.title, badgeIconUrl: a.badgeIconUrl, xpReward: a.xpReward },
+              title: a.title,
+            });
             return acc;
           }, {});
           for (const row of rows) {
@@ -953,6 +1005,19 @@ export class PostgresModel {
 
   async create(args?: any) {
     const data = { ...args?.data };
+
+    // Clean up any composite unique keys (like eventId_userId) from data object
+    for (const [key, value] of Object.entries(data)) {
+      if (key.includes("_") && typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Date) && !(value as any).create) {
+        delete data[key];
+        for (const [subKey, subVal] of Object.entries(value)) {
+          if (data[subKey] === undefined) {
+            data[subKey] = subVal;
+          }
+        }
+      }
+    }
+
     const cols = await this.getTableColumns();
 
     if (cols.includes("id") && !data.id) {
@@ -971,7 +1036,7 @@ export class PostgresModel {
     const placeholders: string[] = [];
     let placeholderIndex = 1;
 
-    let nestedCreation: (() => Promise<void>) | null = null;
+    const nestedCreations: (() => Promise<void>)[] = [];
 
     for (const [key, value] of Object.entries(data)) {
       if (value === undefined) continue;
@@ -979,7 +1044,7 @@ export class PostgresModel {
       if (typeof value === "object" && value !== null && !(value instanceof Date) && !Array.isArray(value) && (value as any).create) {
         if (key === "roles") {
           const roleVal = (value as any).create.role;
-          nestedCreation = async () => {
+          nestedCreations.push(async () => {
             const rolesColsList = await this.service.roleAssignment.getTableColumns();
             const roleId = rolesColsList.includes("id") ? require("crypto").randomUUID() : undefined;
             const now = new Date();
@@ -995,10 +1060,10 @@ export class PostgresModel {
                 [insertedRow.id, roleVal, now]
               );
             }
-          };
+          });
         } else if (key === "location") {
           const locData = { ...(value as any).create };
-          nestedCreation = async () => {
+          nestedCreations.push(async () => {
             const locColsList = await this.service.location.getTableColumns();
             if (locColsList.includes("id") && !locData.id) {
               const crypto = require("crypto");
@@ -1011,10 +1076,10 @@ export class PostgresModel {
               `INSERT INTO "Location" ("eventId", ${locCols}) VALUES ($1, ${locPlaces})`,
               [insertedRow.id, ...locVals]
             );
-          };
+          });
         } else if (key === "ticketCategories") {
           const catsData = (value as any).create;
-          nestedCreation = async () => {
+          nestedCreations.push(async () => {
             const catColsList = await this.service.ticketCategory.getTableColumns();
             const cats = Array.isArray(catsData) ? catsData : [catsData];
             const now = new Date();
@@ -1038,19 +1103,15 @@ export class PostgresModel {
                 [insertedRow.id, ...catVals]
               );
             }
-          };
+          });
         }
         continue;
       }
 
+      if (cols.length > 0 && !cols.includes(key)) continue;
+
       columns.push(`"${key}"`);
-      if (typeof value === "object" && value !== null && !(value instanceof Date) && !Array.isArray(value)) {
-        values.push(JSON.stringify(value));
-      } else if (Array.isArray(value)) {
-        values.push(toPgArray(value));
-      } else {
-        values.push(value);
-      }
+      values.push(formatColumnValue(key, value));
       placeholders.push(`$${placeholderIndex++}`);
     }
 
@@ -1058,8 +1119,8 @@ export class PostgresModel {
     const res = await this.pool.query(sql, values);
     const insertedRow = res.rows[0];
 
-    if (nestedCreation) {
-      await nestedCreation();
+    for (const fn of nestedCreations) {
+      await fn();
     }
 
     if (insertedRow && args?.include) {
@@ -1072,28 +1133,24 @@ export class PostgresModel {
     const data = args?.data || {};
     const { clause, values: whereValues } = this.buildWhere(args?.where);
     
+    const cols = await this.getTableColumns();
     const setClauses: string[] = [];
     const setValues: any[] = [];
     let placeholderIndex = 1;
 
     for (const [key, value] of Object.entries(data)) {
       if (value === undefined) continue;
+      if (cols.length > 0 && !cols.includes(key)) continue;
       if (typeof value === "object" && value !== null && !(value instanceof Date) && !Array.isArray(value)) {
         const ops = Object.keys(value);
         if (ops.includes("increment")) {
           setClauses.push(`"${key}" = "${key}" + $${placeholderIndex++}`);
           setValues.push((value as any).increment);
+          continue;
         }
-        continue;
       }
       setClauses.push(`"${key}" = $${placeholderIndex++}`);
-      if (typeof value === "object" && value !== null && !(value instanceof Date) && !Array.isArray(value)) {
-        setValues.push(JSON.stringify(value));
-      } else if (Array.isArray(value)) {
-        setValues.push(toPgArray(value));
-      } else {
-        setValues.push(value);
-      }
+      setValues.push(formatColumnValue(key, value));
     }
 
     const whereClauseRewritten = clause.replace(/\$(\d+)/g, (_, num) => {
@@ -1118,11 +1175,18 @@ export class PostgresModel {
   }
 
   async upsert(args?: any) {
-    const existing = await this.findUnique({ where: args.where });
+    const whereData = { ...args?.where };
+    for (const [k, v] of Object.entries(whereData)) {
+      if (k.includes("_") && typeof v === "object" && v !== null && !Array.isArray(v) && !(v instanceof Date)) {
+        delete whereData[k];
+        Object.assign(whereData, v);
+      }
+    }
+    const existing = await this.findFirst({ where: whereData });
     if (existing) {
-      return this.update({ where: args.where, data: args.update });
+      return this.update({ where: { id: existing.id }, data: args.update });
     } else {
-      return this.create({ data: { ...args.where, ...args.create } });
+      return this.create({ data: { ...whereData, ...args.create } });
     }
   }
 
@@ -1173,7 +1237,7 @@ export class PostgresModel {
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PrismaService.name);
-  private pool: any;
+  public pool: any;
   private dbConnected = false;
 
   user: PostgresModel;
@@ -1317,9 +1381,16 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
         client.release();
     } catch (err: any) {
+      this.dbConnected = false;
+      const msg = String(err?.message || err);
       this.logger.warn(
-        `⚠ PostgreSQL unavailable: ${err?.message ?? err}. Running without database.`
+        `⚠ PostgreSQL unavailable (${err?.code || "AUTH_FAIL"}): ${msg}. Switched to offline mode.`
       );
+      if (err?.code === "28P01" || msg.includes("password authentication failed") || msg.includes("ECIRCUITBREAKER")) {
+        try {
+          await this.pool.end();
+        } catch {}
+      }
     }
   }
 

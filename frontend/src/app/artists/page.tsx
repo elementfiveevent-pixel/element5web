@@ -264,8 +264,15 @@ export default function DiscoverArtists() {
                 >
                   <div className="space-y-6">
                     {/* Cover */}
-                    <div className="relative h-28 border-2 border-[#121212] bg-gray-200 rounded overflow-hidden">
-                      <img src={artist.cover} alt="" className="w-full h-full object-cover" />
+                    <div className="relative h-28 border-2 border-[#121212] bg-gradient-to-r from-[#121212] via-[#2A2928] to-[#121212] rounded overflow-hidden">
+                      <img 
+                        src={artist.cover} 
+                        alt="" 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&h=300&fit=crop";
+                        }} 
+                      />
                       <div className="absolute top-2 right-2 bg-yellow-festival border border-[#121212] text-[10px] font-black px-1.5 py-0.5 rounded rotate-[3deg]">
                         ★ {artist.rating.toFixed(1)}
                       </div>
@@ -281,6 +288,9 @@ export default function DiscoverArtists() {
                         src={artist.avatar}
                         alt={artist.name}
                         className="w-16 h-16 rounded-full object-cover border-3 border-[#121212] bg-white z-10"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artist.name || "Artist")}&backgroundColor=121212&textColor=FAF8F5`;
+                        }}
                       />
                       <div className="pt-10">
                         <h3 className="font-display font-extrabold text-xl leading-tight">

@@ -1159,12 +1159,16 @@ function VotingPanel({ eventId }: { eventId: string }) {
                   <select value={selectedArtistId} onChange={(e) => setSelectedArtistId(e.target.value)}
                     className="w-full px-3 py-2 border-2 border-[#121212] bg-white rounded font-space font-bold text-xs focus:outline-none"
                     disabled={bulkNames.length > 0}>
-                    <option value="">-- Choose Artist Profile --</option>
-                    {allArtists.map((art: any) => (
-                      <option key={art.id} value={art.userId}>
-                        {art.stageName || art.user?.fullName} ({art.genres?.join(", ") || "No Genre"})
-                      </option>
-                    ))}
+                    <option value="">-- Choose Artist Profile ({allArtists.length} Available) --</option>
+                    {allArtists.map((art: any) => {
+                      const name = art.stageName || art.user?.fullName || "Artist";
+                      const info = art.genres?.length > 0 ? art.genres.join(", ") : (art.user?.email || "Registered Artist");
+                      return (
+                        <option key={art.id || art.userId} value={art.userId}>
+                          {name} ({info})
+                        </option>
+                      );
+                    })}
                   </select>
                 )}
 

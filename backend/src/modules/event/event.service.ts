@@ -27,7 +27,7 @@ export class EventService {
     const price = dto.price ?? 0;
     const isPaid = dto.isPaid ?? price > 0;
 
-    return this.prisma.event.create({
+    const newEvent = await this.prisma.event.create({
       data: {
         organizerId: userId,
         title: dto.title,
@@ -78,6 +78,31 @@ export class EventService {
         ticketCategories: true,
       },
     });
+
+    if (newEvent && newEvent.id && (dto.venueName || dto.venueAddress || dto.city)) {
+      try {
+        const locCheck = await this.prisma.location.findFirst({ where: { eventId: newEvent.id } });
+        if (!locCheck) {
+          const locCreated = await this.prisma.location.create({
+            data: {
+              eventId: newEvent.id,
+              venueName: dto.venueName || "Event Venue",
+              venueAddress: dto.venueAddress || dto.city || "",
+              mapsLink: dto.mapsLink || "",
+              city: dto.city || "",
+              state: dto.state || "",
+            },
+          });
+          newEvent.location = locCreated;
+        } else {
+          newEvent.location = locCheck;
+        }
+      } catch (locErr) {
+        this.logger.warn(`Location fallback creation check: ${locErr}`);
+      }
+    }
+
+    return newEvent;
   }
 
   async listEvents(filters: {
@@ -174,6 +199,15 @@ export class EventService {
       throw new NotFoundException("Event not found");
     }
 
+    if (!event.location) {
+      try {
+        const loc = await this.prisma.location.findFirst({ where: { eventId: event.id } });
+        if (loc) {
+          event.location = loc;
+        }
+      } catch {}
+    }
+
     await this.prisma.event
       .update({
         where: { id: event.id },
@@ -200,8 +234,8 @@ export class EventService {
       throw new BadRequestException("Registration has closed for this event");
     }
 
-    const existing = await this.prisma.eventRegistration.findUnique({
-      where: { eventId_userId: { eventId, userId } },
+    const existing = await this.prisma.eventRegistration.findFirst({
+      where: { eventId, userId },
     });
     if (existing) {
       throw new ConflictException("You are already registered for this event");

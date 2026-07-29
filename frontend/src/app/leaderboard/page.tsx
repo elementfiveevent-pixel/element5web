@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useApp } from "@/context/AppContext";
 import { api } from "@/lib/api";
 import Link from "next/link";
-import { Search, Trophy, Sparkles, MapPin, Award, ArrowUpRight } from "lucide-react";
+import { Search, Trophy, Sparkles, MapPin, ArrowUpRight, Calendar, Filter } from "lucide-react";
 
 interface Standing {
   id: string;
@@ -12,70 +11,98 @@ interface Standing {
   genre: string;
   location: string;
   votes: number;
+  score: number;
   rating: number;
   avatar: string;
+  eventTitle?: string;
+  trackTitle?: string;
+}
+
+interface VotingEvent {
+  id: string;
+  title: string;
+  category: string;
+  startDate: string;
 }
 
 export default function LeaderboardPage() {
-  const { artists } = useApp();
-    // Map UI label -> backend timeframe key
-  const TIMEFRAME_MAP = {
-    WEEKLY: "WEEKLY",
-    MONTHLY: "MONTHLY",
-    SEASON: "SEASON",
-    ALL_TIME: "ALL_TIME",
-  } as const;
-
-  const [timeframe, setTimeframe] = useState<keyof typeof TIMEFRAME_MAP>("WEEKLY");
+  const [timeframe, setTimeframe] = useState<"ALL_TIME" | "MONTHLY" | "EVENT">("ALL_TIME");
+  const [events, setEvents] = useState<VotingEvent[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [standings, setStandings] = useState<Standing[]>([]);
   const [loading, setLoading] = useState(true);
 
-  function buildFallback(tf: keyof typeof TIMEFRAME_MAP): Standing[] {
-    const multiplier = tf === "WEEKLY" ? 0.15 : tf === "MONTHLY" ? 0.45 : tf === "SEASON" ? 0.75 : 1;
-    return [...artists]
-      .sort((a, b) => b.votes - a.votes)
-      .map((a) => ({
-        id: a.id,
-        name: a.name,
-        genre: a.genre,
-        location: a.location,
-        votes: Math.max(1, Math.floor(a.votes * multiplier)),
-        rating: a.rating,
-        avatar: a.avatar,
-      }));
-  }
+  // Fetch list of voting events on mount
+  useEffect(() => {
+    async function fetchVotingEvents() {
+      try {
+        const data = await api.get("/leaderboard/events").catch(() => null);
+        if (data && Array.isArray(data) && data.length > 0) {
+          setEvents(data);
+          setSelectedEventId(data[0].id);
+        } else {
+          // Fallback to /events list if backend hot-reload is completing
+          const fallbackData = await api.get("/events").catch(() => null);
+          const list = Array.isArray(fallbackData?.events) ? fallbackData.events : Array.isArray(fallbackData) ? fallbackData : [];
+          if (list.length > 0) {
+            setEvents(list.map((e: any) => ({
+              id: e.id,
+              title: e.title || e.name || "Stage Event",
+              category: e.category || "General",
+              startDate: e.startDate || new Date().toISOString(),
+            })));
+            setSelectedEventId(list[0].id);
+          }
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+    fetchVotingEvents();
+  }, []);
 
+  // Fetch Leaderboard standings based on timeframe & eventId
   useEffect(() => {
     async function fetchLeaderboard() {
       setLoading(true);
       try {
-        const backendTf = TIMEFRAME_MAP[timeframe];
-        const data = await api.get("/leaderboard", { params: { timeframe: backendTf, limit: 20 } });
-        if (data && Array.isArray(data) && data.length > 0) {
-          // Backend may return LeaderboardStanding objects — normalise them
+        const params: any = { timeframe, limit: 50 };
+        if (timeframe === "EVENT" && selectedEventId) {
+          params.eventId = selectedEventId;
+        }
+
+        const data = await api.get("/leaderboard", { params });
+
+        if (data && Array.isArray(data)) {
           const normalised: Standing[] = data.map((item: any) => ({
-            id: item.artistProfileId || item.id || "",
-            name: item.artistProfile?.stageName || item.name || "Unknown",
-            genre: item.artistProfile?.genres?.[0] || item.genre || "Creator",
-            location: item.artistProfile?.city || item.location || "Gujarat",
-            votes: item.audienceVotesCount ?? item.votes ?? 0,
-            rating: item.judgeAverageScore ? item.judgeAverageScore / 2 : item.rating ?? 4,
-            avatar: item.artistProfile?.user?.profilePhotoUrl || item.avatar ||
+            id: item.userId || item.artistProfileId || item.id || "",
+            name: item.name || item.performer || "Verified Performer",
+            genre: item.genre || "Creator",
+            location: item.location || "Gujarat",
+            votes: item.votes ?? item.votesCount ?? 0,
+            score: item.score ?? item.totalScore ?? 0,
+            rating: item.rating ?? item.audienceAverage ?? 0,
+            avatar: item.avatar || item.photoUrl ||
               `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(item.name || "A")}&backgroundColor=121212&textColor=FAF8F5`,
+            eventTitle: item.eventTitle,
+            trackTitle: item.trackTitle,
           }));
-          setStandings(normalised);
+
+          // STRICT FILTER: Show ONLY performers with > 0 votes
+          setStandings(normalised.filter(s => s.votes > 0));
         } else {
-          setStandings(buildFallback(timeframe));
+          setStandings([]);
         }
       } catch {
-        setStandings(buildFallback(timeframe));
+        setStandings([]);
       } finally {
         setLoading(false);
       }
     }
+
     fetchLeaderboard();
-  }, [timeframe, artists]);
+  }, [timeframe, selectedEventId]);
 
   // Search filter
   const filteredStandings = standings.filter(s =>
@@ -86,42 +113,58 @@ export default function LeaderboardPage() {
   const topThree = filteredStandings.slice(0, 3);
   const remaining = filteredStandings.slice(3);
 
-  // Helper to get corresponding podium color
-  const getPodiumColor = (index: number) => {
-    if (index === 0) return "bg-[#FFDE4D]"; // Gold
-    if (index === 1) return "bg-[#FAF8F5] text-[#121212]"; // Silver
-    return "bg-[#E36414] text-white"; // Bronze
-  };
-
   return (
     <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-16 px-6">
       <div className="max-w-6xl mx-auto space-y-12">
         {/* Page Header */}
         <div className="space-y-4">
-          <span className="brutal-tape text-xs uppercase select-none">CREATOR LEADERBOARD</span>
+          <span className="brutal-tape text-xs uppercase select-none">EVENT VOTING LEADERBOARD</span>
           <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-7xl uppercase tracking-tighter">
             THE <span className="inline-block">STAGEVERSE</span> <span className="text-red-stage inline-block">CHARTS</span>
           </h1>
           <p className="font-space text-base font-bold text-gray-700 max-w-xl">
-            Live rank updates based on audience votes, active performance reviews, and judge ratings in our arena.
+            Live voting standings calculated strictly from audience scores cast across stage events.
           </p>
         </div>
 
         {/* Filters and Search */}
         <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
-          {/* Timeframe selector */}
-          <div className="flex border-3 border-[#121212] rounded overflow-hidden max-w-sm bg-white w-full md:w-auto">
-            {(["WEEKLY", "MONTHLY", "SEASON", "ALL_TIME"] as const).map(tf => (
-              <button
-                key={tf}
-                onClick={() => setTimeframe(tf)}
-                className={`flex-1 py-2.5 px-1.5 sm:px-3 font-display font-black text-[8px] sm:text-[10px] uppercase transition-colors cursor-pointer ${
-                  timeframe === tf ? "bg-[#121212] text-white" : "bg-white text-[#121212]"
-                }`}
-              >
-                {tf === "ALL_TIME" ? "ALL TIME" : tf}
-              </button>
-            ))}
+          {/* Timeframe & Event selector */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+            <div className="flex border-3 border-[#121212] rounded overflow-hidden bg-white">
+              {(["ALL_TIME", "MONTHLY", "EVENT"] as const).map(tf => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`py-2.5 px-4 font-display font-black text-xs uppercase transition-colors cursor-pointer ${
+                    timeframe === tf ? "bg-[#121212] text-white" : "bg-white text-[#121212] hover:bg-gray-100"
+                  }`}
+                >
+                  {tf === "ALL_TIME" ? "ALL TIME" : tf === "MONTHLY" ? "MONTHLY" : "EVENT WISE"}
+                </button>
+              ))}
+            </div>
+
+            {/* Event Dropdown selector when EVENT WISE is selected */}
+            {timeframe === "EVENT" && (
+              <div className="relative">
+                <select
+                  value={selectedEventId}
+                  onChange={(e) => setSelectedEventId(e.target.value)}
+                  className="w-full sm:w-64 border-3 border-[#121212] bg-[#FFDE4D] text-[#121212] font-display font-black text-xs uppercase py-2.5 px-3 rounded shadow-brutal-sm cursor-pointer focus:outline-none"
+                >
+                  {events.length > 0 ? (
+                    events.map((evt) => (
+                      <option key={evt.id} value={evt.id} className="bg-white text-[#121212]">
+                        {evt.title}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No Active Events Found</option>
+                  )}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Search */}
@@ -131,7 +174,7 @@ export default function LeaderboardPage() {
             </span>
             <input
               type="text"
-              placeholder="Search creator charts..."
+              placeholder="Search voted performers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border-3 border-[#121212] bg-white rounded font-space font-bold placeholder-gray-400 focus:outline-none"
@@ -162,7 +205,8 @@ export default function LeaderboardPage() {
                   <span className="text-xs font-semibold text-gray-500">{topThree[1].genre}</span>
                 </div>
                 <div className="w-full py-2 bg-[#FAF8F5] border-2 border-[#121212] rounded font-space font-black text-sm">
-                  {topThree[1].votes} VOTES
+                  SCORE: {topThree[1].score} / 100
+                  <span className="block text-[10px] font-normal text-gray-500">{topThree[1].votes} VOTES</span>
                 </div>
               </div>
             )}
@@ -191,7 +235,8 @@ export default function LeaderboardPage() {
                   <span className="text-xs font-semibold text-gray-500">{topThree[0].genre}</span>
                 </div>
                 <div className="w-full py-2.5 bg-yellow-festival border-2 border-[#121212] rounded font-space font-black text-sm">
-                  {topThree[0].votes} VOTES
+                  SCORE: {topThree[0].score} / 100
+                  <span className="block text-[10px] font-normal text-[#121212]/70">{topThree[0].votes} VOTES</span>
                 </div>
               </div>
             )}
@@ -216,7 +261,8 @@ export default function LeaderboardPage() {
                   <span className="text-xs font-semibold text-gray-500">{topThree[2].genre}</span>
                 </div>
                 <div className="w-full py-2 bg-[#FAF8F5] border-2 border-[#121212] rounded font-space font-black text-sm">
-                  {topThree[2].votes} VOTES
+                  SCORE: {topThree[2].score} / 100
+                  <span className="block text-[10px] font-normal text-gray-500">{topThree[2].votes} VOTES</span>
                 </div>
               </div>
             )}
@@ -227,15 +273,15 @@ export default function LeaderboardPage() {
         <div className="border-3 border-[#121212] bg-white rounded overflow-hidden shadow-brutal">
           <div className="bg-[#121212] text-white p-4 font-display font-black text-[10px] sm:text-xs tracking-wider grid grid-cols-12 gap-2 sm:gap-4 uppercase select-none">
             <div className="col-span-2 md:col-span-1 text-center">Rank</div>
-            <div className="col-span-7 md:col-span-7">Creator</div>
-            <div className="col-span-3 md:col-span-2 text-center">Score / Votes</div>
+            <div className="col-span-6 md:col-span-6">Performer</div>
+            <div className="col-span-4 md:col-span-3 text-center">Overall Voting Score</div>
             <div className="col-span-2 hidden md:block text-center">Profile</div>
           </div>
 
           <div className="divide-y-2 divide-[#121212]">
             {loading ? (
               <div className="p-16 text-center font-display font-bold text-gray-500 uppercase animate-pulse">
-                RETRIEVING LEADERBOARD DATA...
+                RETRIEVING VOTING STANDINGS...
               </div>
             ) : filteredStandings.length > 0 ? (
               remaining.map((item, index) => {
@@ -243,7 +289,7 @@ export default function LeaderboardPage() {
                 return (
                   <div key={item.id} className="p-3 sm:p-4 grid grid-cols-12 gap-2 sm:gap-4 items-center hover:bg-gray-50 transition-colors">
                     <div className="col-span-2 md:col-span-1 font-display font-black text-center text-base sm:text-lg">{rank}</div>
-                    <div className="col-span-7 md:col-span-7 flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="col-span-6 md:col-span-6 flex items-center gap-2 sm:gap-3 min-w-0">
                       <img
                         src={item.avatar}
                         alt={item.name}
@@ -258,8 +304,9 @@ export default function LeaderboardPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="col-span-3 md:col-span-2 text-center font-space font-black text-xs sm:text-sm">
-                      {item.votes} <span className="text-[9px] text-gray-400 block font-normal font-sans">Votes</span>
+                    <div className="col-span-4 md:col-span-3 text-center font-space font-black text-xs sm:text-sm">
+                      <span className="text-red-stage">{item.score} / 100</span>
+                      <span className="text-[10px] text-gray-500 block font-normal font-sans">{item.votes} Votes</span>
                     </div>
                     <div className="col-span-2 hidden md:flex justify-center">
                       <Link
@@ -273,8 +320,9 @@ export default function LeaderboardPage() {
                 );
               })
             ) : (
-              <div className="p-16 text-center font-display font-bold text-gray-500 uppercase">
-                No creators registered in this chart timeframe.
+              <div className="p-16 text-center font-display font-bold text-gray-500 uppercase space-y-2">
+                <p className="text-base text-[#121212]">No voting standings found for this filter.</p>
+                <p className="text-xs text-gray-400 font-normal font-space">Only performers who have received votes in live events appear on the leaderboard.</p>
               </div>
             )}
           </div>

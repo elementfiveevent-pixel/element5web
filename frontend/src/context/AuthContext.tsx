@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
+import { supabase } from "@/lib/supabaseClient";
 import { auth as firebaseAuth, googleProvider, signInWithPopup } from "@/lib/firebase";
 
 export interface User {
@@ -20,9 +21,11 @@ export interface User {
 interface AuthContextProps {
   user: User | null;
   loading: boolean;
+  pendingGoogleToken: string | null;
+  setPendingGoogleToken: (token: string | null) => void;
   login: (email: string, password: string, totpToken?: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string; user?: User | null }>;
   register: (fullName: string, email: string, password: string, role: string, mobileNumber?: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string }>;
-  signInWithGoogle: (role?: "ARTIST" | "AUDIENCE") => Promise<{ success: boolean; mode: "live" | "local"; message?: string; user?: User | null }>;
+  signInWithGoogle: (role?: "ARTIST" | "AUDIENCE", customToken?: string) => Promise<{ success: boolean; mode: "live" | "local"; message?: string; user?: User | null }>;
   logout: () => void;
   refreshUser: () => Promise<User | null>;
 }
@@ -45,14 +48,30 @@ const normalizeUser = (data: any): User => {
     ...data,
     roles,
     role: primaryRole,
-    reputationXp: data.reputationXp ?? 0,
   };
+};
+
+const isTokenExpired = (token: string): boolean => {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return true;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(base64));
+    if (payload && payload.exp && payload.exp * 1000 < Date.now()) {
+      return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { showToast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingGoogleToken, setPendingGoogleToken] = useState<string | null>(null);
 
   const setTokens = (accessToken: string) => {
     localStorage.setItem("e5_auth_token", accessToken);
@@ -66,8 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = async () => {
     try {
-      const token = localStorage.getItem("e5_auth_token");
-      if (!token) {
+      const token = typeof window !== "undefined" ? localStorage.getItem("e5_auth_token") : null;
+      if (!token || isTokenExpired(token)) {
         clearTokens();
         setUser(null);
         setLoading(false);
@@ -91,6 +110,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    const handleSupabaseRedirect = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.access_token) {
+          const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+          const urlRole = urlParams ? urlParams.get("google_role") : undefined;
+          const role = (urlRole === "ARTIST" || urlRole === "AUDIENCE") ? urlRole : undefined;
+          
+          try {
+            const data = await api.post("/auth/google", { idToken: session.access_token, role });
+            if (data.accessToken) {
+              setTokens(data.accessToken);
+              setPendingGoogleToken(null);
+              await refreshUser();
+              if (typeof window !== "undefined") {
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }
+            }
+          } catch (postErr: any) {
+            const msg = postErr?.response?.data?.message || postErr?.message || "";
+            if (String(msg).includes("NEW_USER_ROLE_REQUIRED")) {
+              setPendingGoogleToken(session.access_token);
+            }
+          }
+        }
+      } catch {}
+    };
+    handleSupabaseRedirect();
     refreshUser();
   }, []);
 
@@ -126,22 +173,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithGoogle = async (role?: "ARTIST" | "AUDIENCE") => {
+  const signInWithGoogle = async (role?: "ARTIST" | "AUDIENCE", customToken?: string) => {
     try {
-      const result = await signInWithPopup(firebaseAuth, googleProvider);
-      const idToken = await result.user.getIdToken();
-      
-      const data = await api.post("/auth/google", { idToken, role });
-      if (data.accessToken) {
-        setTokens(data.accessToken);
-        const userProfile = await refreshUser();
-        return { success: true, mode: "live" as const, user: userProfile };
+      let idToken: string | null = customToken || pendingGoogleToken || null;
+      if (!idToken) {
+        try {
+          const result = await signInWithPopup(firebaseAuth, googleProvider);
+          idToken = await result.user.getIdToken();
+        } catch (fbErr: any) {
+          const errMsg = String(fbErr?.message || fbErr);
+          if (
+            fbErr?.code === "auth/api-key-not-valid" ||
+            fbErr?.code === "auth/popup-blocked" ||
+            errMsg.includes("api-key-not-valid") ||
+            errMsg.includes("auth/invalid-api-key") ||
+            errMsg.includes("popup-blocked")
+          ) {
+            // Fallback to Supabase Google OAuth Provider
+            const { error } = await supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                redirectTo: typeof window !== "undefined" ? `${window.location.origin}${role ? `?google_role=${role}` : ""}` : undefined,
+              },
+            });
+            if (error) throw error;
+            return { success: true, mode: "live" as const, message: "Redirecting to Supabase Google Sign-In..." };
+          }
+          throw fbErr;
+        }
+      }
+
+      if (idToken) {
+        const data = await api.post("/auth/google", { idToken, role });
+        if (data.accessToken) {
+          setTokens(data.accessToken);
+          setPendingGoogleToken(null);
+          const userProfile = await refreshUser();
+          return { success: true, mode: "live" as const, user: userProfile };
+        }
       }
       return { success: false, mode: "live" as const, message: "Failed to authenticate Google user on backend." };
     } catch (err: any) {
-      const msg = err?.message || "Google authentication failed or backend server offline.";
-      showToast(msg, "error");
-      return { success: false, mode: "live" as const, message: msg };
+      const msg = err?.response?.data?.message || err?.message || "Google authentication failed";
+      const msgStr = typeof msg === "string" ? msg : JSON.stringify(msg);
+      if (msgStr.includes("NEW_USER_ROLE_REQUIRED")) {
+        return { success: false, mode: "live" as const, message: "NEW_USER_ROLE_REQUIRED" };
+      }
+      showToast(msgStr, "error");
+      return { success: false, mode: "live" as const, message: msgStr };
     }
   };
 
@@ -154,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, signInWithGoogle, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, pendingGoogleToken, setPendingGoogleToken, login, register, signInWithGoogle, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

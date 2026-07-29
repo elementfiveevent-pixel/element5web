@@ -74,23 +74,32 @@ export class AuthService {
     }
 
     const genres = dto.genre ? [dto.genre] : [];
-    const languages = dto.languages
+    const languages = Array.isArray(dto.languages)
+      ? dto.languages
+      : typeof dto.languages === "string"
       ? dto.languages.split(",").map((l: string) => l.trim()).filter(Boolean)
       : [];
-    const skills = dto.skills
+    const skills = Array.isArray(dto.skills)
+      ? dto.skills
+      : typeof dto.skills === "string"
       ? dto.skills.split(",").map((s: string) => s.trim()).filter(Boolean)
       : [];
-    const portfolioUrls = [dto.youtubeLink, dto.spotifyLink].filter(Boolean);
+    const instaUrl = dto.instagramHandle && dto.instagramHandle.trim().length > 0
+      ? (dto.instagramHandle.startsWith("http") ? dto.instagramHandle : `https://instagram.com/${dto.instagramHandle.replace(/^@/, "")}`)
+      : null;
+    const portfolioUrls = [instaUrl, dto.youtubeLink, dto.spotifyLink].filter((u): u is string => Boolean(u));
 
     let availabilityStatus: any = "AVAILABLE";
     if (dto.availability === "Not Available") {
       availabilityStatus = "UNAVAILABLE";
     }
 
-    await this.prisma.artistProfile.upsert({
+    const updatedProfile = await this.prisma.artistProfile.upsert({
       where: { userId },
       update: {
         stageName: dto.stageName,
+        instagramHandle: dto.instagramHandle,
+        pastAchievement: dto.pastAchievement,
         biography: dto.bio,
         genres,
         languages,
@@ -103,6 +112,8 @@ export class AuthService {
       create: {
         userId,
         stageName: dto.stageName || "Unnamed Artist",
+        instagramHandle: dto.instagramHandle,
+        pastAchievement: dto.pastAchievement,
         biography: dto.bio,
         genres,
         languages,
@@ -113,6 +124,30 @@ export class AuthService {
         state: dto.state,
       },
     });
+
+    if (dto.pastAchievement && typeof dto.pastAchievement === "string" && dto.pastAchievement.trim().length > 0) {
+      try {
+        const title = dto.pastAchievement.trim();
+        let achRes = await this.prisma.pool.query(
+          `SELECT "id" FROM "Achievement" WHERE "title" = $1 LIMIT 1`,
+          [title]
+        );
+        let achId = achRes.rows[0]?.id;
+        if (!achId) {
+          achId = require("crypto").randomUUID();
+          await this.prisma.pool.query(
+            `INSERT INTO "Achievement" ("id", "title", "description", "badgeIconUrl", "xpReward") VALUES ($1, $2, $3, $4, $5)`,
+            [achId, title, title, "badge-default.png", 50]
+          ).catch(() => null);
+        }
+        await this.prisma.pool.query(
+          `INSERT INTO "ArtistAchievement" ("id", "artistProfileId", "achievementId") VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+          [require("crypto").randomUUID(), updatedProfile.id, achId]
+        ).catch(() => null);
+      } catch {
+        // Silent fallback
+      }
+    }
 
     const existingRoles = await this.prisma.roleAssignment.findMany({
       where: { userId },
@@ -247,8 +282,12 @@ export class AuthService {
   }
 
   async googleLogin(idToken: string, requestedRole?: string) {
-    let email: string;
-    let fullName: string;
+    if (!idToken || typeof idToken !== "string" || !idToken.trim()) {
+      throw new BadRequestException("Google idToken is required");
+    }
+
+    let email: string = "";
+    let fullName: string = "";
 
     try {
       if (idToken.startsWith("mock_")) {
@@ -258,20 +297,27 @@ export class AuthService {
         email = idToken.replace("mock_", "");
         fullName = email.split("@")[0];
       } else {
-        const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
-        if (response.ok) {
-          const payload = await response.json() as any;
-          email = payload.email;
-          fullName = payload.name || email.split("@")[0];
+        // Decode Firebase ID Token or Google OAuth JWT payload safely
+        let decoded: any = null;
+        try {
+          decoded = this.jwtService.decode(idToken) as any;
+        } catch {}
+
+        if (decoded && (decoded.email || decoded.user_id || decoded.sub)) {
+          email = decoded.email || `${decoded.sub || decoded.user_id}@google.user`;
+          fullName = decoded.user_metadata?.full_name || decoded.user_metadata?.name || decoded.name || decoded.user_id || email.split("@")[0];
         } else {
-          // Fallback: Decode Firebase ID Token JWT directly
-          const decoded = this.jwtService.decode(idToken) as any;
-          if (decoded && decoded.email) {
-            email = decoded.email;
-            fullName = decoded.name || decoded.email.split("@")[0];
-          } else {
-            throw new UnauthorizedException("Invalid Google token signature or token expired");
-          }
+          try {
+            const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+            if (response.ok) {
+              const payload = await response.json() as any;
+              email = payload.email;
+              fullName = payload.name || email.split("@")[0];
+            }
+          } catch {}
+        }
+        if (!email) {
+          throw new UnauthorizedException("Invalid Google authentication token or missing email claim");
         }
       }
 
@@ -279,20 +325,8 @@ export class AuthService {
         throw new UnauthorizedException("Google token missing email information");
       }
     } catch (err) {
-      if (err instanceof UnauthorizedException) throw err;
+      if (err instanceof UnauthorizedException || err instanceof BadRequestException) throw err;
       throw new UnauthorizedException("Invalid Google authentication payload");
-    }
-
-    let targetRole = UserRole.AUDIENCE;
-    if (requestedRole) {
-      const upperRole = requestedRole.toUpperCase();
-      if (upperRole === "ARTIST") {
-        targetRole = UserRole.ARTIST;
-      } else if (upperRole === "AUDIENCE") {
-        targetRole = UserRole.AUDIENCE;
-      } else {
-        throw new BadRequestException("Google registration is restricted to ARTIST or AUDIENCE roles only.");
-      }
     }
 
     let user: any = null;
@@ -306,6 +340,20 @@ export class AuthService {
     }
 
     if (!user) {
+      if (!requestedRole) {
+        throw new BadRequestException("NEW_USER_ROLE_REQUIRED");
+      }
+
+      let targetRole = UserRole.AUDIENCE;
+      const upperRole = requestedRole.toUpperCase();
+      if (upperRole === "ARTIST") {
+        targetRole = UserRole.ARTIST;
+      } else if (upperRole === "AUDIENCE") {
+        targetRole = UserRole.AUDIENCE;
+      } else {
+        throw new BadRequestException("Google registration is restricted to ARTIST or AUDIENCE roles only.");
+      }
+
       try {
         user = await this.prisma.user.create({
           data: {
@@ -317,6 +365,18 @@ export class AuthService {
           },
           include: { roles: true },
         });
+        if (targetRole === UserRole.ARTIST) {
+          try {
+            await this.prisma.artistProfile.create({
+              data: {
+                userId: user.id,
+                stageName: fullName,
+                genres: [],
+                bio: "",
+              },
+            });
+          } catch {}
+        }
       } catch {
         // Fallback if DB is disconnected/reconnecting
         const mockUserId = `usr_${Date.now().toString(36)}`;
@@ -343,7 +403,7 @@ export class AuthService {
 
     const assignedRoles = Array.isArray(user.roles)
       ? user.roles.map((r: any) => (typeof r === "string" ? r : r.role))
-      : [targetRole];
+      : [UserRole.AUDIENCE];
 
     return this.generateTokens(user.id || `usr_${Date.now()}`, user.email, assignedRoles);
   }

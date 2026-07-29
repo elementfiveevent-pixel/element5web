@@ -8,10 +8,19 @@ export class UpdateArtistProfileDto {
   @IsOptional()
   stageName?: string;
 
+  @ApiProperty({ example: "mckavyo", required: false })
+  @IsString()
+  @IsOptional()
+  instagramHandle?: string;
+
   @ApiProperty({ example: "Producer of progressive techno beats.", required: false })
   @IsString()
   @IsOptional()
   biography?: string;
+
+  @ApiProperty({ example: "Featured in Open Mic 2.0", required: false })
+  @IsOptional()
+  pastAchievement?: string;
 
   @ApiProperty({ example: ["https://youtube.com/my-set"], required: false })
   @IsArray()
@@ -19,19 +28,16 @@ export class UpdateArtistProfileDto {
   portfolioUrls?: string[];
 
   @ApiProperty({ example: ["Electronic", "Techno"], required: false })
-  @IsArray()
   @IsOptional()
-  genres?: string[];
+  genres?: any;
 
   @ApiProperty({ example: ["Synthesizers", "DJing"], required: false })
-  @IsArray()
   @IsOptional()
-  skills?: string[];
+  skills?: any;
 
   @ApiProperty({ example: ["English", "Spanish"], required: false })
-  @IsArray()
   @IsOptional()
-  languages?: string[];
+  languages?: any;
 
   @ApiProperty({ example: "AVAILABLE", enum: AvailabilityStatus, required: false })
   @IsEnum(AvailabilityStatus)

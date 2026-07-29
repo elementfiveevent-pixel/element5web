@@ -35,15 +35,29 @@ export default function OnboardingPage() {
     } else if (user) {
       const artProfile = (user as any).artistProfile || {};
       setStageName(artProfile.stageName || user.fullName || "");
-      setInstagramHandle(artProfile.instagramHandle || "");
-      setGenre(artProfile.genre || "Rap");
+      
+      // Extract instagram handle from portfolioUrls or instagramHandle
+      let instaHandle = artProfile.instagramHandle || "";
+      if (!instaHandle && Array.isArray(artProfile.portfolioUrls)) {
+        const instaUrl = artProfile.portfolioUrls.find((u: string) => typeof u === "string" && (u.toLowerCase().includes("instagram.com") || (!u.includes("youtube") && !u.includes("spotify"))));
+        if (instaUrl) {
+          const clean = instaUrl.replace(/\/$/, "");
+          instaHandle = clean.split("/").pop() || "";
+        }
+      }
+      setInstagramHandle(instaHandle);
+
+      setGenre(artProfile.genre || (Array.isArray(artProfile.genres) ? artProfile.genres[0] : "Rap"));
       setExperienceLevel(artProfile.experienceLevel || "NEWBIE");
-      setBio(artProfile.bio || "");
-      setLanguages(artProfile.languages || "");
-      setAvailability(artProfile.availability || "Open for Gigs");
-      setSkills(artProfile.skills || "");
-      setSpotifyLink(artProfile.spotifyLink || "");
-      setPastAchievement(artProfile.pastAchievement || "");
+      setBio(artProfile.bio || artProfile.biography || "");
+      setLanguages(Array.isArray(artProfile.languages) ? artProfile.languages.join(", ") : String(artProfile.languages || ""));
+      setAvailability(artProfile.availability || artProfile.availabilityStatus || "Open for Gigs");
+      setSkills(Array.isArray(artProfile.skills) ? artProfile.skills.join(", ") : String(artProfile.skills || ""));
+      const achList = artProfile.achievements || [];
+      const achText = (Array.isArray(achList) && achList.length > 0)
+        ? achList.map((a: any) => a.achievement?.title || a.title).filter(Boolean).join(" • ")
+        : (artProfile.pastAchievement || "");
+      setPastAchievement(achText);
       setYoutubeLink(artProfile.youtubeLink || "");
       setProfilePhotoUrl(user.profilePhotoUrl || artProfile.profilePhotoUrl || "");
       setCity(artProfile.city || "");
@@ -79,20 +93,20 @@ export default function OnboardingPage() {
     try {
       // Build artist profile object
       const artistProfile = {
-        stageName,
-        instagramHandle,
-        genre,
-        experienceLevel,
-        bio,
-        languages,
-        availability,
-        skills,
-        spotifyLink,
-        pastAchievement,
-        youtubeLink,
-        profilePhotoUrl,
-        city,
-        state,
+        stageName: String(stageName).trim(),
+        instagramHandle: String(instagramHandle).trim(),
+        genre: String(genre),
+        experienceLevel: String(experienceLevel),
+        bio: String(bio || ""),
+        languages: String(languages || ""),
+        availability: String(availability || ""),
+        skills: String(skills || ""),
+        spotifyLink: String(spotifyLink || ""),
+        pastAchievement: String(pastAchievement || ""),
+        youtubeLink: String(youtubeLink || ""),
+        profilePhotoUrl: String(profilePhotoUrl || ""),
+        city: String(city || ""),
+        state: String(state || ""),
       };
 
       // Attempt API update

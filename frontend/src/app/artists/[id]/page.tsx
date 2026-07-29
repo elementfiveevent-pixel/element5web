@@ -11,6 +11,24 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 
+function InstagramIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+    </svg>
+  );
+}
+
+function YoutubeIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+    </svg>
+  );
+}
+
 function getYoutubeEmbedUrl(url: string) {
   if (!url) return null;
   let videoId = "";
@@ -57,6 +75,10 @@ interface BackendArtistProfile {
   id: string;
   userId: string;
   stageName: string;
+  instagramHandle?: string;
+  pastAchievement?: string;
+  youtubeLink?: string;
+  spotifyLink?: string;
   biography?: string;
   portfolioUrls: string[];
   genres: string[];
@@ -78,43 +100,83 @@ interface BackendArtistProfile {
 }
 
 function mapBackend(data: BackendArtistProfile): Artist {
+  const urls = (data.portfolioUrls || []).filter((u): u is string => typeof u === "string" && u.trim().length > 0);
+  
+  let instagramUrl = "";
+  if (data.instagramHandle && data.instagramHandle.trim().length > 0) {
+    const handle = data.instagramHandle.trim();
+    instagramUrl = handle.startsWith("http") ? handle : `https://instagram.com/${handle.replace(/^@/, "")}`;
+  } else {
+    const foundInsta = urls.find((u) => u.toLowerCase().includes("instagram.com"));
+    if (foundInsta) {
+      instagramUrl = foundInsta;
+    } else if (urls.length > 0) {
+      const handleCandidate = urls.find((u) => !u.toLowerCase().includes("youtube") && !u.toLowerCase().includes("youtu") && !u.toLowerCase().includes("spotify"));
+      if (handleCandidate) {
+        const cleanHandle = handleCandidate.replace(/^@/, "").trim();
+        if (cleanHandle.length > 0) {
+          instagramUrl = cleanHandle.startsWith("http") ? cleanHandle : `https://instagram.com/${cleanHandle}`;
+        }
+      }
+    }
+  }
+
+  const youtubeUrl = urls.find((u) => u.toLowerCase().includes("youtube.com") || u.toLowerCase().includes("youtu.be")) || data.youtubeLink || "";
+  const spotifyUrl = urls.find((u) => u.toLowerCase().includes("spotify.com")) || data.spotifyLink || "";
+  const websiteUrl = urls.find((u) => !u.toLowerCase().includes("instagram") && !u.toLowerCase().includes("youtu") && !u.toLowerCase().includes("spotify") && u.startsWith("http")) || "";
+
+  const cityStateLocation = [data.city, data.state].filter(Boolean).join(", ");
+  const displayLocation = cityStateLocation.length > 0 ? cityStateLocation : "Gujarat, IN";
+
+  const achList = (data.achievements || []).map((a: any) => a.achievement?.title || a.title).filter(Boolean);
+  if (achList.length === 0 && data.pastAchievement) {
+    achList.push(data.pastAchievement);
+  }
+
   return {
-    id: data.userId || data.id,
-    name: data.stageName,
-    genre: data.genres.join(" & ") || "Creator",
-    location: [data.city, data.state].filter(Boolean).join(", ") || "Gujarat",
-    rating: 4.5,
-    followers: data.user?.reputationXp || 0,
-    bio: data.biography || "",
-    votes: 0,
-    stageVerseScore: 70,
-    performancesCount: data.performances?.length || 0,
-    badges: [
-      ...(data.isVerified ? ["Verified"] : []),
-      ...(data.achievements?.map((a) => a.achievement.title) || []),
-    ],
-    recentActivity: "",
-    trend: "stable",
-    avatar: data.user?.profilePhotoUrl ||
-      `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.stageName)}&backgroundColor=121212&textColor=FAF8F5`,
-    cover: data.portfolioUrls[0] ||
-      "https://images.unsplash.com/photo-1540039155733-5bb30b4f21f0?w=1200&h=400&fit=crop",
-    videos: data.performances?.filter((p) => p.videoUrl).map((p) => ({
-      title: `Performance on ${new Date(p.performanceDate).toLocaleDateString()}`,
-      url: p.videoUrl!,
-      platform: "youtube" as const,
-    })) || [],
-    skills: data.skills,
-    experience: data.languages.join(", "),
-    awards: data.achievements?.map((a) => a.achievement.title) || [],
-    availability: data.availabilityStatus === "AVAILABLE"
-      ? "Available"
-      : data.availabilityStatus === "BOOKED"
-      ? "Booked"
-      : "Collab Only",
-    collaborationsOpen: data.availabilityStatus !== "UNAVAILABLE",
-    socials: {},
-  };
+      id: data.userId || data.id,
+      name: data.stageName,
+      genre: (data.genres && data.genres.length > 0) ? data.genres.join(" & ") : "Creator",
+      location: displayLocation,
+      rating: 4.5,
+      followers: data.user?.reputationXp || 0,
+      bio: data.biography || "Crafting unique creative expressions.",
+      votes: 0,
+      stageVerseScore: 70,
+      performancesCount: data.performances?.length || 0,
+      badges: [
+        ...(data.isVerified ? ["Verified"] : []),
+        ...achList,
+      ],
+      recentActivity: "",
+      trend: "stable",
+      avatar: (data.user?.profilePhotoUrl && data.user.profilePhotoUrl.startsWith("http"))
+        ? data.user.profilePhotoUrl 
+        : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.stageName || "Artist")}&backgroundColor=121212&textColor=FAF8F5`,
+      cover: (data.portfolioUrls && data.portfolioUrls[0] && data.portfolioUrls[0].startsWith("http"))
+        ? data.portfolioUrls[0]
+        : "https://images.unsplash.com/photo-1540039155733-5bb30b4f21f0?w=1200&h=400&fit=crop",
+      videos: data.performances?.filter((p) => p.videoUrl).map((p) => ({
+        title: `Performance on ${new Date(p.performanceDate).toLocaleDateString()}`,
+        url: p.videoUrl!,
+        platform: "youtube" as const,
+      })) || [],
+      skills: data.skills,
+      experience: data.languages.join(", "),
+      awards: data.achievements?.map((a) => a.achievement.title) || [],
+      availability: data.availabilityStatus === "AVAILABLE"
+        ? "Available"
+        : data.availabilityStatus === "BOOKED"
+        ? "Booked"
+        : "Collab Only",
+      collaborationsOpen: data.availabilityStatus !== "UNAVAILABLE",
+      socials: {
+        instagram: instagramUrl,
+        youtube: youtubeUrl,
+        spotify: spotifyUrl,
+        website: websiteUrl,
+      },
+    };
 }
 
 // ─────────────────────────────────────────────
@@ -132,19 +194,28 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
   const [notFound, setNotFound] = useState(false);
 
   const [messageText, setMessageText] = useState("");
-  const [collabSent, setCollabSent] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [likes, setLikes] = useState(140);
+  const [collabSent, setCollabSent] = useState(false);
+  const [likes, setLikes] = useState(0);
+  const [rank, setRank] = useState<number | string>(0);
   const [hasLiked, setHasLiked] = useState(false);
+  const [coverError, setCoverError] = useState(false);
 
+  // Real-time stats sync (Rank, Likes, Shows)
   useEffect(() => {
-    async function fetchArtist() {
-      setLoading(true);
+    async function syncRealtimeStats() {
       try {
+        // 1. Fetch artist details
         const data: BackendArtistProfile = await api.get(`/artists/${id}`);
         setArtist(mapBackend(data));
+
+        // 2. Fetch leaderboard rank
+        const standings = await api.get("/leaderboard").catch(() => []);
+        if (Array.isArray(standings)) {
+          const found = standings.find((s: any) => s.id === id || s.userId === id || s.artistProfileId === id);
+          setRank(found ? `#${found.rank}` : 0);
+        }
       } catch {
-        // Fallback to local context
         const local = localArtists.find((a) => a.id === id);
         if (local) {
           setArtist(local);
@@ -155,7 +226,10 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
         setLoading(false);
       }
     }
-    fetchArtist();
+
+    syncRealtimeStats();
+    const interval = setInterval(syncRealtimeStats, 3000);
+    return () => clearInterval(interval);
   }, [id, localArtists]);
 
 
@@ -216,8 +290,17 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
         {/* ── Profile Card ── */}
         <div className="border-4 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal overflow-hidden">
           {/* Cover */}
-          <div className="h-56 bg-gray-200 border-b-4 border-[#121212] relative overflow-hidden">
-            <img src={artist.cover} alt="" className="w-full h-full object-cover" />
+          <div className="h-56 bg-gradient-to-r from-[#121212] via-[#2A2928] to-[#121212] border-b-4 border-[#121212] relative overflow-hidden">
+            {artist.cover && (
+              <img 
+                src={artist.cover} 
+                alt={artist.name} 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&h=400&fit=crop";
+                }} 
+              />
+            )}
             <div className="absolute bottom-4 right-4 flex gap-2">
               {artist.badges.includes("Verified") && (
                 <span className="brutal-tape text-xs bg-green-400 rotate-[2deg]">✓ VERIFIED CREATOR</span>
@@ -232,7 +315,10 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
               <img
                 src={artist.avatar}
                 alt={artist.name}
-                className="w-36 h-36 rounded-full object-cover border-4 border-[#121212] bg-white -mt-24 shadow-brutal relative z-10"
+                className="w-36 h-36 rounded object-cover border-4 border-[#121212] bg-white -mt-24 shadow-brutal relative z-10"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artist.name || "Artist")}&backgroundColor=121212&textColor=FAF8F5`;
+                }}
               />
               <div className="space-y-2">
                 <h2 className="font-display font-black text-2xl tracking-tight leading-none">{artist.name}</h2>
@@ -240,11 +326,6 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
                 <p className="text-xs font-space font-medium text-gray-500 flex items-center justify-center md:justify-start gap-1">
                   <MapPin size={12} /> {artist.location}
                 </p>
-                {artist.bio && (
-                  <p className="font-space text-xs font-bold text-gray-600 mt-2 leading-relaxed">
-                    {artist.bio}
-                  </p>
-                )}
                 {artist.availability && (
                   <span className="inline-block bg-green-500 text-white font-display font-black text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-green-500 mt-1 select-none">
                     🟢 {artist.availability}
@@ -255,16 +336,16 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
               {/* Stats */}
               <div className="grid grid-cols-3 gap-2 border-t border-b border-[#121212]/10 py-3 w-full text-center">
                 <div>
-                  <span className="block font-display font-black text-lg truncate">{artist.followers.toLocaleString()}</span>
-                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">XP</span>
+                  <span className="block font-display font-black text-lg truncate text-red-stage">{rank}</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">RANK</span>
                 </div>
                 <div>
                   <span className="block font-display font-black text-lg truncate">{likes}</span>
-                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">Likes</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">LIKES</span>
                 </div>
                 <div>
-                  <span className="block font-display font-black text-lg truncate">{artist.performancesCount}</span>
-                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">Shows</span>
+                  <span className="block font-display font-black text-lg truncate">{artist.performancesCount || 0}</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">SHOWS</span>
                 </div>
               </div>
 
@@ -292,41 +373,66 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
                 SHARE PROFILE
               </button>
 
-              {/* Socials */}
-              {(artist.socials.instagram || artist.socials.youtube || artist.socials.spotify || artist.socials.website) && (
-                <div className="flex gap-2 flex-wrap">
-                  {artist.socials.instagram && (
-                    <a href={artist.socials.instagram} target="_blank" rel="noopener noreferrer"
-                      className="p-2 border-2 border-[#121212] bg-white rounded hover:bg-yellow-festival transition-all" title="Instagram">
-                      <Share2 size={14} />
-                    </a>
-                  )}
-                  {artist.socials.youtube && (
-                    <a href={artist.socials.youtube} target="_blank" rel="noopener noreferrer"
-                      className="p-2 border-2 border-[#121212] bg-white rounded hover:bg-yellow-festival transition-all" title="YouTube">
-                      <Video size={14} />
-                    </a>
-                  )}
-                  {artist.socials.spotify && (
-                    <a href={artist.socials.spotify} target="_blank" rel="noopener noreferrer"
-                      className="p-2 border-2 border-[#121212] bg-white rounded hover:bg-yellow-festival transition-all">
-                      <Music size={14} />
-                    </a>
-                  )}
-                  {artist.socials.website && (
-                    <a href={artist.socials.website} target="_blank" rel="noopener noreferrer"
-                      className="p-2 border-2 border-[#121212] bg-white rounded hover:bg-yellow-festival transition-all">
-                      <Globe size={14} />
-                    </a>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Right: Bio + Skills + Awards */}
             <div className="md:col-span-3 space-y-6">
+              {/* Bio Block with Top-Right Social Media Buttons */}
               <div className="space-y-3">
-                <span className="brutal-tape text-[10px] bg-yellow-festival rotate-[-2deg] inline-block">BIO</span>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <span className="brutal-tape text-[10px] bg-yellow-festival rotate-[-2deg] inline-block uppercase select-none">BIO</span>
+
+                  {/* Social Media Links (Top-Right of Bio section) */}
+                  {artist.socials && (artist.socials.instagram || artist.socials.youtube || artist.socials.spotify || artist.socials.website) && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {artist.socials.instagram && (
+                        <a 
+                          href={artist.socials.instagram} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center p-2 border-2 border-[#121212] bg-white text-[#121212] rounded hover:translate-x-[1px] hover:translate-y-[1px] transition-all shadow-brutal-sm"
+                          title="Instagram Profile"
+                        >
+                          <InstagramIcon size={16} className="text-[#E1306C]" />
+                        </a>
+                      )}
+                      {artist.socials.youtube && (
+                        <a 
+                          href={artist.socials.youtube} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center p-2 border-2 border-[#121212] bg-white text-[#121212] rounded hover:translate-x-[1px] hover:translate-y-[1px] transition-all shadow-brutal-sm"
+                          title="YouTube Channel"
+                        >
+                          <YoutubeIcon size={16} className="text-[#FF0000]" />
+                        </a>
+                      )}
+                      {artist.socials.spotify && (
+                        <a 
+                          href={artist.socials.spotify} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center p-2 border-2 border-[#121212] bg-white text-[#121212] rounded hover:translate-x-[1px] hover:translate-y-[1px] transition-all shadow-brutal-sm"
+                          title="Spotify Track"
+                        >
+                          <Music size={16} className="text-[#1DB954]" />
+                        </a>
+                      )}
+                      {artist.socials.website && (
+                        <a 
+                          href={artist.socials.website} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center p-2 border-2 border-[#121212] bg-white text-[#121212] rounded hover:translate-x-[1px] hover:translate-y-[1px] transition-all shadow-brutal-sm"
+                          title="Official Website"
+                        >
+                          <Globe size={16} className="text-[#121212]" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <p className="font-space text-base font-bold leading-relaxed text-gray-700">
                   {artist.bio || "No biography available yet."}
                 </p>

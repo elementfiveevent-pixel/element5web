@@ -46,16 +46,70 @@ export class ArtistService {
       throw new NotFoundException("Artist profile not found");
     }
 
+    const languages = Array.isArray(dto.languages)
+      ? dto.languages
+      : typeof dto.languages === "string"
+      ? dto.languages.split(",").map((l: string) => l.trim()).filter(Boolean)
+      : profile.languages;
+
+    const skills = Array.isArray(dto.skills)
+      ? dto.skills
+      : typeof dto.skills === "string"
+      ? dto.skills.split(",").map((s: string) => s.trim()).filter(Boolean)
+      : profile.skills;
+
+    const genres = Array.isArray(dto.genres)
+      ? dto.genres
+      : typeof dto.genres === "string"
+      ? dto.genres.split(",").map((g: string) => g.trim()).filter(Boolean)
+      : profile.genres;
+
+    let updatedPortfolio = Array.isArray(dto.portfolioUrls) ? [...dto.portfolioUrls] : [...(profile.portfolioUrls || [])];
+    if (dto.instagramHandle && typeof dto.instagramHandle === "string" && dto.instagramHandle.trim().length > 0) {
+      const handle = dto.instagramHandle.trim();
+      const instaUrl = handle.startsWith("http")
+        ? handle
+        : `https://instagram.com/${handle.replace(/^@/, "")}`;
+      updatedPortfolio = updatedPortfolio.filter((u: string) => typeof u === "string" && !u.toLowerCase().includes("instagram.com"));
+      updatedPortfolio.unshift(instaUrl);
+    }
+
+    if (dto.pastAchievement && typeof dto.pastAchievement === "string" && dto.pastAchievement.trim().length > 0) {
+      try {
+        const title = dto.pastAchievement.trim();
+        let achRes = await this.prisma.pool.query(
+          `SELECT "id" FROM "Achievement" WHERE "title" = $1 LIMIT 1`,
+          [title]
+        );
+        let achId = achRes.rows[0]?.id;
+        if (!achId) {
+          achId = require("crypto").randomUUID();
+          await this.prisma.pool.query(
+            `INSERT INTO "Achievement" ("id", "title", "description", "badgeIconUrl", "xpReward") VALUES ($1, $2, $3, $4, $5)`,
+            [achId, title, title, "badge-default.png", 50]
+          ).catch(() => null);
+        }
+        await this.prisma.pool.query(
+          `INSERT INTO "ArtistAchievement" ("id", "artistProfileId", "achievementId") VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+          [require("crypto").randomUUID(), profile.id, achId]
+        ).catch(() => null);
+      } catch {
+        // Silent fallback
+      }
+    }
+
     return this.prisma.artistProfile.update({
       where: { userId },
       data: {
-        stageName: dto.stageName,
-        biography: dto.biography,
-        portfolioUrls: dto.portfolioUrls,
-        genres: dto.genres,
-        skills: dto.skills,
-        languages: dto.languages,
-        availabilityStatus: dto.availabilityStatus,
+        stageName: dto.stageName ?? profile.stageName,
+        instagramHandle: dto.instagramHandle ?? profile.instagramHandle,
+        pastAchievement: dto.pastAchievement ?? profile.pastAchievement,
+        biography: dto.biography ?? profile.biography,
+        portfolioUrls: updatedPortfolio,
+        genres,
+        skills,
+        languages,
+        availabilityStatus: dto.availabilityStatus ?? profile.availabilityStatus,
       },
     });
   }

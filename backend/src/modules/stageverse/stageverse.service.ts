@@ -108,22 +108,30 @@ export class StageVerseService {
       throw new NotFoundException("Event not found");
     }
 
-    return this.prisma.stageVerseSubmission.upsert({
-      where: {
-        eventId_userId: { eventId: dto.eventId, userId },
-      },
-      update: {
-        trackTitle: dto.trackTitle,
-        audioVideoUrl: dto.audioVideoUrl,
-        status: "PENDING",
-      },
-      create: {
-        eventId: dto.eventId,
-        userId,
-        trackTitle: dto.trackTitle,
-        audioVideoUrl: dto.audioVideoUrl,
-      },
+    let submission = await this.prisma.stageVerseSubmission.findFirst({
+      where: { eventId: dto.eventId, userId }
     });
+
+    if (submission) {
+      return this.prisma.stageVerseSubmission.update({
+        where: { id: submission.id },
+        data: {
+          trackTitle: dto.trackTitle,
+          audioVideoUrl: dto.audioVideoUrl,
+          status: "PENDING",
+        }
+      });
+    } else {
+      return this.prisma.stageVerseSubmission.create({
+        data: {
+          id: require("crypto").randomUUID(),
+          eventId: dto.eventId,
+          userId,
+          trackTitle: dto.trackTitle,
+          audioVideoUrl: dto.audioVideoUrl,
+        }
+      });
+    }
   }
 
   async listSubmissions(eventId: string) {
@@ -280,9 +288,15 @@ export class StageVerseService {
         judgeAvg = totalJudgeScore / scores.length;
       }
 
-      // Standings Formula: 50% audience rating average + 50% judge score average
-      // Both are scaled out of 10, totalScore is out of 100
-      const totalScore = audienceAvg * 5.0 + judgeAvg * 5.0;
+      // Standings Formula:
+      // If separate judge scores exist: 50% Audience Avg + 50% Judge Avg.
+      // If no separate judges exist (Audience is the Judge): 100% Audience Avg (scaled out of 100).
+      let totalScore = 0.0;
+      if (scores.length > 0 && judgeAvg > 0) {
+        totalScore = audienceAvg * 5.0 + judgeAvg * 5.0;
+      } else {
+        totalScore = audienceAvg * 10.0;
+      }
 
       return {
         submissionId: sub.id,
@@ -371,25 +385,32 @@ export class StageVerseService {
       where: { eventId }
     });
 
-    const submission = await this.prisma.stageVerseSubmission.upsert({
-      where: {
-        eventId_userId: { eventId, userId: artistUserId }
-      },
-      update: {
-        trackTitle,
-        audioVideoUrl: audioVideoUrl || "",
-        status: "APPROVED"
-      },
-      create: {
-        id: crypto.randomUUID(),
-        eventId,
-        userId: artistUserId,
-        trackTitle,
-        audioVideoUrl: audioVideoUrl || "",
-        performanceOrder: count + 1,
-        status: "APPROVED"
-      }
+    let submission = await this.prisma.stageVerseSubmission.findFirst({
+      where: { eventId, userId: artistUserId }
     });
+
+    if (submission) {
+      submission = await this.prisma.stageVerseSubmission.update({
+        where: { id: submission.id },
+        data: {
+          trackTitle,
+          audioVideoUrl: audioVideoUrl || "",
+          status: "APPROVED"
+        }
+      });
+    } else {
+      submission = await this.prisma.stageVerseSubmission.create({
+        data: {
+          id: crypto.randomUUID(),
+          eventId,
+          userId: artistUserId,
+          trackTitle,
+          audioVideoUrl: audioVideoUrl || "",
+          performanceOrder: count + 1,
+          status: "APPROVED"
+        }
+      });
+    }
 
     const standings = await this.calculateStandings(eventId);
     this.gateway.broadcastLeaderboard(eventId, standings);
@@ -398,10 +419,8 @@ export class StageVerseService {
   }
 
   async requestVotingAccess(eventId: string, userId: string) {
-    const existing = await this.prisma.votingAccessRequest.findUnique({
-      where: {
-        eventId_userId: { eventId, userId }
-      }
+    const existing = await this.prisma.votingAccessRequest.findFirst({
+      where: { eventId, userId }
     });
 
     if (existing) {
@@ -454,10 +473,8 @@ export class StageVerseService {
       return { allowed: true, status: "APPROVED" };
     }
 
-    const request = await this.prisma.votingAccessRequest.findUnique({
-      where: {
-        eventId_userId: { eventId, userId }
-      }
+    const request = await this.prisma.votingAccessRequest.findFirst({
+      where: { eventId, userId }
     });
 
     if (request) {
@@ -557,20 +574,53 @@ export class StageVerseService {
   async getRegisteredArtists(userId: string, roles: string[], eventId: string) {
     await this.assertOrganizerAccess(eventId, userId, roles);
 
+    // 1. Get all registrations for this event
     const registrations = await this.prisma.eventRegistration.findMany({
       where: { eventId },
-      select: { userId: true }
-    });
-
-    const userIds = registrations.map((r: any) => r.userId).filter(Boolean);
-    if (userIds.length === 0) return [];
-
-    const profiles = await this.prisma.artistProfile.findMany({
-      where: { userId: { in: userIds } },
       include: { user: true }
     });
 
-    return profiles;
+    // 2. Fetch all ArtistProfiles across the platform
+    const allProfiles = await this.prisma.artistProfile.findMany({
+      include: { user: true }
+    });
+
+    const profileUserIds = new Set(allProfiles.map((p: any) => p.userId));
+    const resultList: any[] = [...allProfiles];
+
+    // 3. For any user who registered for this event (or with ARTIST role) without an ArtistProfile row yet, synthesize an entry
+    for (const reg of registrations) {
+      if (reg.user && !profileUserIds.has(reg.user.id)) {
+        resultList.push({
+          id: `temp_${reg.user.id}`,
+          userId: reg.user.id,
+          stageName: reg.user.fullName,
+          genres: [],
+          user: reg.user
+        });
+        profileUserIds.add(reg.user.id);
+      }
+    }
+
+    // 4. Include platform users with role ARTIST who don't have an ArtistProfile row yet
+    const platformArtists = await this.prisma.user.findMany({
+      where: { role: "ARTIST" }
+    });
+
+    for (const u of platformArtists) {
+      if (!profileUserIds.has(u.id)) {
+        resultList.push({
+          id: `temp_${u.id}`,
+          userId: u.id,
+          stageName: u.fullName,
+          genres: [],
+          user: u
+        });
+        profileUserIds.add(u.id);
+      }
+    }
+
+    return resultList;
   }
 
   async setCurrentPerformer(userId: string, roles: string[], eventId: string, submissionId: string | null) {

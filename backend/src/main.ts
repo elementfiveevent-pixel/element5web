@@ -23,7 +23,12 @@ async function bootstrap() {
   app.use(gzipMiddleware);
   app.use(json({ limit: "50mb" }));
   app.use(urlencoded({ limit: "50mb", extended: true }));
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    })
+  );
   app.use(cookieParser());
 
   const allowedOrigins = process.env.CORS_ORIGIN

@@ -272,12 +272,6 @@ export const Header: React.FC = () => {
       icon: <Mic2 size={15} />,
       description: "Browse all verified creators",
     },
-    {
-      label: "Network",
-      href: "/network",
-      icon: <Users size={15} />,
-      description: "Collab boards & DMs",
-    },
   ];
 
   return (
@@ -375,7 +369,7 @@ export const Header: React.FC = () => {
                   pathname.startsWith("/community") ? "text-yellow-festival" : ""
                 }`}
               >
-                Community
+                Creators
               </Link>
 
               {isAdmin && (
@@ -569,7 +563,7 @@ export const Header: React.FC = () => {
                     pathname.startsWith("/community") ? "text-yellow-festival" : "text-[#FAF8F5]"
                   }`}
                 >
-                  <span className="text-yellow-festival">👥</span> Community
+                  <span className="text-yellow-festival">👥</span> Creators
                 </Link>
               </>
             )}

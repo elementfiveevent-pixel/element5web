@@ -26,7 +26,7 @@ export interface Artist {
   experience: string;
   awards: string[];
   availability: "Available" | "Booked" | "Collab Only";
-  collaborationsOpen: boolean;
+  collaborationsOpen?: boolean;
   socials: {
     instagram?: string;
     youtube?: string;

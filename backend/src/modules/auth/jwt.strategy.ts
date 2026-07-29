@@ -13,17 +13,32 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string }) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: payload.sub },
-      include: {
-        roles: true,
-        artistProfile: true,
-      },
-    });
+  async validate(payload: { sub: string; email: string; roles?: string[] }) {
+    let user: any = null;
+    try {
+      user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        include: {
+          roles: true,
+          artistProfile: true,
+        },
+      });
+    } catch {
+      user = null;
+    }
 
-    if (!user || user.status === "SUSPENDED") {
+    if (user && user.status === "SUSPENDED") {
       throw new UnauthorizedException("Session is invalid, expired, or suspended");
+    }
+
+    if (!user) {
+      return {
+        id: payload.sub,
+        email: payload.email,
+        fullName: payload.email ? payload.email.split("@")[0] : "User",
+        status: "ACTIVE",
+        roles: payload.roles || ["AUDIENCE"],
+      };
     }
 
     return {
@@ -31,7 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: user.email,
       fullName: user.fullName,
       status: user.status,
-      roles: user.roles.map((r: any) => r.role),
+      roles: Array.isArray(user.roles) ? user.roles.map((r: any) => typeof r === "string" ? r : r.role) : [],
       profilePhotoUrl: user.profilePhotoUrl,
       artistProfile: user.artistProfile,
     };

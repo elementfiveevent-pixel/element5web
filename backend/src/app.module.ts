@@ -7,7 +7,6 @@ import { ArtistModule } from "./modules/artist/artist.module";
 import { EventModule } from "./modules/event/event.module";
 import { StageVerseModule } from "./modules/stageverse/stageverse.module";
 import { LeaderboardModule } from "./modules/leaderboard/leaderboard.module";
-import { SocialModule } from "./modules/social/social.module";
 import { NotificationModule } from "./modules/notification/notification.module";
 import { MediaModule } from "./modules/media/media.module";
 import { AdminModule } from "./modules/admin/admin.module";
@@ -32,7 +31,6 @@ import { HighlightModule } from "./modules/highlight/highlight.module";
     EventModule,
     StageVerseModule,
     LeaderboardModule,
-    SocialModule,
     NotificationModule,
     MediaModule,
     AdminModule,

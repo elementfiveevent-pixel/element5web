@@ -645,25 +645,50 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
             Venue &amp; Location
           </h2>
 
-          {event.location ? (
-            <div className="space-y-4 pt-2">
-              <h4 className="font-display font-extrabold text-xl">{event.location.venueName}</h4>
-              <p className="font-space text-sm text-[#121212]/60 font-bold flex items-center gap-1.5">
-                <MapPin size={13} className="text-red-stage flex-shrink-0" /> {event.location.venueAddress}
-              </p>
-              <p className="font-space text-xs text-[#121212]/40 font-bold">{event.location.city}, {event.location.state}</p>
-              {event.location.mapsLink && (
-                <a href={event.location.mapsLink} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-[#121212] text-white font-black text-xs uppercase px-4 py-2 rounded hover:bg-black/80 transition-colors">
-                  OPEN IN MAPS <ExternalLink size={11} />
-                </a>
-              )}
-            </div>
-          ) : (
-            <div className="border-3 border-dashed border-[#121212]/20 p-8 text-center bg-white rounded font-bold uppercase text-sm text-[#121212]/30">
-              Venue details coming soon.
-            </div>
-          )}
+          {(() => {
+            const loc = event.location || ((event as any).venueName || (event as any).venueAddress ? {
+              venueName: (event as any).venueName,
+              venueAddress: (event as any).venueAddress,
+              city: (event as any).city,
+              state: (event as any).state,
+              mapsLink: (event as any).mapsLink,
+            } : null);
+
+            if (loc && (loc.venueName || loc.venueAddress || loc.city)) {
+              const mapsUrl = loc.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([loc.venueName, loc.venueAddress, loc.city, loc.state].filter(Boolean).join(", "))}`;
+
+              return (
+                <div className="space-y-4 pt-2 font-space">
+                  {loc.venueName && <h4 className="font-display font-extrabold text-xl">{loc.venueName}</h4>}
+                  {loc.venueAddress && (
+                    <p className="font-space text-sm text-[#121212]/70 font-bold flex items-center gap-1.5">
+                      <MapPin size={15} className="text-red-stage flex-shrink-0" /> {loc.venueAddress}
+                    </p>
+                  )}
+                  {(loc.city || loc.state) && (
+                    <p className="font-space text-xs text-[#121212]/50 font-bold">
+                      {loc.city}{loc.city && loc.state ? ", " : ""}{loc.state}
+                    </p>
+                  )}
+                  <div className="pt-2">
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-yellow-festival text-[#121212] font-display font-black text-xs uppercase px-5 py-3 rounded border-2 border-[#121212] shadow-brutal hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all cursor-pointer"
+                    >
+                      <MapPin size={14} className="text-red-stage" /> OPEN IN GOOGLE MAPS <ExternalLink size={12} />
+                    </a>
+                  </div>
+                </div>
+              );
+            }
+            return (
+              <div className="border-3 border-dashed border-[#121212]/20 p-8 text-center bg-white rounded font-bold uppercase text-sm text-[#121212]/30">
+                Venue details coming soon.
+              </div>
+            );
+          })()}
 
           {/* End date */}
           {event.endDate && (

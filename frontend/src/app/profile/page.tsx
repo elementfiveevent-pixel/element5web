@@ -10,6 +10,24 @@ import { api } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
 import SupabaseUpload from "@/components/ui/SupabaseUpload";
 
+function InstagramIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+    </svg>
+  );
+}
+
+function YoutubeIcon({ size = 14, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+    </svg>
+  );
+}
+
 function getYoutubeEmbedUrl(url: string) {
   if (!url) return null;
   let videoId = "";
@@ -52,6 +70,16 @@ export default function ProfilePage() {
         });
     }
   }, [user]);
+
+  // Real-time sync for creator profile edits
+  useEffect(() => {
+    if (user) {
+      const interval = setInterval(() => {
+        refreshUser();
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [user, refreshUser]);
 
   if (loading) {
     return (
@@ -100,8 +128,24 @@ export default function ProfilePage() {
   const isArtist = user.role === "ARTIST";
   const artistProfile = (user as any).artistProfile || {};
   const stageName = artistProfile.stageName || user.fullName;
-  const instagram = artistProfile.instagramHandle || "";
   
+  const portfolioUrls = artistProfile.portfolioUrls || [];
+  let instagram = artistProfile.instagramHandle || "";
+  let instagramUrl = "";
+  if (instagram) {
+    instagramUrl = instagram.startsWith("http") ? instagram : `https://instagram.com/${instagram.replace(/^@/, "")}`;
+  } else if (Array.isArray(portfolioUrls)) {
+    const found = portfolioUrls.find((u: string) => typeof u === "string" && (u.includes("instagram.com") || (!u.includes("youtube") && !u.includes("spotify"))));
+    if (found) {
+      instagramUrl = found.startsWith("http") ? found : `https://instagram.com/${found.replace(/^@/, "")}`;
+      const clean = found.replace(/\/$/, "");
+      instagram = clean.split("/").pop() || "";
+    }
+  }
+
+  const cityStateLocation = [artistProfile.city, artistProfile.state].filter(Boolean).join(", ");
+  const locationText = cityStateLocation.length > 0 ? cityStateLocation : "Gujarat, IN";
+
   const genresArray = artistProfile.genres || [];
   const genre = Array.isArray(genresArray)
     ? (genresArray.length > 0 ? genresArray.join(" & ") : "Creative Art")
@@ -128,22 +172,31 @@ export default function ProfilePage() {
     ? skillsVal.split(",").map((s: string) => s.trim()).filter(Boolean)
     : [];
 
-  const portfolioUrls = artistProfile.portfolioUrls || [];
   const youtubeUrl = Array.isArray(portfolioUrls)
-    ? portfolioUrls.find((u: string) => u.includes("youtube.com") || u.includes("youtu.be")) || artistProfile.youtubeLink || ""
+    ? portfolioUrls.find((u: string) => typeof u === "string" && (u.includes("youtube.com") || u.includes("youtu.be"))) || artistProfile.youtubeLink || ""
     : artistProfile.youtubeLink || "";
 
   const spotifyLinkUrl = Array.isArray(portfolioUrls)
-    ? portfolioUrls.find((u: string) => u.includes("spotify.com")) || artistProfile.spotifyLink || ""
+    ? portfolioUrls.find((u: string) => typeof u === "string" && u.includes("spotify.com")) || artistProfile.spotifyLink || ""
     : artistProfile.spotifyLink || "";
 
-  const pastAchievement = artistProfile.pastAchievement || "No achievements posted yet.";
+  const websiteUrl = Array.isArray(portfolioUrls)
+    ? portfolioUrls.find((u: string) => typeof u === "string" && !u.includes("instagram") && !u.includes("youtu") && !u.includes("spotify") && u.startsWith("http")) || ""
+    : "";
+
+  const achievementsRel = artistProfile.achievements || [];
+  const achievementsText = Array.isArray(achievementsRel) && achievementsRel.length > 0
+    ? achievementsRel.map((a: any) => a.achievement?.title || a.title).filter(Boolean).join(" • ")
+    : (artistProfile.pastAchievement || "");
+  const pastAchievement = achievementsText || "";
   const youtubeEmbedUrl = youtubeUrl ? getYoutubeEmbedUrl(youtubeUrl) : null;
   const avatarImage = user.profilePhotoUrl || artistProfile.profilePhotoUrl || "";
   const coverImage = artistProfile.cover || "https://images.unsplash.com/photo-1540039155733-5bb30b4f21f0?w=1200&h=400&fit=crop";
 
-  // Calculate dynamic rank
-  const rank = user.reputationXp >= 500 ? "#3" : user.reputationXp >= 200 ? "#12" : user.reputationXp >= 100 ? "#24" : "#45";
+  // Calculate rank, likes, and shows
+  const rankText = user.reputationXp >= 500 ? "#1" : user.reputationXp >= 200 ? "#2" : user.reputationXp >= 100 ? "#3" : "0";
+  const likesCount = Math.floor((user.reputationXp || 0) / 10);
+  const showsCount = Array.isArray(artistProfile.performances) ? artistProfile.performances.length : 0;
 
   return (
     <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-12 px-4 sm:px-6">
@@ -209,24 +262,32 @@ export default function ProfilePage() {
                   <>
                     <p className="text-xs font-black uppercase text-red-stage tracking-wider">{genre}</p>
                     <p className="text-xs font-space font-medium text-gray-500 flex items-center justify-center md:justify-start gap-1">
-                      <MapPin size={12} /> Gujarat, IN
+                      <MapPin size={12} /> {locationText}
                     </p>
-                    {bioText && (
-                      <p className="font-space text-xs font-bold text-gray-600 mt-2 leading-relaxed whitespace-pre-wrap">
-                        {bioText}
-                      </p>
-                    )}
                   </>
                 ) : (
                   <>
                     <p className="text-xs font-space font-medium text-gray-500 flex items-center justify-center md:justify-start gap-1">
-                      <MapPin size={12} /> Gujarat, IN
-                    </p>
-                    <p className="font-space text-xs font-bold text-gray-600 mt-2 leading-relaxed">
-                      Welcome to the Element 5 community portal. View your registered tickets and badges below.
+                      <MapPin size={12} /> {locationText}
                     </p>
                   </>
                 )}
+              </div>
+
+              {/* Stats Block (RANK, LIKES, SHOWS) */}
+              <div className="grid grid-cols-3 gap-2 border-t border-b border-[#121212]/10 py-3 w-full text-center">
+                <div>
+                  <span className="block font-display font-black text-lg truncate text-red-stage">{rankText}</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">RANK</span>
+                </div>
+                <div>
+                  <span className="block font-display font-black text-lg truncate">{likesCount}</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">LIKES</span>
+                </div>
+                <div>
+                  <span className="block font-display font-black text-lg truncate">{showsCount}</span>
+                  <span className="text-[10px] font-black text-gray-400 uppercase block tracking-wider">SHOWS</span>
+                </div>
               </div>
 
               {/* Edit Buttons */}
@@ -261,28 +322,66 @@ export default function ProfilePage() {
                   Go to Organizer Panel
                 </Link>
               )}
-
-              {instagram && (
-                <div className="pt-2 w-full">
-                  <a
-                    href={`https://instagram.com/${instagram}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-900 font-black text-xs hover:underline flex items-center gap-1 justify-center md:justify-start"
-                  >
-                    <Globe size={13} /> instagram.com/{instagram}
-                  </a>
-                </div>
-              )}
             </div>
 
             {/* Right Column: Bio + Skills + Achievements details panel */}
             <div className="md:col-span-3 space-y-6">
               {isArtist ? (
                 <>
-                  {/* Bio Block */}
+                  {/* Bio Block with Top-Right Social Media Buttons (Red Box) */}
                   <div className="space-y-3">
-                    <span className="brutal-tape text-[10px] bg-yellow-festival rotate-[-2deg] inline-block uppercase">BIO</span>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="brutal-tape text-[10px] bg-yellow-festival rotate-[-2deg] inline-block uppercase select-none">BIO</span>
+
+                      {/* Social Media Links (White background icon-only buttons with brand colored icons) */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {instagramUrl && (
+                          <a
+                            href={instagramUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center p-2 bg-white text-[#121212] border-2 border-[#121212] rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
+                            title="Instagram Profile"
+                          >
+                            <InstagramIcon size={16} className="text-[#E1306C]" />
+                          </a>
+                        )}
+                        {youtubeUrl && (
+                          <a
+                            href={youtubeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center p-2 bg-white text-[#121212] border-2 border-[#121212] rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
+                            title="YouTube Channel"
+                          >
+                            <YoutubeIcon size={16} className="text-[#FF0000]" />
+                          </a>
+                        )}
+                        {spotifyLinkUrl && (
+                          <a
+                            href={spotifyLinkUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center p-2 bg-white text-[#121212] border-2 border-[#121212] rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
+                            title="Spotify Track"
+                          >
+                            <Music size={16} className="text-[#1DB954]" />
+                          </a>
+                        )}
+                        {websiteUrl && (
+                          <a
+                            href={websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center p-2 bg-white text-[#121212] border-2 border-[#121212] rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all"
+                            title="Official Website"
+                          >
+                            <Globe size={16} className="text-[#121212]" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
                     <p className="font-space text-base font-bold leading-relaxed text-gray-700">
                       {bioText}
                     </p>

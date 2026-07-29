@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,7 +8,7 @@ import { UserPlus, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
 export default function RegisterPage() {
-  const { register, signInWithGoogle } = useAuth();
+  const { register, signInWithGoogle, pendingGoogleToken } = useAuth();
   const { showToast } = useToast();
   const router = useRouter();
 
@@ -19,6 +19,13 @@ export default function RegisterPage() {
   const [role, setRole] = useState("AUDIENCE");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+
+  useEffect(() => {
+    if (pendingGoogleToken) {
+      setShowRoleModal(true);
+    }
+  }, [pendingGoogleToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,12 +57,55 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await signInWithGoogle(role as "ARTIST" | "AUDIENCE");
+      const res = await signInWithGoogle();
       if (res.success) {
         if (res.mode === "local") {
-          showToast("Registered locally via Google fallback simulation: " + res.message, "warning");
+          showToast("Signed in locally via Google fallback simulation: " + res.message, "warning");
         }
-        if (role === "ARTIST") {
+        const loggedUser = res.user;
+        if (
+          loggedUser?.role === "ARTIST" &&
+          (!loggedUser?.artistProfile ||
+            !loggedUser.artistProfile.genres ||
+            loggedUser.artistProfile.genres.length === 0)
+        ) {
+          router.push("/onboarding");
+        } else {
+          router.push("/");
+        }
+      } else if (res.message?.includes("NEW_USER_ROLE_REQUIRED") || res.message?.includes("role")) {
+        setShowRoleModal(true);
+      } else {
+        setError(res.message || "Failed to register via Google.");
+      }
+    } catch (err: any) {
+      if (err?.message?.includes("NEW_USER_ROLE_REQUIRED")) {
+        setShowRoleModal(true);
+      } else {
+        setError(err?.message || "Failed to register via Google.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const completeGoogleSignIn = async (selectedRole: "ARTIST" | "AUDIENCE") => {
+    setShowRoleModal(false);
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await signInWithGoogle(selectedRole);
+      if (res.success) {
+        if (res.mode === "local") {
+          showToast("Signed in locally via Google fallback simulation: " + res.message, "warning");
+        }
+        const loggedUser = res.user;
+        if (
+          loggedUser?.role === "ARTIST" &&
+          (!loggedUser?.artistProfile ||
+            !loggedUser.artistProfile.genres ||
+            loggedUser.artistProfile.genres.length === 0)
+        ) {
           router.push("/onboarding");
         } else {
           router.push("/");
@@ -71,7 +121,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-[90vh] bg-[#FFF5E4] text-[#121212] flex items-center justify-center py-10 px-4 sm:px-6">
+    <div className="min-h-[90vh] bg-[#FFF5E4] text-[#121212] flex items-center justify-center py-10 px-4 sm:px-6 relative">
       <div className="w-full max-w-md bg-[#FAF8F5] border-3 border-[#121212] p-8 rounded shadow-brutal space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -191,6 +241,40 @@ export default function RegisterPage() {
           </p>
         </div>
       </div>
+
+      {showRoleModal && (
+        <div className="fixed inset-0 z-[9999] bg-[#121212]/80 flex items-center justify-center p-4">
+          <div className="bg-[#FAF8F5] border-4 border-[#121212] p-8 max-w-sm w-full rounded shadow-brutal space-y-6 text-[#121212] font-space relative">
+            <button 
+              onClick={() => setShowRoleModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 border-2 border-[#121212] bg-white rounded flex items-center justify-center hover:bg-gray-100 font-black shadow-brutal-sm cursor-pointer"
+            >
+              ✕
+            </button>
+
+            <div className="text-center space-y-2">
+              <span className="bg-red-stage text-white text-[9px] font-black uppercase px-2 py-0.5 rounded">Setup Profile</span>
+              <h3 className="font-display font-black text-2xl uppercase tracking-tight mt-1">CHOOSE YOUR ROLE</h3>
+              <p className="text-xs text-gray-500 font-bold">First-time Google signups require choosing a path. Existing accounts will log in normally.</p>
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => completeGoogleSignIn("ARTIST")}
+                className="w-full bg-[#121212] text-white border-3 border-[#121212] font-display font-black text-xs uppercase py-3.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer text-center"
+              >
+                JOIN AS ARTIST / CREATOR
+              </button>
+              <button
+                onClick={() => completeGoogleSignIn("AUDIENCE")}
+                className="w-full bg-yellow-festival text-[#121212] border-3 border-[#121212] font-display font-black text-xs uppercase py-3.5 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all cursor-pointer text-center"
+              >
+                JOIN AS AUDIENCE / JUDGE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
