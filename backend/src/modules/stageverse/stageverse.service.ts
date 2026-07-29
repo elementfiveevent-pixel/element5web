@@ -14,7 +14,13 @@ export class StageVerseService {
 
   private votingStates = new Map<string, boolean>();
 
-  private async assertOrganizerAccess(eventId: string, organizerId: string, roles: string[] = []) {
+  private async assertOrganizerAccess(eventId: string, organizerId: string, rolesInput: any = []) {
+    const roles: string[] = Array.isArray(rolesInput)
+      ? rolesInput
+      : typeof rolesInput === "string"
+      ? [rolesInput]
+      : [];
+
     if (roles.includes("SUPER_ADMIN")) return;
 
     const event = await this.prisma.event.findUnique({
@@ -25,52 +31,113 @@ export class StageVerseService {
       throw new NotFoundException("Event not found");
     }
 
-    if (event.organizerId !== organizerId) {
+    if (event.organizerId && event.organizerId !== organizerId && !roles.includes("ORG_ADMIN")) {
       throw new ForbiddenException("You do not have access to this event");
     }
   }
 
+  private panelStates = new Map<string, boolean>();
+
+  private async getRealEvent(eventId: string) {
+    return this.prisma.event.findFirst({
+      where: { OR: [{ id: eventId }, { slug: eventId }] },
+    });
+  }
+
+  async toggleVotingPanel(userId: string, roles: string[], eventId: string, open: boolean) {
+    const event = await this.getRealEvent(eventId);
+    const targetId = event ? event.id : eventId;
+    await this.assertOrganizerAccess(targetId, userId, roles);
+
+    if (event) {
+      await this.prisma.event.update({
+        where: { id: event.id },
+        data: { votingActive: open, votingExpiresAt: null }
+      });
+    }
+
+    this.panelStates.set(targetId, open);
+    if (event?.slug) this.panelStates.set(event.slug, open);
+
+    // Opening or closing the panel closes any performer active voting session by default
+    this.votingStates.set(targetId, false);
+    if (event?.slug) this.votingStates.set(event.slug, false);
+
+    this.gateway.server.to(targetId).emit("panelStatusUpdate", { panelOpen: open });
+    if (event?.slug) {
+      this.gateway.server.to(event.slug).emit("panelStatusUpdate", { panelOpen: open });
+    }
+
+    const payload = { open: false, expiresAt: null };
+    this.gateway.server.to(targetId).emit("votingStatusUpdate", payload);
+    if (event?.slug) {
+      this.gateway.server.to(event.slug).emit("votingStatusUpdate", payload);
+    }
+
+    return { success: true, panelOpen: open, open: false };
+  }
+
   async toggleVoting(userId: string, roles: string[], eventId: string, open: boolean, durationSeconds?: number) {
-    await this.assertOrganizerAccess(eventId, userId, roles);
+    const event = await this.getRealEvent(eventId);
+    const targetId = event ? event.id : eventId;
+    await this.assertOrganizerAccess(targetId, userId, roles);
     const expiresAt = open && durationSeconds ? new Date(Date.now() + durationSeconds * 1000) : null;
 
-    await this.prisma.event.update({
-      where: { id: eventId },
-      data: { 
-        votingActive: open,
-        votingExpiresAt: expiresAt
-      }
-    });
+    if (event) {
+      await this.prisma.event.update({
+        where: { id: event.id },
+        data: { 
+          votingActive: true,
+          votingExpiresAt: expiresAt
+        }
+      });
+    }
 
-    this.votingStates.set(eventId, open);
-    this.gateway.server.to(eventId).emit("votingStatusUpdate", { 
-      open, 
-      expiresAt: expiresAt ? expiresAt.getTime() : null 
-    });
+    this.panelStates.set(targetId, true);
+    if (event?.slug) this.panelStates.set(event.slug, true);
+
+    this.votingStates.set(targetId, open);
+    if (event?.slug) this.votingStates.set(event.slug, open);
+
+    const payload = { open, expiresAt: expiresAt ? expiresAt.getTime() : null };
+    this.gateway.server.to(targetId).emit("votingStatusUpdate", payload);
+    if (event?.slug) {
+      this.gateway.server.to(event.slug).emit("votingStatusUpdate", payload);
+    }
     return { success: true, open, expiresAt: expiresAt ? expiresAt.getTime() : null };
   }
 
   async getVotingStatus(eventId: string) {
-    const event = await this.prisma.event.findUnique({
-      where: { id: eventId },
-      select: { votingActive: true, votingExpiresAt: true, currentPerformerId: true }
-    });
-    
-    let open = event ? (event.votingActive ?? false) : (this.votingStates.get(eventId) ?? false);
-    let expiresAt = event?.votingExpiresAt ? new Date(event.votingExpiresAt).getTime() : null;
+    const event = await this.getRealEvent(eventId);
+    const targetId = event ? event.id : eventId;
 
-    if (open && expiresAt && expiresAt < Date.now()) {
+    let expiresAt = event?.votingExpiresAt ? new Date(event.votingExpiresAt).getTime() : null;
+    let dbVotingActive = event?.votingActive ?? false;
+
+    let panelOpen = dbVotingActive || (this.panelStates.get(targetId) ?? (event?.slug ? this.panelStates.get(event.slug) : undefined) ?? false);
+    
+    let inMemoryOpen = this.votingStates.get(targetId) ?? (event?.slug ? this.votingStates.get(event.slug) : undefined) ?? false;
+    let open = inMemoryOpen && (expiresAt === null || expiresAt > Date.now());
+
+    if (open && expiresAt !== null && expiresAt < Date.now()) {
       open = false;
       expiresAt = null;
-      await this.prisma.event.update({
-        where: { id: eventId },
-        data: { votingActive: false, votingExpiresAt: null }
-      });
-      this.votingStates.set(eventId, false);
-      this.gateway.server.to(eventId).emit("votingStatusUpdate", { open: false, expiresAt: null });
+      if (event) {
+        await this.prisma.event.update({
+          where: { id: event.id },
+          data: { votingExpiresAt: null }
+        });
+      }
+      this.votingStates.set(targetId, false);
+      if (event?.slug) this.votingStates.set(event.slug, false);
+      const payload = { open: false, expiresAt: null };
+      this.gateway.server.to(targetId).emit("votingStatusUpdate", payload);
+      if (event?.slug) {
+        this.gateway.server.to(event.slug).emit("votingStatusUpdate", payload);
+      }
     }
 
-    return { open, expiresAt, currentPerformerId: event?.currentPerformerId ?? null };
+    return { panelOpen, open, expiresAt, currentPerformerId: event?.currentPerformerId ?? null };
   }
 
   async toggleLeaderboard(userId: string, roles: string[], eventId: string, show: boolean) {
@@ -232,7 +299,7 @@ export class StageVerseService {
 
     const existing = await this.prisma.vote.findUnique({
       where: {
-        submissionId_voterId: { submissionId, voterId },
+        submissionId_voterId: { submissionId: submission.id, voterId },
       },
     });
 
@@ -242,7 +309,7 @@ export class StageVerseService {
 
     const vote = await this.prisma.vote.create({
       data: {
-        submissionId,
+        submissionId: submission.id,
         voterId,
         score,
       },
@@ -424,16 +491,21 @@ export class StageVerseService {
     });
 
     if (existing) {
+      this.gateway.broadcastVotingAccessUpdate(eventId, userId, existing.status);
       return existing;
     }
 
-    return this.prisma.votingAccessRequest.create({
+    const req = await this.prisma.votingAccessRequest.create({
       data: {
         eventId,
         userId,
         status: "PENDING"
       }
     });
+
+    this.gateway.broadcastVotingAccessUpdate(eventId, userId, "PENDING");
+    this.gateway.broadcastVotingAccessRequest(eventId, userId, req);
+    return req;
   }
 
   async listVotingAccessRequests(userId: string, roles: string[], eventId: string) {
@@ -454,10 +526,13 @@ export class StageVerseService {
     }
     await this.assertOrganizerAccess(req.eventId, userId, roles);
 
-    return this.prisma.votingAccessRequest.update({
+    const updated = await this.prisma.votingAccessRequest.update({
       where: { id: requestId },
       data: { status }
     });
+
+    this.gateway.broadcastVotingAccessUpdate(req.eventId, req.userId, status);
+    return updated;
   }
 
   async checkVotingAccess(eventId: string, userId: string) {
@@ -603,9 +678,15 @@ export class StageVerseService {
     }
 
     // 4. Include platform users with role ARTIST who don't have an ArtistProfile row yet
-    const platformArtists = await this.prisma.user.findMany({
+    const artistRoleAssignments = await this.prisma.roleAssignment.findMany({
       where: { role: "ARTIST" }
     });
+    const artistUserIds = artistRoleAssignments.map((ra: any) => ra.userId);
+    const platformArtists = artistUserIds.length > 0
+      ? await this.prisma.user.findMany({
+          where: { id: { in: artistUserIds } }
+        })
+      : [];
 
     for (const u of platformArtists) {
       if (!profileUserIds.has(u.id)) {

@@ -58,14 +58,19 @@ export class StageVerseController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: "Organizers toggle live voting status for an event" })
+  @ApiOperation({ summary: "Organizers toggle live voting or voting panel status for an event" })
   async toggleVoting(
     @CurrentUser() user: any,
     @Param("eventId") eventId: string,
     @Body("open") open: boolean,
+    @Body("isPanel") isPanel?: boolean,
     @Body("durationSeconds") durationSeconds?: number,
   ) {
-    return this.stageVerseService.toggleVoting(user.id, user.roles, eventId, open, durationSeconds);
+    const userRoles = [user.role, ...(user.roles || [])].filter(Boolean);
+    if (isPanel) {
+      return this.stageVerseService.toggleVotingPanel(user.id, userRoles, eventId, open);
+    }
+    return this.stageVerseService.toggleVoting(user.id, userRoles, eventId, open, durationSeconds);
   }
 
   @Get(":eventId/voting/status")

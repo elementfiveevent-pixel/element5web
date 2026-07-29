@@ -459,8 +459,8 @@ export default function CreateEventPage() {
                 </Field>
 
                 {form.flyerUrl && (
-                  <div className="border-3 border-[#121212] rounded overflow-hidden">
-                    <img src={form.flyerUrl} alt="Flyer preview" className="w-full max-h-64 object-cover" />
+                  <div className="border-3 border-[#121212] rounded overflow-hidden max-w-xs mx-auto">
+                    <img src={form.flyerUrl} alt="Flyer preview" className="w-full aspect-[4/5] object-cover" />
                     <div className="bg-[#121212] text-[#FAF8F5] px-4 py-2 flex items-center justify-between">
                       <span className="font-space text-xs font-bold truncate">{form.flyerUrl.split("/").pop()}</span>
                       <button onClick={() => set("flyerUrl", "")} className="text-red-stage hover:text-white transition-colors">
@@ -611,9 +611,9 @@ export default function CreateEventPage() {
                 {/* Summary card */}
                 <div className="border-3 border-[#121212] bg-white rounded overflow-hidden shadow-brutal">
                   {form.flyerUrl ? (
-                    <img src={form.flyerUrl} alt="Flyer" className="w-full h-44 object-cover border-b-3 border-[#121212]" />
+                    <img src={form.flyerUrl} alt="Flyer" className="w-full aspect-[4/5] object-cover border-b-3 border-[#121212]" />
                   ) : (
-                    <div className="w-full h-44 bg-gradient-to-br from-[#121212] to-[#2a2a2a] flex items-center justify-center border-b-3 border-[#121212]">
+                    <div className="w-full aspect-[4/5] bg-gradient-to-br from-[#121212] to-[#2a2a2a] flex items-center justify-center border-b-3 border-[#121212]">
                       <span className="font-display font-black text-6xl text-white/10">E5</span>
                     </div>
                   )}

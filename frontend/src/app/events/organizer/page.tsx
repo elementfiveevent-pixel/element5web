@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
+import { io } from "socket.io-client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -168,7 +169,7 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
   const filtered = regs.filter((r) => {
     const matchSearch = !search || r.user?.fullName?.toLowerCase().includes(search.toLowerCase()) || r.user?.email?.toLowerCase().includes(search.toLowerCase());
     const matchFilter = filter === "ALL" || r.paymentStatus === filter;
-    const isArtist = r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile;
+    const isArtist = r.customData?.participationType ? r.customData.participationType === "ARTIST" : (r.user?.role === "ARTIST" || !!r.user?.artistProfile);
     const matchType = typeFilter === "ALL" 
       || (typeFilter === "ARTIST" && isArtist)
       || (typeFilter === "AUDIENCE" && !isArtist);
@@ -196,7 +197,7 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
     ];
 
     const rows = filtered.map((r) => {
-      const isUserArtist = r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile;
+      const isUserArtist = r.customData?.participationType ? r.customData.participationType === "ARTIST" : (r.user?.role === "ARTIST" || !!r.user?.artistProfile);
       const stageName = r.customData?.stageName || r.user?.artistProfile?.stageName || "";
       const genre = r.customData?.genre || r.user?.artistProfile?.genres?.join(" & ") || r.user?.artistProfile?.genre || "";
       const instagram = r.customData?.instagramHandle || r.user?.artistProfile?.instagramHandle || "";
@@ -262,8 +263,8 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
         </select>
         <select className="px-4 py-2.5 border-2 border-[#121212] bg-white rounded font-display font-bold text-sm focus:outline-none" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="ALL">All Roles</option>
-          <option value="ARTIST">Artists ({regs.filter(r => r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile).length})</option>
-          <option value="AUDIENCE">Audience ({regs.filter(r => !(r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile)).length})</option>
+          <option value="ARTIST">Artists ({regs.filter(r => r.customData?.participationType ? r.customData.participationType === "ARTIST" : (r.user?.role === "ARTIST" || !!r.user?.artistProfile)).length})</option>
+          <option value="AUDIENCE">Audience ({regs.filter(r => r.customData?.participationType ? r.customData.participationType === "AUDIENCE" : !(r.user?.role === "ARTIST" || !!r.user?.artistProfile)).length})</option>
         </select>
         <button
           onClick={handleExportCSV}
@@ -283,7 +284,7 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
           {filtered.length === 0 ? (
             <div className="py-10 text-center font-space font-bold text-sm text-[#121212]/40">No registrations found</div>
           ) : filtered.map((r) => {
-            const isUserArtist = r.customData?.participationType === "ARTIST" || r.user?.role === "ARTIST" || !!r.user?.artistProfile;
+            const isUserArtist = r.customData?.participationType ? r.customData.participationType === "ARTIST" : (r.user?.role === "ARTIST" || !!r.user?.artistProfile);
             const profile = {
               stageName: r.customData?.stageName || r.user?.artistProfile?.stageName || r.user?.fullName || "User",
               genre: r.customData?.genre || r.user?.artistProfile?.genres?.join(" & ") || r.user?.artistProfile?.genre || "Creative Art",
@@ -307,9 +308,13 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="font-display font-bold text-sm truncate max-w-[120px] sm:max-w-none">{profile.stageName || r.user?.fullName || "User"}</p>
-                        {isUserArtist && (
+                        {isUserArtist ? (
                           <span className="bg-red-stage text-white font-display font-black text-[7px] px-1.5 py-0.5 rounded rotate-[-2deg]">
                             ARTIST
+                          </span>
+                        ) : (
+                          <span className="bg-blue-600 text-white font-display font-black text-[7px] px-1.5 py-0.5 rounded">
+                            AUDIENCE
                           </span>
                         )}
                       </div>
@@ -497,6 +502,7 @@ function VotingPanel({ eventId }: { eventId: string }) {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<"control" | "performers" | "leaderboard" | "requests">("control");
   const [isOpen, setIsOpen] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [loading, setLoading] = useState(true);
   const [standings, setStandings] = useState<any[]>([]);
@@ -512,7 +518,8 @@ function VotingPanel({ eventId }: { eventId: string }) {
   const [allArtists, setAllArtists] = useState<any[]>([]);
   const [bulkNames, setBulkNames] = useState("");
 
-  const [toggling, setToggling] = useState(false);
+  const [togglingPanel, setTogglingPanel] = useState(false);
+  const [togglingVoting, setTogglingVoting] = useState(false);
   const [togglingLb, setTogglingLb] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [submittingPerformer, setSubmittingPerformer] = useState(false);
@@ -542,6 +549,7 @@ function VotingPanel({ eventId }: { eventId: string }) {
     try {
       const statusRes = await api.get(`/stageverse/${eventId}/voting/status`);
       setIsOpen(statusRes.open);
+      setIsPanelOpen(statusRes.panelOpen ?? false);
       setExpiresAt(statusRes.expiresAt ?? null);
 
       const eventDetail = await api.get(`/events/${eventId}`);
@@ -569,6 +577,50 @@ function VotingPanel({ eventId }: { eventId: string }) {
   }, [eventId, showToast]);
 
   useEffect(() => { fetchStatusAndSubmissions(); }, [fetchStatusAndSubmissions]);
+
+  // Real-time Socket Listener for Live Voting and Access Requests
+  useEffect(() => {
+    if (!eventId) return;
+    const socketUrl = api.baseUrl.replace(/\/$/, "");
+    const socketInstance = io(`${socketUrl}/live`, {
+      transports: ["websocket"],
+      autoConnect: true,
+    });
+
+    socketInstance.on("connect", () => {
+      socketInstance.emit("joinEvent", { eventId });
+    });
+
+    socketInstance.on("leaderboardUpdate", (data: any[]) => {
+      setStandings(Array.isArray(data) ? data : []);
+    });
+
+    socketInstance.on("panelStatusUpdate", (data: { panelOpen: boolean }) => {
+      setIsPanelOpen(data.panelOpen);
+    });
+
+    socketInstance.on("votingAccessRequested", () => {
+      api.get(`/stageverse/${eventId}/voting/access-requests`)
+        .then((res: any) => setAccessRequests(Array.isArray(res) ? res : []))
+        .catch(() => {});
+    });
+
+    socketInstance.on("votingAccessUpdate", () => {
+      api.get(`/stageverse/${eventId}/voting/access-requests`)
+        .then((res: any) => setAccessRequests(Array.isArray(res) ? res : []))
+        .catch(() => {});
+    });
+
+    socketInstance.on("liveVoteCast", () => {
+      api.get(`/stageverse/${eventId}/standings`)
+        .then((res: any) => setStandings(Array.isArray(res) ? res : []))
+        .catch(() => {});
+    });
+
+    return () => {
+      socketInstance.disconnect();
+    };
+  }, [eventId]);
 
   // Voting countdown
   useEffect(() => {
@@ -615,38 +667,35 @@ function VotingPanel({ eventId }: { eventId: string }) {
   const handleStopPerformance = () => { setPerfEndsAt(null); setPerfTimeLeft(null); };
 
   const handleToggleVotingPanel = async (open: boolean) => {
-    setToggling(true);
+    setTogglingPanel(true);
     try {
-      const res = await api.post(`/stageverse/${eventId}/voting/toggle`, { open });
-      setIsOpen(res.open);
-      if (!open) {
-        setExpiresAt(null);
-      }
+      const res = await api.post(`/stageverse/${eventId}/voting/toggle`, { open, isPanel: true });
+      setIsPanelOpen(res?.panelOpen ?? open);
     } catch (err: any) {
       alert(err.message || "Failed to toggle voting panel.");
     } finally {
-      setToggling(false);
+      setTogglingPanel(false);
     }
   };
 
   const handleOpenVoting = async () => {
     if (!currentPerformerId) return alert("Select a performer first.");
-    setToggling(true);
+    setTogglingVoting(true);
     try {
       const durationSeconds = parseFloat(voteDuration) * 60;
       const res = await api.post(`/stageverse/${eventId}/voting/toggle`, { open: true, durationSeconds: durationSeconds > 0 ? durationSeconds : undefined });
       setIsOpen(res.open);
       setExpiresAt(res.expiresAt ?? null);
-    } catch (e) {} finally { setToggling(false); }
+    } catch (e) {} finally { setTogglingVoting(false); }
   };
 
   const handleCloseVoting = async () => {
-    setToggling(true);
+    setTogglingVoting(true);
     try {
       const res = await api.post(`/stageverse/${eventId}/voting/toggle`, { open: false });
       setIsOpen(res.open);
       setExpiresAt(null);
-    } catch (e) {} finally { setToggling(false); }
+    } catch (e) {} finally { setTogglingVoting(false); }
   };
 
   const handleStartBoth = async () => {
@@ -836,15 +885,15 @@ function VotingPanel({ eventId }: { eventId: string }) {
                 <p className="font-space text-[10px] text-gray-500 font-bold mt-1">Select performer and manage timers.</p>
               </div>
               <button
-                onClick={() => handleToggleVotingPanel(!isOpen)}
-                disabled={toggling}
+                onClick={() => handleToggleVotingPanel(!isPanelOpen)}
+                disabled={togglingPanel}
                 className={`px-4 py-2 border-2 border-[#121212] font-display font-black text-[10px] uppercase rounded cursor-pointer transition-all shadow-brutal-sm ${
-                  isOpen 
+                  isPanelOpen 
                     ? "bg-red-stage text-white hover:bg-red-700" 
                     : "bg-yellow-festival text-[#121212] hover:bg-yellow-festival/85"
                 }`}
               >
-                {toggling ? "..." : isOpen ? "Stop Voting Panel" : "Start Voting Panel"}
+                {togglingPanel ? "..." : isPanelOpen ? "Stop Voting Panel" : "Start Voting Panel"}
               </button>
             </div>
 
@@ -880,7 +929,7 @@ function VotingPanel({ eventId }: { eventId: string }) {
             </div>
 
             {/* Primary Action */}
-            <button onClick={handleStartBoth} disabled={!currentPerformerId || toggling}
+            <button onClick={handleStartBoth} disabled={!currentPerformerId || togglingVoting}
               className="w-full py-3.5 bg-green-500 text-white border-3 border-[#121212] font-display font-black text-xs uppercase shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded cursor-pointer disabled:opacity-50">
               Start Performance & Voting Together
             </button>
@@ -906,14 +955,14 @@ function VotingPanel({ eventId }: { eventId: string }) {
               )}
 
               {!isOpen ? (
-                <button onClick={handleOpenVoting} disabled={toggling}
+                <button onClick={handleOpenVoting} disabled={togglingVoting}
                   className="py-2.5 border-2 border-[#121212] bg-[#FAF8F5] font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-yellow-festival/30 transition-colors disabled:opacity-50">
-                  {toggling ? "Opening..." : "Open Voting"}
+                  {togglingVoting ? "Opening..." : "Open Voting"}
                 </button>
               ) : (
-                <button onClick={handleCloseVoting} disabled={toggling}
+                <button onClick={handleCloseVoting} disabled={togglingVoting}
                   className="py-2.5 border-2 border-red-stage bg-red-stage/10 text-red-stage font-display font-black text-[10px] uppercase rounded cursor-pointer hover:bg-red-stage hover:text-white transition-colors disabled:opacity-50">
-                  {toggling ? "Closing..." : "Close Voting"}
+                  {togglingVoting ? "Closing..." : "Close Voting"}
                 </button>
               )}
             </div>
@@ -2046,7 +2095,7 @@ function OrganizerDashboardContent() {
                   const statusColor: Record<string, string> = { PUBLISHED: "bg-green-100 text-green-700", DRAFT: "bg-yellow-100 text-yellow-700", COMPLETED: "bg-gray-200 text-gray-600", CANCELLED: "bg-red-100 text-red-700", ARCHIVED: "bg-gray-100 text-gray-400" };
                   return (
                     <div key={ev.id} className="border-3 border-[#121212] bg-white rounded shadow-brutal overflow-hidden flex flex-col hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-brutal-yellow transition-all">
-                      <div className="relative h-32 bg-[#121212] border-b-3 border-[#121212]">
+                      <div className="relative aspect-[4/5] bg-[#121212] border-b-3 border-[#121212] overflow-hidden">
                         {ev.flyerUrl ? <img src={ev.flyerUrl} alt={ev.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><span className="font-display font-black text-5xl text-white/10">E5</span></div>}
                         <span className={`absolute top-2 right-2 font-black text-[9px] uppercase px-2 py-0.5 rounded border border-[#121212] ${statusColor[ev.status] ?? "bg-gray-200"}`}>{ev.status}</span>
                       </div>

@@ -40,6 +40,7 @@ export default function AudienceVotingSystem() {
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -61,6 +62,7 @@ export default function AudienceVotingSystem() {
     try {
       const statusRes = await api.get(`/stageverse/${eventId}/voting/status`);
       setIsOpen(statusRes.open);
+      setIsPanelOpen(statusRes.panelOpen ?? false);
       setExpiresAt(statusRes.expiresAt ?? null);
       setCurrentPerformerId(statusRes.currentPerformerId ?? null);
 
@@ -68,7 +70,8 @@ export default function AudienceVotingSystem() {
       setSubmissions(Array.isArray(subRes) ? subRes : []);
     } catch (e) {
       showToast("Using offline fallback values.", "warning");
-      setIsOpen(true);
+      setIsOpen(false);
+      setIsPanelOpen(false);
       setSubmissions([
         { id: "1", trackTitle: "Rhyme & Reason", user: { fullName: "Aarav Mehta" } },
         { id: "2", trackTitle: "Cyber Punk Flow", user: { fullName: "Kabir Sen" } },
@@ -110,18 +113,38 @@ export default function AudienceVotingSystem() {
       socketInstance.emit("joinEvent", { eventId });
     });
 
+    socketInstance.on("panelStatusUpdate", (data: { panelOpen: boolean }) => {
+      setIsPanelOpen(data.panelOpen);
+    });
+
     socketInstance.on("votingStatusUpdate", (data: { open: boolean; expiresAt?: number | null }) => {
       setIsOpen(data.open);
       setExpiresAt(data.expiresAt ?? null);
-      confetti({
-        particleCount: 20,
-        spread: 40,
-        colors: data.open ? ["#FFDE4D"] : ["#D80032"]
-      });
+      if (data.open) {
+        confetti({
+          particleCount: 20,
+          spread: 40,
+          colors: ["#FFDE4D", "#D80032"]
+        });
+      }
     });
 
     socketInstance.on("currentPerformerUpdate", (data: { currentPerformerId: string | null }) => {
       setCurrentPerformerId(data.currentPerformerId);
+    });
+
+    socketInstance.on("votingAccessUpdate", (data: { userId: string; status: string }) => {
+      if (user && data.userId === user.id) {
+        setAccessStatus(data.status as any);
+      }
+    });
+
+    socketInstance.on("leaderboardUpdate", () => {
+      fetchStatusAndSubmissions();
+    });
+
+    socketInstance.on("liveVoteCast", () => {
+      fetchStatusAndSubmissions();
     });
 
     setSocket(socketInstance);
@@ -129,7 +152,7 @@ export default function AudienceVotingSystem() {
     return () => {
       socketInstance.disconnect();
     };
-  }, [eventId, fetchStatusAndSubmissions, checkAccess]);
+  }, [eventId, user, fetchStatusAndSubmissions, checkAccess]);
 
   // Ticking countdown effect
   useEffect(() => {
@@ -302,12 +325,22 @@ export default function AudienceVotingSystem() {
 
         {/* Voting Status Banner */}
         <div className={`border-3 border-[#121212] p-4 rounded shadow-brutal flex items-center justify-between gap-3 transition-colors ${
-          isOpen ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+          !isPanelOpen
+            ? "bg-red-100 text-red-800"
+            : isOpen
+            ? "bg-green-100 text-green-800"
+            : "bg-yellow-100 text-yellow-900"
         }`}>
           <div className="flex items-center gap-2">
-            <span className={`w-3.5 h-3.5 rounded-full border-2 border-[#121212] ${isOpen ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+            <span className={`w-3.5 h-3.5 rounded-full border-2 border-[#121212] ${
+              !isPanelOpen ? "bg-red-500" : isOpen ? "bg-green-500 animate-pulse" : "bg-yellow-500 animate-pulse"
+            }`} />
             <span className="font-display font-black text-xs uppercase tracking-wider">
-              {isOpen ? "VOTING STATUS: OPEN & LIVE" : "VOTING STATUS: CLOSED"}
+              {!isPanelOpen
+                ? "VOTING PANEL: CLOSED BY ORGANIZER"
+                : isOpen
+                ? "VOTING STATUS: OPEN & LIVE"
+                : "VOTING PANEL: ONLINE — WAITING FOR PERFORMER"}
             </span>
           </div>
 

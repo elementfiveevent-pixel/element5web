@@ -189,7 +189,7 @@ function EventsContent() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {events.map((event) => {
               const isCompleted = ["COMPLETED", "ARCHIVED", "CANCELLED"].includes(event.status);
               const capacityPct = event.maxCapacity && event.maxCapacity > 0
@@ -202,9 +202,10 @@ function EventsContent() {
 
               return (
                 <div key={event.id}
-                  className={`bg-white border-3 border-[#121212] rounded shadow-brutal hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-brutal-yellow transition-all flex flex-col overflow-hidden ${isCompleted ? "opacity-75" : ""}`}>
-                  {/* Flyer */}
-                  <div className="relative h-48 bg-[#121212] border-b-3 border-[#121212] overflow-hidden">
+                  className={`bg-white border-3 border-[#121212] rounded shadow-brutal hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-brutal-yellow transition-all flex flex-col sm:flex-row overflow-hidden ${isCompleted ? "opacity-75" : ""}`}>
+                  
+                  {/* Flyer (Left Side) */}
+                  <div className="w-full sm:w-2/5 aspect-[4/5] bg-[#121212] border-b-3 sm:border-b-0 sm:border-r-3 border-[#121212] overflow-hidden flex-shrink-0 relative">
                     {event.flyerUrl ? (
                       <img src={event.flyerUrl} alt={event.title} className="w-full h-full object-cover" />
                     ) : (
@@ -212,71 +213,77 @@ function EventsContent() {
                         <span className="font-display font-black text-7xl text-white/[0.06]">E5</span>
                       </div>
                     )}
-                    <span className={`absolute top-3 left-3 font-black text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-[#121212] ${categoryColor(event.category)}`}>
-                      {event.category}
-                    </span>
-                    {isCompleted ? (
-                      <span className="absolute top-3 right-3 bg-gray-700 text-white font-black text-[9px] uppercase px-2 py-0.5 rounded border border-white/10">
-                        {event.status}
-                      </span>
-                    ) : isAlmostFull ? (
-                      <span className="absolute top-3 right-3 bg-red-stage text-white font-black text-[9px] uppercase px-2 py-0.5 rounded border border-white/10 flex items-center gap-1">
-                        <Flame size={9} /> ALMOST FULL
-                      </span>
-                    ) : null}
                   </div>
 
-                  {/* Content */}
-                  <div className="p-5 flex flex-col gap-3.5 flex-grow">
-                    <div className="space-y-1.5">
-                      <h3 className="font-display font-extrabold text-xl leading-tight line-clamp-2">{event.title}</h3>
+                  {/* Content (Right Side) */}
+                  <div className="p-5 sm:p-6 flex flex-col justify-between gap-4 flex-1 min-w-0">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-black text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-[#121212] ${categoryColor(event.category)}`}>
+                          {event.category}
+                        </span>
+                        {isCompleted ? (
+                          <span className="bg-gray-700 text-white font-black text-[9px] uppercase px-2 py-0.5 rounded border border-white/10">
+                            {event.status}
+                          </span>
+                        ) : isAlmostFull ? (
+                          <span className="bg-red-stage text-white font-black text-[9px] uppercase px-2 py-0.5 rounded border border-white/10 flex items-center gap-1">
+                            <Flame size={9} /> ALMOST FULL
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <h3 className="font-display font-extrabold text-xl sm:text-2xl uppercase leading-tight tracking-tight line-clamp-2">{event.title}</h3>
+                      
                       {event.description && (
                         <p className="font-space text-xs text-[#121212]/60 font-bold line-clamp-2">{event.description}</p>
                       )}
                     </div>
-                    <div className="space-y-1 text-xs font-bold text-[#121212]/60 font-space">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={11} className="text-red-stage flex-shrink-0" />
+
+                    <div className="space-y-1.5 text-xs font-bold text-[#121212]/70 font-space">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={13} className="text-red-stage flex-shrink-0" />
                         <span>{formattedDate}</span>
                       </div>
                       {event.location && (
-                        <div className="flex items-center gap-1.5">
-                          <MapPin size={11} className="text-red-stage flex-shrink-0" />
+                        <div className="flex items-center gap-2">
+                          <MapPin size={13} className="text-red-stage flex-shrink-0" />
                           <span className="truncate">{event.location.venueName}, {event.location.city}</span>
                         </div>
                       )}
-                      <div className="flex items-center gap-1.5">
-                        <Users size={11} className="text-red-stage flex-shrink-0" />
+                      <div className="flex items-center gap-2">
+                        <Users size={13} className="text-red-stage flex-shrink-0" />
                         <span>{event.registrationsCount} registered</span>
                         {event.maxCapacity && <span className="text-[#121212]/30">/ {event.maxCapacity}</span>}
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <Tag size={11} className="text-red-stage flex-shrink-0" />
-                        <span>{event.isPaid ? `₹${event.price}` : "FREE ENTRY"}</span>
+                      <div className="flex items-center gap-2">
+                        <Tag size={13} className="text-red-stage flex-shrink-0" />
+                        <span className="font-black text-red-stage">{event.isPaid ? `₹${event.price}` : "FREE ENTRY"}</span>
                       </div>
                     </div>
 
                     {event.maxCapacity && event.maxCapacity > 0 && (
-                      <div className="space-y-0.5">
+                      <div className="space-y-1">
                         <div className="w-full h-1.5 bg-[#121212]/10 rounded-full overflow-hidden border border-[#121212]/10">
                           <div className={`h-full rounded-full transition-all ${isAlmostFull ? "bg-red-stage" : "bg-yellow-festival"}`}
                             style={{ width: `${capacityPct}%` }} />
                         </div>
-                        <p className="text-[9px] font-black text-[#121212]/30 uppercase tracking-wider">
+                        <p className="text-[9px] font-black text-[#121212]/40 uppercase tracking-wider">
                           {capacityPct}% capacity filled
                         </p>
                       </div>
                     )}
 
-                    <div className="mt-auto pt-1">
+                    <div className="pt-2 mt-auto">
                       <Link href={eventLink}
-                        className={`w-full flex items-center justify-center gap-2 py-3 border-3 border-[#121212] font-black uppercase text-[11px] tracking-wider rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all ${
+                        className={`w-full flex items-center justify-center gap-2 py-3 border-3 border-[#121212] font-black uppercase text-xs tracking-wider rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all ${
                           isCompleted ? "bg-[#121212]/5 text-[#121212]/50" : "bg-yellow-festival text-[#121212]"
                         }`}>
-                        {isCompleted ? "VIEW RECAP" : "VIEW & REGISTER"} <ArrowRight size={13} />
+                        {isCompleted ? "VIEW RECAP" : "VIEW & REGISTER"} <ArrowRight size={14} />
                       </Link>
                     </div>
                   </div>
+
                 </div>
               );
             })}

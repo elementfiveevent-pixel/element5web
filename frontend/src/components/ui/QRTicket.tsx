@@ -15,6 +15,7 @@ interface QRTicketProps {
   venueName?: string;
   venueCity?: string;
   category?: string;
+  participationType?: string;
   paymentStatus?: string;
   registrationId?: string;
   totalAmount?: string | number;
@@ -31,6 +32,7 @@ export default function QRTicket({
   venueName,
   venueCity,
   category,
+  participationType,
   paymentStatus,
   registrationId,
   totalAmount,
@@ -95,6 +97,10 @@ export default function QRTicket({
 
   const status = statusConfig[statusKey];
 
+  const passBadge = participationType
+    ? (participationType === "ARTIST" ? "ARTIST PASS" : "AUDIENCE PASS")
+    : category;
+
   return (
     <div
       className={`relative border-3 ${status.bg} rounded overflow-hidden shadow-brutal flex flex-col`}
@@ -122,9 +128,9 @@ export default function QRTicket({
 
         {/* Info */}
         <div className="flex-1 min-w-0 w-full space-y-2.5 text-center sm:text-left">
-          {category && (
-            <span className="inline-block font-black text-[9px] uppercase tracking-wider bg-red-stage text-white px-2 py-0.5 rounded mx-auto sm:mx-0">
-              {category}
+          {passBadge && (
+            <span className={`inline-block font-black text-[9px] uppercase tracking-wider text-white px-2 py-0.5 rounded mx-auto sm:mx-0 ${participationType === "ARTIST" ? "bg-red-stage" : participationType === "AUDIENCE" ? "bg-blue-600" : "bg-red-stage"}`}>
+              {passBadge}
             </span>
           )}
           <h3 className="font-display font-extrabold text-base leading-tight uppercase tracking-tight line-clamp-2">

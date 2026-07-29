@@ -32,7 +32,7 @@ interface BackendEvent {
   showLeaderboard?: boolean;
   votingActive?: boolean;
 }
-interface MyTicket { id: string; qrCode: string; isUsed: boolean; usedAt?: string; paymentStatus: string }
+interface MyTicket { id: string; qrCode: string; isUsed: boolean; usedAt?: string; paymentStatus: string; customData?: Record<string, any> }
 
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 function Skeleton() {
@@ -105,6 +105,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
   // Live voting terminal embedded states
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isVotingOpen, setIsVotingOpen] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -147,7 +148,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
     api.get("/events/attendee/my-tickets")
       .then((tickets: any[]) => {
         const mine = tickets.filter((t) => t.event.id === event.id || t.event.slug === event.slug);
-        if (mine.length > 0) setMyTickets(mine.map((t) => ({ id: t.ticketId, qrCode: t.qrCode, isUsed: t.isUsed, usedAt: t.usedAt, paymentStatus: t.paymentStatus })));
+        if (mine.length > 0) setMyTickets(mine.map((t) => ({ id: t.ticketId, qrCode: t.qrCode, isUsed: t.isUsed, usedAt: t.usedAt, paymentStatus: t.paymentStatus, customData: t.customData })));
       })
       .catch(() => {});
   }, [user, event]);
@@ -186,6 +187,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
     try {
       const statusRes = await api.get(`/stageverse/${event.id}/voting/status`);
       setIsVotingOpen(statusRes.open);
+      setIsPanelOpen(statusRes.panelOpen ?? statusRes.open ?? false);
       setExpiresAt(statusRes.expiresAt ?? null);
       setCurrentPerformerId(statusRes.currentPerformerId ?? null);
 
@@ -205,7 +207,13 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
     });
 
     socketInstance.on("connect", () => {
-      socketInstance.emit("joinEvent", { eventId: event.id });
+      if (event.id) socketInstance.emit("joinEvent", { eventId: event.id });
+      if (event.slug && event.slug !== event.id) socketInstance.emit("joinEvent", { eventId: event.slug });
+      if (id && id !== event.id && id !== event.slug) socketInstance.emit("joinEvent", { eventId: id });
+    });
+
+    socketInstance.on("panelStatusUpdate", (data: { panelOpen: boolean }) => {
+      setIsPanelOpen(data.panelOpen);
     });
 
     socketInstance.on("votingStatusUpdate", (data: { open: boolean; expiresAt?: number | null }) => {
@@ -220,8 +228,14 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
       setCurrentPerformerId(data.currentPerformerId);
     });
 
-    socketInstance.on("leaderboardUpdate", (data: any) => {
-      setStandings(Array.isArray(data) ? data : []);
+    socketInstance.on("votingAccessUpdate", (data: { userId: string; status: string }) => {
+      if (user && data.userId === user.id) {
+        setVotingAccessStatus(data.status as any);
+      }
+    });
+
+    socketInstance.on("liveVoteCast", () => {
+      fetchEmbeddedStatusAndSubmissions();
     });
 
     setSocket(socketInstance);
@@ -229,7 +243,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
     return () => {
       socketInstance.disconnect();
     };
-  }, [event, fetchEmbeddedStatusAndSubmissions]);
+  }, [event, user, fetchEmbeddedStatusAndSubmissions]);
 
   // Ticking countdown effect for embedded voting
   useEffect(() => {
@@ -322,7 +336,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
       const result = await api.post(`/events/${currentEvent.id}/register`, payload);
       const ticket = result.ticket ?? result.tickets?.[0];
       if (ticket) {
-        setMyTickets([{ id: ticket.id, qrCode: ticket.qrCode, isUsed: ticket.isUsed ?? false, usedAt: ticket.usedAt, paymentStatus: result.registration?.paymentStatus ?? "APPROVED" }]);
+        setMyTickets([{ id: ticket.id, qrCode: ticket.qrCode, isUsed: ticket.isUsed ?? false, usedAt: ticket.usedAt, paymentStatus: result.registration?.paymentStatus ?? "APPROVED", customData: result.registration?.customData ?? { participationType: registrationType } }]);
       }
       triggerConfetti(); 
       addUserXP(50);
@@ -389,11 +403,60 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
         )}
 
 
+        {/* StageVerse Live Voting Banner (Yellow, prominent at top) */}
+        {isPanelOpen && (
+          <div className="border-4 border-[#121212] bg-[#FFDE4D] p-5 rounded shadow-brutal flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none mb-6">
+            <div className="space-y-1">
+              <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#121212] flex items-center gap-2">
+                <Radio size={18} className="text-red-stage animate-pulse" /> CAST YOUR VOTE LIVE!
+              </h3>
+              <p className="font-space text-xs text-[#121212] font-bold">
+                Open the secure Voting Terminal to support your favorite performers during this round.
+              </p>
+            </div>
+
+            <div className="flex-shrink-0">
+              {votingAccessStatus === "APPROVED" ? (
+                <Link
+                  href={`/stageverse/voting-system?eventId=${event.id}`}
+                  className="inline-block bg-[#121212] text-white font-display font-black text-xs uppercase px-5 py-3 rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-center cursor-pointer whitespace-nowrap"
+                >
+                  VOTING TERMINAL
+                </Link>
+              ) : votingAccessStatus === "PENDING" ? (
+                <span className="inline-block bg-gray-700 text-gray-400 font-display font-black text-xs uppercase px-5 py-3 rounded text-center select-none whitespace-nowrap">
+                  REQUEST PENDING...
+                </span>
+              ) : (
+                <button
+                  onClick={async () => {
+                    if (!user) { window.location.href = `/login?redirect=/events/${id}`; return; }
+                    setRequestingAccess(true);
+                    try {
+                      await api.post(`/stageverse/${event.id}/voting/request-access`);
+                      setVotingAccessStatus("PENDING");
+                      alert("Access request sent to organizers successfully!");
+                    } catch (err: any) {
+                      alert(err.message || "Failed to send request.");
+                    } finally {
+                      setRequestingAccess(false);
+                    }
+                  }}
+                  disabled={requestingAccess}
+                  className="inline-block bg-red-stage text-white font-display font-black text-xs uppercase px-5 py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all text-center cursor-pointer whitespace-nowrap"
+                >
+                  {requestingAccess ? "SENDING..." : "REQUEST VOTING ACCESS"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Hero ───────────────────────────────────────────────────────── */}
         <div className="border-4 border-[#121212] bg-[#121212] text-[#FAF8F5] rounded shadow-brutal overflow-hidden">
           <div className="flex flex-col lg:flex-row gap-0">
-            {/* Flyer */}
-            <div className="lg:w-2/5 h-56 lg:h-auto border-b-4 lg:border-b-0 lg:border-r-4 border-[#121212] overflow-hidden flex-shrink-0">
+            {/* Flyer (Left Side) */}
+            <div className="w-full lg:w-2/5 aspect-[4/5] border-b-4 lg:border-b-0 lg:border-r-4 border-[#121212] overflow-hidden flex-shrink-0 bg-[#121212] relative">
               {event.flyerUrl ? (
                 <img src={event.flyerUrl} alt={event.title} className="w-full h-full object-cover" />
               ) : (
@@ -403,7 +466,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
               )}
             </div>
 
-            {/* Info */}
+            {/* Info (Right Side) */}
             <div className="flex-1 p-6 sm:p-8 space-y-5">
               <div className="flex items-start gap-3 flex-wrap">
                 <span className="font-black text-[9px] uppercase bg-red-stage text-white px-2.5 py-1 rounded">
@@ -584,57 +647,9 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                 <QRTicket key={t.id} ticketId={t.id} qrCode={t.qrCode} isUsed={t.isUsed} usedAt={t.usedAt}
                   eventTitle={event.title} eventDate={formattedStart}
                   venueName={event.location?.venueName} venueCity={event.location?.city}
-                  category={event.category} paymentStatus={t.paymentStatus} totalAmount={event.price} />
+                  category={event.category} participationType={t.customData?.participationType || registrationType}
+                  paymentStatus={t.paymentStatus} totalAmount={event.price} />
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* StageVerse Live Voting Banner (Yellow, prominent) */}
-        {isVotingOpen && (
-          <div className="border-3 border-[#121212] bg-[#FFDE4D] p-5 rounded shadow-brutal flex flex-col sm:flex-row sm:items-center justify-between gap-4 select-none">
-            <div className="space-y-1">
-              <h3 className="font-display font-black text-lg uppercase tracking-tight text-[#121212] flex items-center gap-2">
-                <Radio size={18} className="text-red-stage animate-pulse" /> CAST YOUR VOTE LIVE!
-              </h3>
-              <p className="font-space text-xs text-[#121212] font-bold">
-                Open the secure Voting Terminal to support your favorite performers during this round.
-              </p>
-            </div>
-
-            <div className="flex-shrink-0">
-              {votingAccessStatus === "APPROVED" ? (
-                <Link
-                  href={`/stageverse/voting-system?eventId=${event.id}`}
-                  className="inline-block bg-[#121212] text-white font-display font-black text-xs uppercase px-5 py-3 rounded shadow-brutal-sm hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none transition-all text-center cursor-pointer whitespace-nowrap"
-                >
-                  VOTING TERMINAL
-                </Link>
-              ) : votingAccessStatus === "PENDING" ? (
-                <span className="inline-block bg-gray-700 text-gray-400 font-display font-black text-xs uppercase px-5 py-3 rounded text-center select-none whitespace-nowrap">
-                  REQUEST PENDING...
-                </span>
-              ) : (
-                <button
-                  onClick={async () => {
-                    if (!user) { window.location.href = `/login?redirect=/events/${id}`; return; }
-                    setRequestingAccess(true);
-                    try {
-                      await api.post(`/stageverse/${event.id}/voting/request-access`);
-                      setVotingAccessStatus("PENDING");
-                      alert("Access request sent to organizers successfully!");
-                    } catch (err: any) {
-                      alert(err.message || "Failed to send request.");
-                    } finally {
-                      setRequestingAccess(false);
-                    }
-                  }}
-                  disabled={requestingAccess}
-                  className="inline-block bg-red-stage text-white font-display font-black text-xs uppercase px-5 py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all text-center cursor-pointer whitespace-nowrap"
-                >
-                  {requestingAccess ? "SENDING..." : "REQUEST VOTING ACCESS"}
-                </button>
-              )}
             </div>
           </div>
         )}
@@ -769,7 +784,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                 className="border-3 border-[#121212] bg-[#FAF8F5] p-5 rounded shadow-brutal hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-brutal-yellow transition-all flex flex-col justify-between"
               >
                 <div className="space-y-3">
-                  <div className="h-32 border-2 border-[#121212] rounded overflow-hidden">
+                  <div className="aspect-[4/5] border-2 border-[#121212] rounded overflow-hidden bg-[#121212]">
                     <img src={evt.image} alt={evt.title} className="w-full h-full object-cover" />
                   </div>
                   <span className="inline-block bg-[#121212]/5 text-[#121212] text-[8px] font-black uppercase px-2 py-0.5 rounded">

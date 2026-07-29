@@ -286,10 +286,10 @@ export class EventService {
 
       const participationType = dto.customData?.participationType;
       let baseAmount = ticketCategory?.price ?? currentEvent.price;
-      if (participationType === "AUDIENCE" && currentEvent.audiencePrice !== undefined && Number(currentEvent.audiencePrice) > 0) {
-        baseAmount = currentEvent.audiencePrice;
-      } else if (participationType === "ARTIST" && currentEvent.artistPrice !== undefined && Number(currentEvent.artistPrice) > 0) {
-        baseAmount = currentEvent.artistPrice;
+      if (participationType === "AUDIENCE" && currentEvent.audiencePrice !== undefined && currentEvent.audiencePrice !== null) {
+        baseAmount = Number(currentEvent.audiencePrice);
+      } else if (participationType === "ARTIST" && currentEvent.artistPrice !== undefined && currentEvent.artistPrice !== null) {
+        baseAmount = Number(currentEvent.artistPrice);
       }
 
       const paymentStatus =
@@ -361,6 +361,7 @@ export class EventService {
         ticket.registration.customData,
         "ticketCategoryName",
       ),
+      customData: ticket.registration.customData,
       event: {
         id: ticket.event.id,
         title: ticket.event.title,

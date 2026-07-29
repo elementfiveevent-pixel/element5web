@@ -17,6 +17,7 @@ interface MyTicket {
   paymentStatus: "PENDING" | "APPROVED" | "REJECTED" | "REFUNDED";
   registrationId: string;
   totalAmount: string;
+  customData?: Record<string, any>;
   event: {
     id: string;
     title: string;
@@ -266,6 +267,7 @@ export default function MyTicketsPage() {
                     venueName={t.event.location?.venueName}
                     venueCity={t.event.location?.city}
                     category={t.event.category}
+                    participationType={t.customData?.participationType}
                     paymentStatus={t.paymentStatus}
                     registrationId={t.registrationId}
                     totalAmount={t.totalAmount}
