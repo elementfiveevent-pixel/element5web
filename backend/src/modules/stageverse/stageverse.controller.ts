@@ -54,6 +54,22 @@ export class StageVerseController {
     return this.stageVerseService.castVote(user.id, subId, score);
   }
 
+  @Get(":eventId/my-votes")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get current user voted submissions for an event" })
+  async getMyVotes(@CurrentUser() user: any, @Param("eventId") eventId: string) {
+    return this.stageVerseService.getUserVotes(user.id, eventId);
+  }
+
+  @Get(":eventId/voting/my-votes")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get current user voted submissions for an event" })
+  async getMyVotesVoting(@CurrentUser() user: any, @Param("eventId") eventId: string) {
+    return this.stageVerseService.getUserVotes(user.id, eventId);
+  }
+
   @Post(":eventId/performance/toggle")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)

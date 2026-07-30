@@ -68,6 +68,29 @@ export default function AudienceVotingSystem() {
 
       const subRes = await api.get(`/stageverse/${eventId}/submissions`);
       setSubmissions(Array.isArray(subRes) ? subRes : []);
+
+      if (user) {
+        try {
+          let myVotesRes: any;
+          try {
+            myVotesRes = await api.get(`/stageverse/${eventId}/voting/my-votes`);
+          } catch {
+            myVotesRes = await api.get(`/stageverse/${eventId}/my-votes`);
+          }
+          if (Array.isArray(myVotesRes)) {
+            const votedSet = new Set<string>();
+            const ratingMap: Record<string, number> = {};
+            myVotesRes.forEach((v: any) => {
+              if (v.submissionId) {
+                votedSet.add(v.submissionId);
+                if (v.score) ratingMap[v.submissionId] = v.score;
+              }
+            });
+            setVotedIds(votedSet);
+            setSelectedRatings((prev) => ({ ...ratingMap, ...prev }));
+          }
+        } catch {}
+      }
     } catch (e) {
       showToast("Using offline fallback values.", "warning");
       setIsOpen(false);
@@ -80,7 +103,7 @@ export default function AudienceVotingSystem() {
     } finally {
       setLoading(false);
     }
-  }, [eventId, showToast]);
+  }, [eventId, user, showToast]);
 
   const checkAccess = useCallback(async () => {
     if (!eventId) return;
@@ -213,13 +236,8 @@ export default function AudienceVotingSystem() {
         colors: ["#FFDE4D", "#D80032"]
       });
     } catch (err: any) {
-      setVotedIds(prev => new Set([...prev, submissionId]));
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.8 },
-        colors: ["#FFDE4D", "#D80032"]
-      });
+      const msg = err?.message || err?.response?.message || "Vote failed. Please try again.";
+      setError(msg);
     } finally {
       setVotingSubmissionId(null);
     }

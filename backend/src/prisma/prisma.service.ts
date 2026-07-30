@@ -187,17 +187,70 @@ export class PostgresModel {
     return cols;
   }
 
-  private buildWhere(where: any) {
+  private buildWhere(where: any, startPlaceholder: number = 1) {
     if (!where || Object.keys(where).length === 0) {
-      return { clause: "", values: [] };
+      return { clause: "", values: [], nextPlaceholder: startPlaceholder };
     }
 
     const clauses: string[] = [];
     const values: any[] = [];
-    let placeholderIndex = 1;
+    let placeholderIndex = startPlaceholder;
 
     for (const [key, value] of Object.entries(where)) {
       if (value === undefined) continue;
+
+      // Handle OR arrays: OR: [ { id: "abc" }, { userId: "abc" } ]
+      if (key === "OR" && Array.isArray(value)) {
+        const orParts: string[] = [];
+        for (const subWhere of value) {
+          const subClauses: string[] = [];
+          for (const [subKey, subVal] of Object.entries(subWhere as any)) {
+            if (subVal === undefined) continue;
+            if (subVal === null) {
+              subClauses.push(`"${subKey}" IS NULL`);
+            } else if (typeof subVal === "object" && subVal !== null && !(subVal instanceof Date) && !Array.isArray(subVal)) {
+              // Handle nested operators inside OR, e.g. OR: [{ eventId: targetId }, { status: { in: [...] } }]
+              for (const [op, opVal] of Object.entries(subVal as any)) {
+                if (op === "in" && Array.isArray(opVal)) {
+                  if (opVal.length === 0) {
+                    subClauses.push("1=0");
+                  } else {
+                    const phs = opVal.map(() => `$${placeholderIndex++}`).join(", ");
+                    subClauses.push(`"${subKey}" IN (${phs})`);
+                    values.push(...opVal);
+                  }
+                } else if (op === "not") {
+                  if (opVal === null) {
+                    subClauses.push(`"${subKey}" IS NOT NULL`);
+                  } else {
+                    subClauses.push(`"${subKey}" <> $${placeholderIndex++}`);
+                    values.push(opVal);
+                  }
+                } else if (op === "contains") {
+                  subClauses.push(`"${subKey}" ILIKE $${placeholderIndex++}`);
+                  values.push(`%${opVal}%`);
+                } else if (op === "gte") {
+                  subClauses.push(`"${subKey}" >= $${placeholderIndex++}`);
+                  values.push(opVal);
+                } else if (op === "lte") {
+                  subClauses.push(`"${subKey}" <= $${placeholderIndex++}`);
+                  values.push(opVal);
+                }
+              }
+            } else {
+              subClauses.push(`"${subKey}" = $${placeholderIndex++}`);
+              values.push(subVal);
+            }
+          }
+          if (subClauses.length > 0) {
+            orParts.push(`(${subClauses.join(" AND ")})`);
+          }
+        }
+        if (orParts.length > 0) {
+          clauses.push(`(${orParts.join(" OR ")})`);
+        }
+        continue;
+      }
 
       if (key.includes("_") && typeof value === "object" && value !== null) {
         for (const [subKey, subVal] of Object.entries(value)) {

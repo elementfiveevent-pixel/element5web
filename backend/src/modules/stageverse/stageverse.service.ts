@@ -398,9 +398,45 @@ export class StageVerseService {
     return { success: true, message: "Vote cast successfully", score };
   }
 
+  async getUserVotes(userId: string, eventId: string) {
+    const realEvent = await this.getRealEvent(eventId);
+    const targetId = realEvent ? realEvent.id : eventId;
+
+    // Get all submission IDs for this event first (relation filter not supported by custom ORM)
+    const eventSubmissions = await this.prisma.stageVerseSubmission.findMany({
+      where: {
+        OR: [
+          { eventId: targetId },
+          { eventId: eventId }
+        ]
+      },
+    });
+    const submissionIds = eventSubmissions.map((s: any) => s.id);
+
+    if (submissionIds.length === 0) return [];
+
+    const userVotes = await this.prisma.vote.findMany({
+      where: {
+        voterId: userId,
+        submissionId: { in: submissionIds }
+      },
+      select: { submissionId: true, score: true }
+    });
+
+    return userVotes;
+  }
+
   async calculateStandings(eventId: string) {
+    const realEvent = await this.getRealEvent(eventId);
+    const targetId = realEvent ? realEvent.id : eventId;
+
     const submissions = await this.prisma.stageVerseSubmission.findMany({
-      where: { eventId, status: "APPROVED" },
+      where: {
+        OR: [
+          { eventId: targetId },
+          { eventId: eventId }
+        ]
+      },
       include: {
         user: true,
         judgeScores: true,
@@ -438,11 +474,14 @@ export class StageVerseService {
       }
 
       return {
+        id: sub.id,
         submissionId: sub.id,
         performer: sub.user?.fullName || "Custom Performer",
         photoUrl: sub.user?.profilePhotoUrl || "",
         trackTitle: sub.trackTitle,
         votesCount,
+        totalVotes: votesCount,
+        averageScore: Number(audienceAvg.toFixed(2)),
         audienceAverage: Number(audienceAvg.toFixed(2)),
         judgeAverage: Number(judgeAvg.toFixed(2)),
         totalScore: Number(totalScore.toFixed(2)),
