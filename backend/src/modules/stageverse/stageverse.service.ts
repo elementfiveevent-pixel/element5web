@@ -369,6 +369,7 @@ export class StageVerseService {
       },
     });
 
+    const crypto = require("crypto");
     let vote: any;
     if (existing) {
       vote = await this.prisma.vote.update({
@@ -378,6 +379,7 @@ export class StageVerseService {
     } else {
       vote = await this.prisma.vote.create({
         data: {
+          id: crypto.randomUUID(),
           submissionId: submission.id,
           voterId,
           score,
