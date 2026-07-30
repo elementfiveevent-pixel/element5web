@@ -369,27 +369,31 @@ export class StageVerseService {
       },
     });
 
+    let vote: any;
     if (existing) {
-      throw new ConflictException("You have already rated this performer");
+      vote = await this.prisma.vote.update({
+        where: { id: existing.id },
+        data: { score },
+      });
+    } else {
+      vote = await this.prisma.vote.create({
+        data: {
+          submissionId: submission.id,
+          voterId,
+          score,
+        },
+      });
     }
-
-    const vote = await this.prisma.vote.create({
-      data: {
-        submissionId: submission.id,
-        voterId,
-        score,
-      },
-    });
 
     this.gateway.broadcastLiveVote(submission.eventId, {
       performer: submission.user?.fullName || "Custom Performer",
-      votedAt: vote.createdAt,
+      votedAt: vote.createdAt || vote.updatedAt,
     });
 
     const standings = await this.calculateStandings(submission.eventId);
     this.gateway.broadcastLeaderboard(submission.eventId, standings);
 
-    return { success: true, message: "Vote cast successfully" };
+    return { success: true, message: "Vote cast successfully", score };
   }
 
   async calculateStandings(eventId: string) {

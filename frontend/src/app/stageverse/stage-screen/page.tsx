@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -75,13 +75,20 @@ function StageScreenContent() {
   const isPerfLive = performanceLive || (isPanelOpen && !isOpen);
   const activeExpiresAt = isOpen ? expiresAt : performanceExpiresAt ? performanceExpiresAt : isPerfLive ? (performanceExpiresAt || expiresAt) : null;
 
+  const playedChimesRef = useRef<Set<string>>(new Set());
+
   // Synthesize Web Audio API Chimes (warning & end timers)
-  const playChime = useCallback((type: "warning" | "end") => {
-    if (!hasInteracted) return;
+  const playChime = useCallback((type: "warning" | "end", key: string) => {
+    if (playedChimesRef.current.has(key)) return;
+    playedChimesRef.current.add(key);
+
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
+      if (ctx.state === "suspended") {
+        ctx.resume();
+      }
 
       if (type === "warning") {
         const osc1 = ctx.createOscillator();
@@ -115,7 +122,7 @@ function StageScreenContent() {
         osc.type = "square";
         osc.frequency.setValueAtTime(330, ctx.currentTime);
         gain.gain.setValueAtTime(0, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.1);
+        gain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.1);
         gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.2);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -125,7 +132,7 @@ function StageScreenContent() {
     } catch {
       /* Audio context error fallback */
     }
-  }, [hasInteracted]);
+  }, []);
 
   // Hype Meter Decay Loop
   useEffect(() => {
@@ -151,9 +158,9 @@ function StageScreenContent() {
       setTimeLeft(remaining);
 
       if (remaining === 10) {
-        playChime("warning");
+        playChime("warning", `${activeExpiresAt}_10`);
       } else if (remaining === 0) {
-        playChime("end");
+        playChime("end", `${activeExpiresAt}_0`);
       }
     };
 
