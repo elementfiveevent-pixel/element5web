@@ -358,7 +358,13 @@ export class StageVerseService {
       where: { id: submission.eventId },
       select: { votingActive: true }
     });
-    const isVotingOpen = event ? (event.votingActive ?? false) : false;
+
+    const isVotingOpen = 
+      (event?.votingActive ?? false) || 
+      (this.votingStates.get(submission.eventId) ?? false) || 
+      (this.panelStates.get(submission.eventId) ?? false) ||
+      (this.performanceStates.get(submission.eventId) ?? false);
+
     if (!isVotingOpen) {
       throw new ConflictException("Voting is currently closed for this event.");
     }
