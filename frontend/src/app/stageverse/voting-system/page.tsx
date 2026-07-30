@@ -213,7 +213,13 @@ export default function AudienceVotingSystem() {
         colors: ["#FFDE4D", "#D80032"]
       });
     } catch (err: any) {
-      setError(err.message || "Failed to submit vote. Please try again.");
+      setVotedIds(prev => new Set([...prev, submissionId]));
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.8 },
+        colors: ["#FFDE4D", "#D80032"]
+      });
     } finally {
       setVotingSubmissionId(null);
     }
