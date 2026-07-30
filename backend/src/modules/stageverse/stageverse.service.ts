@@ -37,11 +37,51 @@ export class StageVerseService {
   }
 
   private panelStates = new Map<string, boolean>();
+  private performanceStates = new Map<string, boolean>();
+  private performanceExpiresAt = new Map<string, number | null>();
 
-  private async getRealEvent(eventId: string) {
+  async getRealEvent(eventId: string) {
     return this.prisma.event.findFirst({
       where: { OR: [{ id: eventId }, { slug: eventId }] },
     });
+  }
+
+  async togglePerformance(userId: string, roles: string[], eventId: string, open: boolean, durationSeconds?: number) {
+    const event = await this.getRealEvent(eventId);
+    const targetId = event ? event.id : eventId;
+    await this.assertOrganizerAccess(targetId, userId, roles);
+
+    const expiresAt = open && durationSeconds ? Date.now() + durationSeconds * 1000 : null;
+
+    if (event) {
+      await this.prisma.event.update({
+        where: { id: event.id },
+        data: { 
+          votingActive: open,
+          votingExpiresAt: expiresAt ? new Date(expiresAt) : null
+        }
+      });
+    }
+
+    this.panelStates.set(targetId, open);
+    this.performanceStates.set(targetId, open);
+    this.performanceExpiresAt.set(targetId, expiresAt);
+
+    if (event?.slug) {
+      this.panelStates.set(event.slug, open);
+      this.performanceStates.set(event.slug, open);
+      this.performanceExpiresAt.set(event.slug, expiresAt);
+    }
+
+    const payload = { performanceLive: open, expiresAt };
+    this.gateway.server.to(targetId).emit("performanceStatusUpdate", payload);
+    this.gateway.server.to(targetId).emit("panelStatusUpdate", { panelOpen: open });
+    if (event?.slug) {
+      this.gateway.server.to(event.slug).emit("performanceStatusUpdate", payload);
+      this.gateway.server.to(event.slug).emit("panelStatusUpdate", { panelOpen: open });
+    }
+
+    return { success: true, performanceLive: open, expiresAt };
   }
 
   async toggleVotingPanel(userId: string, roles: string[], eventId: string, open: boolean) {
@@ -137,7 +177,33 @@ export class StageVerseService {
       }
     }
 
-    return { panelOpen, open, expiresAt, currentPerformerId: event?.currentPerformerId ?? null };
+    let perfLive = (dbVotingActive && !open) || (this.performanceStates.get(targetId) ?? (event?.slug ? this.performanceStates.get(event.slug) : undefined) ?? false);
+    let perfExpiresAt = (this.performanceExpiresAt.get(targetId) ?? (event?.slug ? this.performanceExpiresAt.get(event.slug) : undefined) ?? (expiresAt && expiresAt > Date.now() ? expiresAt : null));
+
+    if (perfLive && perfExpiresAt !== null && perfExpiresAt < Date.now()) {
+      perfLive = false;
+      perfExpiresAt = null;
+      this.performanceStates.set(targetId, false);
+      this.performanceExpiresAt.set(targetId, null);
+      if (event?.slug) {
+        this.performanceStates.set(event.slug, false);
+        this.performanceExpiresAt.set(event.slug, null);
+      }
+      const payload = { performanceLive: false, expiresAt: null };
+      this.gateway.server.to(targetId).emit("performanceStatusUpdate", payload);
+      if (event?.slug) {
+        this.gateway.server.to(event.slug).emit("performanceStatusUpdate", payload);
+      }
+    }
+
+    return { 
+      panelOpen, 
+      open, 
+      expiresAt, 
+      performanceLive: perfLive,
+      performanceExpiresAt: perfExpiresAt,
+      currentPerformerId: event?.currentPerformerId ?? null 
+    };
   }
 
   async toggleLeaderboard(userId: string, roles: string[], eventId: string, show: boolean) {
@@ -647,58 +713,67 @@ export class StageVerseService {
   }
 
   async getRegisteredArtists(userId: string, roles: string[], eventId: string) {
-    await this.assertOrganizerAccess(eventId, userId, roles);
+    const realEvent = await this.getRealEvent(eventId);
+    const targetId = realEvent ? realEvent.id : eventId;
+    await this.assertOrganizerAccess(targetId, userId, roles);
 
-    // 1. Get all registrations for this event
+    // Get registrations ONLY for this specific active event
     const registrations = await this.prisma.eventRegistration.findMany({
-      where: { eventId },
-      include: { user: true }
+      where: { eventId: targetId },
+      include: { 
+        user: { 
+          include: { 
+            artistProfile: true 
+          } 
+        } 
+      }
     });
 
-    // 2. Fetch all ArtistProfiles across the platform
-    const allProfiles = await this.prisma.artistProfile.findMany({
-      include: { user: true }
+    // Get existing lineup submissions to exclude artists ALREADY added to the lineup
+    const existingSubmissions = await this.prisma.stageVerseSubmission.findMany({
+      where: { eventId: targetId },
+      select: { userId: true }
     });
+    const existingUserIds = new Set(existingSubmissions.map((s: any) => s.userId).filter(Boolean));
 
-    const profileUserIds = new Set(allProfiles.map((p: any) => p.userId));
-    const resultList: any[] = [...allProfiles];
+    const resultList: any[] = [];
+    const addedUserIds = new Set<string>();
 
-    // 3. For any user who registered for this event (or with ARTIST role) without an ArtistProfile row yet, synthesize an entry
     for (const reg of registrations) {
-      if (reg.user && !profileUserIds.has(reg.user.id)) {
-        resultList.push({
-          id: `temp_${reg.user.id}`,
-          userId: reg.user.id,
-          stageName: reg.user.fullName,
-          genres: [],
-          user: reg.user
-        });
-        profileUserIds.add(reg.user.id);
-      }
-    }
+      if (!reg.user || addedUserIds.has(reg.user.id)) continue;
+      
+      // Exclude artists already in the event lineup
+      if (existingUserIds.has(reg.user.id)) continue;
 
-    // 4. Include platform users with role ARTIST who don't have an ArtistProfile row yet
-    const artistRoleAssignments = await this.prisma.roleAssignment.findMany({
-      where: { role: "ARTIST" }
-    });
-    const artistUserIds = artistRoleAssignments.map((ra: any) => ra.userId);
-    const platformArtists = artistUserIds.length > 0
-      ? await this.prisma.user.findMany({
-          where: { id: { in: artistUserIds } }
-        })
-      : [];
+      const customData = (reg.customData as any) || {};
+      const artistProf = reg.user.artistProfile;
 
-    for (const u of platformArtists) {
-      if (!profileUserIds.has(u.id)) {
-        resultList.push({
-          id: `temp_${u.id}`,
-          userId: u.id,
-          stageName: u.fullName,
-          genres: [],
-          user: u
-        });
-        profileUserIds.add(u.id);
-      }
+      // Filter specifically for users who registered as an ARTIST for this event (or have an Artist Profile / ARTIST role)
+      const isRegisteredAsArtist = 
+        customData.participationType === "ARTIST" || 
+        reg.user.role === "ARTIST" || 
+        !!artistProf ||
+        (Array.isArray((reg.user as any).roles) && (reg.user as any).roles.some((r: any) => r === "ARTIST" || r?.role === "ARTIST"));
+
+      if (!isRegisteredAsArtist) continue;
+
+      addedUserIds.add(reg.user.id);
+
+      const stageName = customData.stageName || artistProf?.stageName || reg.user.fullName || "Registered Artist";
+      const genre = customData.genre || (artistProf?.genres && artistProf.genres.length > 0 ? artistProf.genres.join(", ") : artistProf?.genre) || "Performance Art";
+
+      resultList.push({
+        id: artistProf?.id || `reg_${reg.id}`,
+        userId: reg.user.id,
+        stageName,
+        genres: genre ? [genre] : [],
+        user: {
+          id: reg.user.id,
+          fullName: reg.user.fullName,
+          email: reg.user.email,
+          profilePhotoUrl: reg.user.profilePhotoUrl
+        }
+      });
     }
 
     return resultList;

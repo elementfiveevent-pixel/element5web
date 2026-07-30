@@ -46,36 +46,99 @@ export class StageVerseGateway implements OnGatewayConnection, OnGatewayDisconne
     @ConnectedSocket() client: Socket,
     @MessageBody("eventId") eventId: string,
   ) {
+    if (!eventId) return;
     client.join(eventId);
-    const count = this.activeViewerCounts.get(eventId) || 0;
-    const newCount = count + 1;
-    this.activeViewerCounts.set(eventId, newCount);
+
+    try {
+      const event = await this.stageVerseService.getRealEvent(eventId);
+      if (event?.id) client.join(event.id);
+      if (event?.slug) client.join(event.slug);
+    } catch {}
+
+    const count = (this.activeViewerCounts.get(eventId) || 0) + 1;
+    this.activeViewerCounts.set(eventId, count);
 
     // Broadcast updated presence to event room
-    this.server.to(eventId).emit("presenceUpdate", { viewerCount: newCount });
+    this.server.to(eventId).emit("presenceUpdate", { viewerCount: count });
 
-    // Send current standings to the joined client immediately
-    const standings = await this.stageVerseService.calculateStandings(eventId);
-    client.emit("leaderboardUpdate", standings);
+    // Send current standings & live states to the joined client immediately
+    try {
+      const standings = await this.stageVerseService.calculateStandings(eventId);
+      client.emit("leaderboardUpdate", standings);
+
+      const status = await this.stageVerseService.getVotingStatus(eventId);
+      client.emit("panelStatusUpdate", { panelOpen: status.panelOpen });
+      client.emit("votingStatusUpdate", { open: status.open, expiresAt: status.expiresAt });
+      client.emit("performanceStatusUpdate", { performanceLive: status.performanceLive, expiresAt: status.performanceExpiresAt });
+      client.emit("currentPerformerUpdate", { currentPerformerId: status.currentPerformerId });
+    } catch {}
   }
 
-  broadcastLeaderboard(eventId: string, standings: any) {
+  async broadcastLeaderboard(eventId: string, standings: any) {
     this.server.to(eventId).emit("leaderboardUpdate", standings);
+    try {
+      const event = await this.stageVerseService.getRealEvent(eventId);
+      if (event?.id && event.id !== eventId) this.server.to(event.id).emit("leaderboardUpdate", standings);
+      if (event?.slug && event.slug !== eventId) this.server.to(event.slug).emit("leaderboardUpdate", standings);
+    } catch {}
   }
 
-  broadcastLiveVote(eventId: string, voteDetails: any) {
+  async broadcastLiveVote(eventId: string, voteDetails: any) {
     this.server.to(eventId).emit("liveVoteCast", voteDetails);
+    try {
+      const event = await this.stageVerseService.getRealEvent(eventId);
+      if (event?.id && event.id !== eventId) this.server.to(event.id).emit("liveVoteCast", voteDetails);
+      if (event?.slug && event.slug !== eventId) this.server.to(event.slug).emit("liveVoteCast", voteDetails);
+    } catch {}
   }
 
-  broadcastCurrentPerformer(eventId: string, submissionId: string | null) {
-    this.server.to(eventId).emit("currentPerformerUpdate", { currentPerformerId: submissionId });
+  async broadcastCurrentPerformer(eventId: string, submissionId: string | null) {
+    const payload = { currentPerformerId: submissionId };
+    this.server.to(eventId).emit("currentPerformerUpdate", payload);
+    try {
+      const event = await this.stageVerseService.getRealEvent(eventId);
+      if (event?.id && event.id !== eventId) this.server.to(event.id).emit("currentPerformerUpdate", payload);
+      if (event?.slug && event.slug !== eventId) this.server.to(event.slug).emit("currentPerformerUpdate", payload);
+    } catch {}
   }
 
-  broadcastVotingAccessUpdate(eventId: string, userId: string, status: string) {
-    this.server.to(eventId).emit("votingAccessUpdate", { eventId, userId, status });
+  async broadcastVotingAccessUpdate(eventId: string, userId: string, status: string) {
+    const payload = { eventId, userId, status };
+    this.server.to(eventId).emit("votingAccessUpdate", payload);
+    try {
+      const event = await this.stageVerseService.getRealEvent(eventId);
+      if (event?.id && event.id !== eventId) this.server.to(event.id).emit("votingAccessUpdate", payload);
+      if (event?.slug && event.slug !== eventId) this.server.to(event.slug).emit("votingAccessUpdate", payload);
+    } catch {}
   }
 
-  broadcastVotingAccessRequest(eventId: string, userId: string, request: any) {
-    this.server.to(eventId).emit("votingAccessRequested", { eventId, userId, request });
+  async broadcastVotingAccessRequest(eventId: string, userId: string, request: any) {
+    const payload = { eventId, userId, request };
+    this.server.to(eventId).emit("votingAccessRequested", payload);
+    try {
+      const event = await this.stageVerseService.getRealEvent(eventId);
+      if (event?.id && event.id !== eventId) this.server.to(event.id).emit("votingAccessRequested", payload);
+      if (event?.slug && event.slug !== eventId) this.server.to(event.slug).emit("votingAccessRequested", payload);
+    } catch {}
+  }
+
+  @SubscribeMessage("stage_reaction")
+  async handleStageReaction(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { eventId?: string; emoji?: string }
+  ) {
+    const eventId = data?.eventId;
+    if (eventId) {
+      const payload = {
+        id: Math.random().toString(36).substring(2, 9),
+        emoji: data.emoji || "🔥",
+      };
+      this.server.to(eventId).emit("stage_reaction", payload);
+      try {
+        const event = await this.stageVerseService.getRealEvent(eventId);
+        if (event?.id && event.id !== eventId) this.server.to(event.id).emit("stage_reaction", payload);
+        if (event?.slug && event.slug !== eventId) this.server.to(event.slug).emit("stage_reaction", payload);
+      } catch {}
+    }
   }
 }

@@ -54,6 +54,21 @@ export class StageVerseController {
     return this.stageVerseService.castVote(user.id, subId, score);
   }
 
+  @Post(":eventId/performance/toggle")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Organizers toggle live performance status and timer for an event" })
+  async togglePerformance(
+    @CurrentUser() user: any,
+    @Param("eventId") eventId: string,
+    @Body("open") open: boolean,
+    @Body("durationSeconds") durationSeconds?: number,
+  ) {
+    const userRoles = [user.role, ...(user.roles || [])].filter(Boolean);
+    return this.stageVerseService.togglePerformance(user.id, userRoles, eventId, open, durationSeconds);
+  }
+
   @Post(":eventId/voting/toggle")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
@@ -160,7 +175,8 @@ export class StageVerseController {
   @ApiBearerAuth()
   @ApiOperation({ summary: "List artist profiles registered for an event" })
   async getRegisteredArtists(@CurrentUser() user: any, @Param("eventId") eventId: string) {
-    return this.stageVerseService.getRegisteredArtists(user.id, user.roles, eventId);
+    const userRoles = [user.role, ...(user.roles || [])].filter(Boolean);
+    return this.stageVerseService.getRegisteredArtists(user.id, userRoles, eventId);
   }
 
   @Post("voting/access-requests/:requestId/review")

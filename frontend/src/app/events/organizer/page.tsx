@@ -10,7 +10,7 @@ import {
   LayoutDashboard, BarChart2, Users, QrCode, Ticket, PlusCircle,
   RefreshCw, AlertCircle, Check, X, CheckCircle, Clock, XCircle,
   Calendar, MapPin, TrendingUp, Eye, EyeOff, Trash2, ArrowRight, Camera, Loader2,
-  ChevronDown, ChevronUp, Search, Radio, Vote, Pencil, Download
+  ChevronDown, ChevronUp, Search, Radio, Vote, Pencil, Download, Tv
 } from "lucide-react";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabaseClient";
@@ -583,7 +583,7 @@ function VotingPanel({ eventId }: { eventId: string }) {
     if (!eventId) return;
     const socketUrl = api.baseUrl.replace(/\/$/, "");
     const socketInstance = io(`${socketUrl}/live`, {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
       autoConnect: true,
     });
 
@@ -658,13 +658,37 @@ function VotingPanel({ eventId }: { eventId: string }) {
     } catch (err: any) { alert(err.message || "Failed to set performer."); }
   };
 
-  const handleStartPerformance = () => {
+  const handleStartPerformance = async () => {
     if (!currentPerformerId) return alert("Select a performer first.");
-    const ms = parseFloat(perfDuration) * 60 * 1000;
-    setPerfEndsAt(Date.now() + ms);
+    const durationSeconds = parseFloat(perfDuration) * 60;
+    const endsAt = Date.now() + durationSeconds * 1000;
+    setPerfEndsAt(endsAt);
+
+    if (!isPanelOpen) {
+      try {
+        await api.post(`/stageverse/${eventId}/voting/toggle`, { open: true, isPanel: true });
+        setIsPanelOpen(true);
+      } catch {}
+    }
+
+    try {
+      const res = await api.post(`/stageverse/${eventId}/performance/toggle`, {
+        open: true,
+        durationSeconds: durationSeconds > 0 ? durationSeconds : undefined,
+      });
+      if (res?.expiresAt) setPerfEndsAt(res.expiresAt);
+    } catch {
+      /* Fallback */
+    }
   };
 
-  const handleStopPerformance = () => { setPerfEndsAt(null); setPerfTimeLeft(null); };
+  const handleStopPerformance = async () => {
+    try {
+      await api.post(`/stageverse/${eventId}/performance/toggle`, { open: false });
+    } catch {}
+    setPerfEndsAt(null);
+    setPerfTimeLeft(null);
+  };
 
   const handleToggleVotingPanel = async (open: boolean) => {
     setTogglingPanel(true);
@@ -700,7 +724,7 @@ function VotingPanel({ eventId }: { eventId: string }) {
 
   const handleStartBoth = async () => {
     if (!currentPerformerId) return alert("Select a performer first.");
-    handleStartPerformance();
+    await handleStartPerformance();
     await handleOpenVoting();
   };
 
@@ -884,17 +908,28 @@ function VotingPanel({ eventId }: { eventId: string }) {
                 <h2 className="font-display font-black text-lg uppercase leading-none">Live Controller</h2>
                 <p className="font-space text-[10px] text-gray-500 font-bold mt-1">Select performer and manage timers.</p>
               </div>
-              <button
-                onClick={() => handleToggleVotingPanel(!isPanelOpen)}
-                disabled={togglingPanel}
-                className={`px-4 py-2 border-2 border-[#121212] font-display font-black text-[10px] uppercase rounded cursor-pointer transition-all shadow-brutal-sm ${
-                  isPanelOpen 
-                    ? "bg-red-stage text-white hover:bg-red-700" 
-                    : "bg-yellow-festival text-[#121212] hover:bg-yellow-festival/85"
-                }`}
-              >
-                {togglingPanel ? "..." : isPanelOpen ? "Stop Voting Panel" : "Start Voting Panel"}
-              </button>
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <a
+                  href={`/stageverse/stage-screen?eventId=${eventId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 border-2 border-[#121212] bg-[#121212] text-white hover:bg-[#222] font-display font-black text-[10px] uppercase rounded cursor-pointer transition-all shadow-brutal-sm flex items-center gap-1.5 whitespace-nowrap"
+                  title="Launch Live Arena Stage Display Screen in new window"
+                >
+                  <Tv size={13} className="text-yellow-festival" /> STAGE DISPLAY ↗
+                </a>
+                <button
+                  onClick={() => handleToggleVotingPanel(!isPanelOpen)}
+                  disabled={togglingPanel}
+                  className={`px-4 py-2 border-2 border-[#121212] font-display font-black text-[10px] uppercase rounded cursor-pointer transition-all shadow-brutal-sm whitespace-nowrap ${
+                    isPanelOpen 
+                      ? "bg-red-stage text-white hover:bg-red-700" 
+                      : "bg-yellow-festival text-[#121212] hover:bg-yellow-festival/85"
+                  }`}
+                >
+                  {togglingPanel ? "..." : isPanelOpen ? "Stop Voting Panel" : "Start Voting Panel"}
+                </button>
+              </div>
             </div>
 
             {/* Current Performer Selector */}
@@ -1208,16 +1243,20 @@ function VotingPanel({ eventId }: { eventId: string }) {
                   <select value={selectedArtistId} onChange={(e) => setSelectedArtistId(e.target.value)}
                     className="w-full px-3 py-2 border-2 border-[#121212] bg-white rounded font-space font-bold text-xs focus:outline-none"
                     disabled={bulkNames.length > 0}>
-                    <option value="">-- Choose Artist Profile ({allArtists.length} Available) --</option>
-                    {allArtists.map((art: any) => {
-                      const name = art.stageName || art.user?.fullName || "Artist";
-                      const info = art.genres?.length > 0 ? art.genres.join(", ") : (art.user?.email || "Registered Artist");
-                      return (
-                        <option key={art.id || art.userId} value={art.userId}>
-                          {name} ({info})
-                        </option>
-                      );
-                    })}
+                    <option value="">
+                      -- Choose Registered Event Artist ({allArtists.filter((art: any) => !lineup.some((sub: any) => (sub.userId || sub.user?.id) === (art.userId || art.user?.id))).length} Available) --
+                    </option>
+                    {allArtists
+                      .filter((art: any) => !lineup.some((sub: any) => (sub.userId || sub.user?.id) === (art.userId || art.user?.id)))
+                      .map((art: any) => {
+                        const name = art.stageName || art.user?.fullName || "Artist";
+                        const info = art.genres?.length > 0 ? art.genres.join(", ") : (art.user?.email || "Registered Artist");
+                        return (
+                          <option key={art.id || art.userId} value={art.userId}>
+                            {name} ({info})
+                          </option>
+                        );
+                      })}
                   </select>
                 )}
 

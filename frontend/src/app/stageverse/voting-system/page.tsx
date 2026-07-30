@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useApp } from "@/context/AppContext";
 import { api } from "@/lib/api";
 import { io, Socket } from "socket.io-client";
-import { Vote, Radio, AlertCircle, Heart, CheckCircle2 } from "lucide-react";
+import { Vote, Radio, AlertCircle, Heart, CheckCircle2, Flame } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useToast } from "@/components/ui/Toast";
 
@@ -104,7 +104,7 @@ export default function AudienceVotingSystem() {
     // Connect to live namespace for real-time toggle notifications
     const socketUrl = api.baseUrl.replace(/\/$/, "");
     const socketInstance = io(`${socketUrl}/live`, {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
       autoConnect: true
     });
 
@@ -115,6 +115,10 @@ export default function AudienceVotingSystem() {
 
     socketInstance.on("panelStatusUpdate", (data: { panelOpen: boolean }) => {
       setIsPanelOpen(data.panelOpen);
+    });
+
+    socketInstance.on("performanceStatusUpdate", (data: { performanceLive: boolean }) => {
+      if (data.performanceLive) setIsPanelOpen(true);
     });
 
     socketInstance.on("votingStatusUpdate", (data: { open: boolean; expiresAt?: number | null }) => {
@@ -360,10 +364,14 @@ export default function AudienceVotingSystem() {
 
         {/* Submissions List */}
         <div className="space-y-4">
-          {currentPerformerId ? (
-            submissions
-              .filter((sub) => sub.id === currentPerformerId)
-              .map((sub) => {
+          {(() => {
+            const filtered = currentPerformerId
+              ? submissions.filter((sub) => sub.id === currentPerformerId)
+              : submissions;
+            const activeList = filtered.length > 0 ? filtered : submissions;
+
+            if (activeList.length > 0) {
+              return activeList.map((sub) => {
                 const hasVoted = votedIds.has(sub.id);
                 const currentRating = selectedRatings[sub.id];
                 
@@ -437,17 +445,44 @@ export default function AudienceVotingSystem() {
                     </button>
                   </div>
                 );
-              })
-          ) : (
-            <div className="border-3 border-[#121212] bg-[#FAF8F5] p-8 rounded shadow-brutal text-center space-y-3">
-              <div className="w-16 h-16 bg-yellow-festival/10 border-2 border-dashed border-[#121212]/20 rounded-xl mx-auto flex items-center justify-center">
-                <span className="text-2xl opacity-60">⏳</span>
+              });
+            }
+
+            return (
+              <div className="border-3 border-[#121212] bg-[#FAF8F5] p-8 rounded shadow-brutal text-center space-y-3">
+                <div className="w-16 h-16 bg-yellow-festival/10 border-2 border-dashed border-[#121212]/20 rounded-xl mx-auto flex items-center justify-center">
+                  <span className="text-2xl opacity-60">⏳</span>
+                </div>
+                <p className="font-display font-black text-sm uppercase text-gray-400">Waiting for next performance</p>
+                <p className="font-space text-[10px] text-gray-400 font-bold">The organizer has not activated a performer slot yet.</p>
               </div>
-              <p className="font-display font-black text-sm uppercase text-gray-400">Waiting for next performance</p>
-              <p className="font-space text-[10px] text-gray-400 font-bold">The organizer has not activated a performer slot yet.</p>
-            </div>
-          )}
+            );
+          })()}
         </div>
+
+        {/* Live Stage Reactions Bar */}
+        {(isPanelOpen || isOpen) && (
+          <div className="border-3 border-[#121212] bg-[#FAF8F5] p-4 rounded shadow-brutal flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span className="font-display font-black text-xs uppercase flex items-center gap-1.5 text-[#121212]">
+              <Flame size={16} className="text-orange-500 animate-bounce" /> SEND LIVE HYPE TO STAGE:
+            </span>
+            <div className="flex gap-2 overflow-x-auto py-1">
+              {["🔥", "👏", "⚡", "❤️", "🙌", "👑"].map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => {
+                    if (socket) {
+                      socket.emit("stage_reaction", { eventId, emoji });
+                    }
+                  }}
+                  className="w-10 h-10 text-xl rounded-xl border-2 border-[#121212] bg-white hover:bg-yellow-festival hover:scale-110 active:scale-95 transition-all cursor-pointer shadow-brutal-sm flex items-center justify-center flex-shrink-0"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center font-space text-[10px] text-gray-400 font-bold uppercase">
