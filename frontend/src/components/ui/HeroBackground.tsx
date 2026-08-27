@@ -24,7 +24,7 @@ export default function HeroBackground() {
 
       {/* Moving Stage Spotlight 1 - Red */}
       <div 
-        className="absolute w-[60vw] h-[60vw] rounded-full opacity-30 mix-blend-screen blur-[80px] animate-[pulseRed_10s_infinite_alternate]"
+        className="hidden md:block absolute w-[60vw] h-[60vw] rounded-full opacity-30 mix-blend-screen blur-[80px] animate-[pulseRed_10s_infinite_alternate]"
         style={{
           background: "radial-gradient(circle, #D80032 0%, transparent 70%)",
           top: "-10%",
@@ -36,7 +36,7 @@ export default function HeroBackground() {
 
       {/* Moving Stage Spotlight 2 - Yellow */}
       <div 
-        className="absolute w-[50vw] h-[50vw] rounded-full opacity-25 mix-blend-screen blur-[60px] animate-[pulseYellow_8s_infinite_alternate]"
+        className="hidden md:block absolute w-[50vw] h-[50vw] rounded-full opacity-25 mix-blend-screen blur-[60px] animate-[pulseYellow_8s_infinite_alternate]"
         style={{
           background: "radial-gradient(circle, #FFDE4D 0%, transparent 70%)",
           bottom: "10%",
@@ -47,29 +47,29 @@ export default function HeroBackground() {
       />
 
       {/* Modern Brutalist Floating Shapes */}
-      <div className="absolute top-[20%] left-[8%] animate-[floatSlow_12s_infinite_ease-in-out] opacity-10">
+      <div className="hidden md:block absolute top-[20%] left-[8%] animate-[floatSlow_12s_infinite_ease-in-out] opacity-10">
         <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M20 0V40M0 20H40" stroke="#FAF8F5" strokeWidth="6" />
         </svg>
       </div>
 
-      <div className="absolute bottom-[25%] left-[15%] animate-[floatFast_9s_infinite_ease-in-out] opacity-15">
+      <div className="hidden md:block absolute bottom-[25%] left-[15%] animate-[floatFast_9s_infinite_ease-in-out] opacity-15">
         <div className="w-6 h-6 border-4 border-yellow-festival rotate-45" />
       </div>
 
-      <div className="absolute top-[15%] right-[12%] animate-[floatSlow_15s_infinite_ease-in-out] opacity-10">
+      <div className="hidden md:block absolute top-[15%] right-[12%] animate-[floatSlow_15s_infinite_ease-in-out] opacity-10">
         <div className="w-10 h-10 border-4 border-red-stage rounded-full" />
       </div>
 
-      <div className="absolute bottom-[20%] right-[18%] animate-[floatFast_11s_infinite_ease-in-out] opacity-20">
+      <div className="hidden md:block absolute bottom-[20%] right-[18%] animate-[floatFast_11s_infinite_ease-in-out] opacity-20">
         <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="2" y="2" width="26" height="26" stroke="#FFDE4D" strokeWidth="4" fill="none" />
         </svg>
       </div>
 
       {/* Subtle Halftone Wave or Laser Lines */}
-      <div className="absolute w-[200%] h-0.5 bg-gradient-to-r from-transparent via-[#FFDE4D]/15 to-transparent rotate-[-12deg] top-[35%] left-[-50%] animate-[pulseLine_4s_infinite_ease-in-out]" />
-      <div className="absolute w-[200%] h-0.5 bg-gradient-to-r from-transparent via-[#D80032]/15 to-transparent rotate-[25deg] top-[60%] left-[-50%] animate-[pulseLine_6s_infinite_ease-in-out]" />
+      <div className="hidden md:block absolute w-[200%] h-0.5 bg-gradient-to-r from-transparent via-[#FFDE4D]/15 to-transparent rotate-[-12deg] top-[35%] left-[-50%] animate-[pulseLine_4s_infinite_ease-in-out]" />
+      <div className="hidden md:block absolute w-[200%] h-0.5 bg-gradient-to-r from-transparent via-[#D80032]/15 to-transparent rotate-[25deg] top-[60%] left-[-50%] animate-[pulseLine_6s_infinite_ease-in-out]" />
 
       <style jsx global>{`
         @keyframes pulseRed {

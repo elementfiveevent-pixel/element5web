@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { useApp } from "@/context/AppContext";
 import HeroBackground from "@/components/ui/HeroBackground";
 
@@ -223,20 +224,20 @@ export default function Home() {
       )}
 
       {/* 2. HERO EXPERIENCE */}
-      <section className="relative h-[92vh] flex items-center justify-center px-4 sm:px-6 border-b-3 border-[#121212]">
+      <section className="relative min-h-[calc(100svh-4.5rem)] flex items-center justify-center px-4 sm:px-6 py-12 sm:py-16 border-b-3 border-[#121212]">
         <HeroBackground />
         <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent z-1" />
 
-        <div className="relative z-10 w-full max-w-5xl text-center space-y-5 sm:space-y-8 select-none px-2">
+        <div className="relative z-10 w-full max-w-5xl text-center space-y-5 sm:space-y-8 select-none px-0 sm:px-2">
           <div className="inline-flex items-center gap-3">
             <span className="brutal-sticker text-[10px] sm:text-sm uppercase tracking-wider rotate-[3deg]">
               🔥 GUJARAT'S CREATIVE MOVEMENT
             </span>
           </div>
 
-          <h1 className="font-display font-extrabold text-4xl sm:text-6xl lg:text-7xl xl:text-8xl tracking-tight leading-none uppercase text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+          <h1 className="font-display font-extrabold text-[1.35rem] min-[375px]:text-[1.6rem] sm:text-4xl md:text-5xl lg:text-7xl tracking-tight leading-[0.95] uppercase text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
             WE BUILD <br />
-            <span className="text-yellow-festival inline-block">OPPORTUNITIES</span>
+            <span className="text-yellow-festival block max-w-full">OPPORTUNITIES</span>
           </h1>
 
           <p className="font-space text-sm sm:text-lg md:text-xl max-w-2xl mx-auto text-[#FAF8F5]/90 font-bold bg-[#121212]/70 p-3 sm:p-4 border-2 border-[#121212] shadow-brutal rounded">
@@ -290,12 +291,16 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <div className="relative border-4 border-[#121212] bg-[#121212] p-2 rounded shadow-brutal-red h-[400px]">
-            <img
+          <div className="relative border-4 border-[#121212] bg-[#121212] p-2 rounded shadow-brutal-red h-[280px] sm:h-[400px]">
+            <div className="relative h-full w-full overflow-hidden border-2 border-[#FAF8F5] rounded">
+              <Image
               src="/stageverse1.0grp.jpeg"
               alt="StageVerse 1.0 group photo"
-              className="w-full h-full object-cover border-2 border-[#FAF8F5] rounded"
+              fill
+              sizes="(max-width: 1023px) 100vw, 50vw"
+              className="object-cover"
             />
+            </div>
             <div className="absolute top-4 left-4 brutal-tape-red text-xs">STAGEVERSE 1.0 SURAT</div>
           </div>
         </div>
