@@ -11,6 +11,7 @@ import * as crypto from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { RegisterEventDto } from "./dto/register-event.dto";
+import { EmailService } from "../email/email.service";
 
 const ORGANIZER_ROLES: UserRole[] = [
   UserRole.SUPER_ADMIN,
@@ -20,7 +21,10 @@ const ORGANIZER_ROLES: UserRole[] = [
 @Injectable()
 export class EventService {
   private readonly logger = new Logger(EventService.name);
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   async createEvent(userId: string, dto: CreateEventDto) {
     const slug = `${this.slugify(dto.title)}-${Date.now().toString().slice(-4)}`;
@@ -621,7 +625,7 @@ export class EventService {
   ) {
     const registration = await this.prisma.eventRegistration.findUnique({
       where: { id: registrationId },
-      include: { event: { select: { id: true } } },
+      include: { event: { include: { location: true } }, user: true },
     });
 
     if (!registration) {
@@ -630,13 +634,34 @@ export class EventService {
 
     await this.assertOrganizerAccess(registration.event.id, organizerId, roles);
 
-    return this.prisma.eventRegistration.update({
+    const updatedRegistration = await this.prisma.eventRegistration.update({
       where: { id: registrationId },
       data: {
         paymentStatus: action,
         reviewedAt: new Date(),
       },
     });
+
+    if (action === "APPROVED") {
+      try {
+        const ticket = await this.prisma.eventTicket.findFirst({ where: { registrationId } });
+        if (ticket?.qrCode && registration.user?.email) {
+          await this.emailService.sendApprovedTicket({
+            recipientEmail: registration.user.email,
+            recipientName: registration.user.fullName || "Element 5 attendee",
+            ticketId: ticket.id,
+            qrCode: ticket.qrCode,
+            amount: updatedRegistration.totalAmount,
+            ticketType: this.getCustomString(updatedRegistration.customData, "ticketCategoryName"),
+            event: registration.event,
+          });
+        }
+      } catch (error) {
+        this.logger.error(`Registration ${registrationId} approved, but confirmation email failed: ${(error as Error).message}`);
+      }
+    }
+
+    return updatedRegistration;
   }
 
   async checkInTicket(
