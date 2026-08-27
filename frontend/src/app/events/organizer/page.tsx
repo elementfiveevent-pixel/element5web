@@ -48,12 +48,15 @@ interface ScanResult {
 }
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
+function StatCard({ label, value, sub, color, icon }: { label: string; value: string | number; sub?: string; color: string; icon?: React.ReactNode }) {
   return (
-    <div className={`border-3 border-[#121212] rounded shadow-brutal p-5 ${color}`}>
-      <span className="font-display font-black text-[10px] uppercase tracking-widest block opacity-70">{label}</span>
-      <span className="font-display font-black text-4xl block mt-1">{value}</span>
-      {sub && <span className="font-space font-bold text-[11px] opacity-60 mt-0.5 block">{sub}</span>}
+    <div className={`border-3 border-[#121212] rounded shadow-brutal p-4 sm:p-5 min-w-0 ${color}`}>
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-display font-black text-[10px] uppercase tracking-widest block opacity-70">{label}</span>
+        {icon && <span className="shrink-0 opacity-70">{icon}</span>}
+      </div>
+      <span className="font-display font-black text-3xl sm:text-4xl block mt-1 truncate">{value}</span>
+      {sub && <span className="font-space font-bold text-[11px] opacity-60 mt-0.5 block truncate">{sub}</span>}
     </div>
   );
 }
@@ -2111,29 +2114,33 @@ function OrganizerDashboardContent() {
     );
   }
 
+  const totalRegistrations = events.reduce((total, event) => total + (event.registrationsCount || 0), 0);
+  const publishedEvents = events.filter((event) => event.status === "PUBLISHED").length;
+  const draftEvents = events.filter((event) => event.status === "DRAFT").length;
+
   return (
-    <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-12 px-4 sm:px-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-7 px-4 sm:py-12 sm:px-6 pb-28 md:pb-12">
+      <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div className="space-y-2">
+          <div className="space-y-1.5 max-w-2xl">
             <span className="brutal-tape text-xs uppercase select-none">ORGANIZER HQ</span>
-            <h1 className="font-display font-extrabold text-4xl md:text-5xl uppercase tracking-tighter mt-1">
-              EVENT <span className="text-red-stage">DASHBOARD</span>
+            <h1 className="font-display font-extrabold text-3xl sm:text-4xl md:text-5xl uppercase tracking-tighter mt-1 leading-none">
+              ORGANIZER <span className="text-red-stage">DASHBOARD</span>
             </h1>
-            <p className="font-space font-bold text-sm text-[#121212]/60">
+            <p className="font-space font-bold text-xs sm:text-sm text-[#121212]/60">
               Manage events, review registrations, scan tickets, and track analytics.
             </p>
           </div>
           <Link href="/events/create"
-            className="flex items-center gap-2 bg-yellow-festival text-[#121212] border-3 border-[#121212] font-black text-xs uppercase px-5 py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex-shrink-0">
+            className="flex items-center justify-center gap-2 bg-yellow-festival text-[#121212] border-3 border-[#121212] font-black text-xs uppercase px-5 py-3 rounded shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all flex-shrink-0 w-full sm:w-auto">
             <PlusCircle size={15} /> CREATE EVENT
           </Link>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b-3 border-[#121212] gap-2 overflow-x-auto pb-2 select-none">
+        {/* Desktop workspace navigation */}
+        <div className="hidden md:flex border-b-3 border-[#121212] gap-2 overflow-x-auto pb-2 select-none">
           {TABS.map((t) => (
             <button
               key={t.key}
@@ -2149,11 +2156,19 @@ function OrganizerDashboardContent() {
           ))}
         </div>
 
-        {/* Event selector (shown on non-events tabs as buttons instead of a dropdown) */}
+        {/* Event selector */}
         {activeTab !== "events" && events.length > 0 && (
-          <div className="border-3 border-[#121212] bg-white rounded shadow-brutal p-4 flex flex-col md:flex-row md:items-center gap-3">
+          <div className="border-3 border-[#121212] bg-white rounded shadow-brutal p-3 sm:p-4 flex flex-col md:flex-row md:items-center gap-3">
             <span className="font-display font-black text-xs uppercase text-[#121212]/50 flex-shrink-0">Active Event:</span>
-            <div className="flex flex-wrap gap-2 flex-1">
+            <select
+              value={selectedEventId}
+              onChange={(event) => setSelectedEventId(event.target.value)}
+              className="md:hidden w-full border-2 border-[#121212] bg-[#FAF8F5] px-3 py-2.5 rounded font-display font-black text-xs uppercase"
+              aria-label="Select active event"
+            >
+              {events.map((event) => <option key={event.id} value={event.id}>{event.title}</option>)}
+            </select>
+            <div className="hidden md:flex flex-wrap gap-2 flex-1">
               {events.map((ev) => (
                 <button
                   key={ev.id}
@@ -2201,17 +2216,28 @@ function OrganizerDashboardContent() {
                 </Link>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="space-y-5 sm:space-y-6">
+                <section aria-label="Event summary" className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                  <StatCard label="Total Events" value={events.length} sub="Across your account" color="bg-white" icon={<Calendar size={18} />} />
+                  <StatCard label="Registrations" value={totalRegistrations} sub="Across all events" color="bg-yellow-festival/25" icon={<Users size={18} />} />
+                  <StatCard label="Published" value={publishedEvents} sub="Live for attendees" color="bg-white" icon={<CheckCircle size={18} />} />
+                  <StatCard label="Drafts" value={draftEvents} sub="Needs a review" color="bg-red-stage/10" icon={<Clock size={18} />} />
+                </section>
+                <div className="flex items-baseline justify-between gap-4">
+                  <h2 className="font-display font-black text-lg sm:text-xl uppercase">Select an event to manage</h2>
+                  <span className="font-mono text-[10px] font-bold text-[#121212]/50 whitespace-nowrap">{events.length} TOTAL</span>
+                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                 {events.map((ev) => {
                   const cap = ev.maxCapacity ? Math.min(100, Math.round((ev.registrationsCount / ev.maxCapacity) * 100)) : 0;
                   const statusColor: Record<string, string> = { PUBLISHED: "bg-green-100 text-green-700", DRAFT: "bg-yellow-100 text-yellow-700", COMPLETED: "bg-gray-200 text-gray-600", CANCELLED: "bg-red-100 text-red-700", ARCHIVED: "bg-gray-100 text-gray-400" };
                   return (
                     <div key={ev.id} className="border-3 border-[#121212] bg-white rounded shadow-brutal overflow-hidden flex flex-col hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-brutal-yellow transition-all">
-                      <div className="relative aspect-[4/5] bg-[#121212] border-b-3 border-[#121212] overflow-hidden">
+                      <div className="relative aspect-[16/7] sm:aspect-[4/5] bg-[#121212] border-b-3 border-[#121212] overflow-hidden">
                         {ev.flyerUrl ? <img src={ev.flyerUrl} alt={ev.title} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><span className="font-display font-black text-5xl text-white/10">E5</span></div>}
                         <span className={`absolute top-2 right-2 font-black text-[9px] uppercase px-2 py-0.5 rounded border border-[#121212] ${statusColor[ev.status] ?? "bg-gray-200"}`}>{ev.status}</span>
                       </div>
-                      <div className="p-4 flex-1 flex flex-col gap-3">
+                      <div className="p-4 sm:p-5 flex-1 flex flex-col gap-3">
                         <div>
                           <span className="font-black text-[9px] uppercase bg-red-stage text-white px-1.5 py-0.5 rounded">{ev.category}</span>
                           <h3 className="font-display font-extrabold text-lg leading-tight mt-1 line-clamp-2">{ev.title}</h3>
@@ -2230,13 +2256,13 @@ function OrganizerDashboardContent() {
                             </div>
                           </div>
                         )}
-                        <div className="flex gap-2 mt-auto">
+                        <div className="grid grid-cols-2 sm:flex gap-2 mt-auto">
                           <button onClick={() => { setSelectedEventId(ev.id); setActiveTab("registrations"); }}
-                            className="flex-1 text-[10px] font-black uppercase border-2 border-[#121212] py-2 rounded hover:bg-[#121212]/5 transition-colors flex items-center justify-center gap-1">
+                            className="sm:flex-1 text-[10px] font-black uppercase border-2 border-[#121212] py-2 rounded hover:bg-[#121212]/5 transition-colors flex items-center justify-center gap-1">
                             <Users size={11} /> {ev.registrationsCount} REGS
                           </button>
                           <button onClick={() => { setSelectedEventId(ev.id); setActiveTab("analytics"); }}
-                            className="flex-1 text-[10px] font-black uppercase border-2 border-[#121212] py-2 rounded hover:bg-[#121212]/5 transition-colors flex items-center justify-center gap-1">
+                            className="sm:flex-1 text-[10px] font-black uppercase border-2 border-[#121212] py-2 rounded hover:bg-[#121212]/5 transition-colors flex items-center justify-center gap-1">
                             <BarChart2 size={11} /> ANALYTICS
                           </button>
                           <button onClick={() => handleStartEdit(ev)}
@@ -2256,6 +2282,7 @@ function OrganizerDashboardContent() {
                     </div>
                   );
                 })}
+              </div>
               </div>
             )
           )}
@@ -2307,6 +2334,26 @@ function OrganizerDashboardContent() {
           )}
         </div>
       </div>
+
+      {/* Mobile workspace navigation */}
+      <nav aria-label="Organizer workspace" className="md:hidden fixed inset-x-0 bottom-0 z-40 border-t-3 border-[#121212] bg-[#FAF8F5] px-1.5 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-[0_-4px_0_rgba(18,18,18,0.14)]">
+        <div className="grid grid-cols-5 gap-1 max-w-lg mx-auto">
+          {TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              aria-current={activeTab === tab.key ? "page" : undefined}
+              className={`min-w-0 min-h-14 flex flex-col items-center justify-center gap-1 px-1 rounded font-display font-black text-[8px] uppercase leading-none transition-colors ${
+                activeTab === tab.key ? "bg-[#121212] text-white" : "text-[#121212]/55 hover:bg-[#121212]/5"
+              }`}
+            >
+              {React.cloneElement(tab.icon, { size: 18, strokeWidth: 2.4 })}
+              <span className="max-w-full truncate">{tab.label.replace("Manage ", "")}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {/* Edit Event Modal */}
       {isEditModalOpen && (
