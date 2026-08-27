@@ -10,7 +10,7 @@ import QRTicket from "@/components/ui/QRTicket";
 // ── Types ────────────────────────────────────────────────────────────────────
 interface MyTicket {
   ticketId: string;
-  qrCode: string;
+  qrCode: string | null;
   isUsed: boolean;
   usedAt?: string | null;
   createdAt: string;

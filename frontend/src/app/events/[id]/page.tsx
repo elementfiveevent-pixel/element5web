@@ -32,7 +32,7 @@ interface BackendEvent {
   showLeaderboard?: boolean;
   votingActive?: boolean;
 }
-interface MyTicket { id: string; qrCode: string; isUsed: boolean; usedAt?: string; paymentStatus: string; customData?: Record<string, any> }
+interface MyTicket { id: string; qrCode: string | null; isUsed: boolean; usedAt?: string; paymentStatus: string; customData?: Record<string, any> }
 
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 function Skeleton() {
@@ -117,6 +117,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
   const isOrganizer = user && event && (event.organizer?.id === user.id || ["SUPER_ADMIN","ORG_ADMIN"].includes(user.role));
   const isCompleted = event ? ["COMPLETED","ARCHIVED","CANCELLED"].includes(event.status) : false;
   const hasTickets = myTickets.length > 0;
+  const hasPendingTicket = myTickets.some((ticket) => ticket.paymentStatus === "PENDING");
 
   useEffect(() => { const iv = setInterval(() => setLiveCount((p) => Math.max(10, p + Math.floor(Math.random()*5)-2)), 4000); return () => clearInterval(iv); }, []);
 
@@ -142,16 +143,27 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
     })();
   }, [id, localEvents]);
 
-  // Check if user already has a ticket for this event
-  useEffect(() => {
+  const refreshMyTickets = useCallback(async () => {
     if (!user || !event) return;
-    api.get("/events/attendee/my-tickets")
-      .then((tickets: any[]) => {
-        const mine = tickets.filter((t) => t.event.id === event.id || t.event.slug === event.slug);
-        if (mine.length > 0) setMyTickets(mine.map((t) => ({ id: t.ticketId, qrCode: t.qrCode, isUsed: t.isUsed, usedAt: t.usedAt, paymentStatus: t.paymentStatus, customData: t.customData })));
-      })
-      .catch(() => {});
+    try {
+      const tickets: any[] = await api.get("/events/attendee/my-tickets");
+      const mine = tickets.filter((ticket) => ticket.event.id === event.id || ticket.event.slug === event.slug);
+      setMyTickets(mine.map((ticket) => ({ id: ticket.ticketId, qrCode: ticket.qrCode, isUsed: ticket.isUsed, usedAt: ticket.usedAt, paymentStatus: ticket.paymentStatus, customData: ticket.customData })));
+    } catch {
+      // Keep the last successfully loaded ticket state visible.
+    }
   }, [user, event]);
+
+  // Load tickets on arrival, then only poll while an organizer review is pending.
+  useEffect(() => {
+    void refreshMyTickets();
+  }, [refreshMyTickets]);
+
+  useEffect(() => {
+    if (!hasPendingTicket) return;
+    const interval = window.setInterval(() => void refreshMyTickets(), 30000);
+    return () => window.clearInterval(interval);
+  }, [hasPendingTicket, refreshMyTickets]);
 
   // Check voting access request status
   useEffect(() => {
@@ -640,7 +652,9 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
               </span>
             </div>
             <p className="font-space text-sm text-[#121212]/60 font-bold">
-              Present these QR codes at the venue entrance for scanning.
+              {hasPendingTicket
+                ? "Payment review is pending. Your QR will reveal automatically after the organizer approves it."
+                : "Present these QR codes at the venue entrance for scanning."}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               {myTickets.map((t) => (

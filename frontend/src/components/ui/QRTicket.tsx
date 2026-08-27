@@ -7,7 +7,7 @@ import { useToast } from "@/components/ui/Toast";
 
 interface QRTicketProps {
   ticketId: string;
-  qrCode: string;
+  qrCode: string | null;
   isUsed: boolean;
   usedAt?: string | null;
   eventTitle: string;
@@ -41,9 +41,13 @@ export default function QRTicket({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dataUrl, setDataUrl] = useState<string>("");
   const { showToast } = useToast();
+  const hasActiveQr = Boolean(qrCode) && paymentStatus !== "PENDING" && paymentStatus !== "REJECTED";
 
   useEffect(() => {
-    if (!qrCode) return;
+    if (!hasActiveQr || !qrCode) {
+      setDataUrl("");
+      return;
+    }
     QRCode.toCanvas(
       canvasRef.current!,
       qrCode,
@@ -64,7 +68,7 @@ export default function QRTicket({
       margin: 2,
       color: { dark: "#121212", light: "#FAF8F5" },
     }).then(setDataUrl);
-  }, [qrCode, compact, showToast]);
+  }, [qrCode, compact, hasActiveQr, showToast]);
 
   const handleDownload = () => {
     if (!dataUrl) return;
@@ -121,10 +125,22 @@ export default function QRTicket({
 
       {/* Ticket body */}
       <div className="p-4 flex flex-col sm:flex-row gap-4 items-center sm:items-start bg-[#FAF8F5] text-[#121212]">
-        {/* QR */}
-        <div className="flex-shrink-0 border-3 border-[#121212] bg-[#FAF8F5] p-1 rounded flex justify-center max-w-full sm:w-auto">
-          <canvas ref={canvasRef} className="block rounded max-w-full" />
-        </div>
+        {/* QR is intentionally unavailable until the organizer approves payment. */}
+        {hasActiveQr ? (
+          <div className="flex-shrink-0 border-3 border-[#121212] bg-[#FAF8F5] p-1 rounded flex justify-center max-w-full sm:w-auto">
+            <canvas ref={canvasRef} className="block rounded max-w-full" />
+          </div>
+        ) : (
+          <div className="w-full sm:w-[208px] min-h-[156px] flex-shrink-0 border-3 border-dashed border-[#121212]/30 bg-[#121212]/5 p-4 rounded flex flex-col items-center justify-center text-center gap-2">
+            {paymentStatus === "REJECTED" ? <AlertCircle size={24} className="text-red-stage" /> : <Clock size={24} className="text-yellow-700" />}
+            <span className="font-display font-black text-[10px] uppercase tracking-wide">
+              {paymentStatus === "REJECTED" ? "Payment Not Approved" : "QR Locked"}
+            </span>
+            <span className="font-space font-bold text-[10px] text-[#121212]/55">
+              {paymentStatus === "REJECTED" ? "Contact the organizer for help." : "Your QR will appear after payment approval."}
+            </span>
+          </div>
+        )}
 
         {/* Info */}
         <div className="flex-1 min-w-0 w-full space-y-2.5 text-center sm:text-left">
@@ -140,7 +156,7 @@ export default function QRTicket({
             {eventDate && <p>📅 {eventDate}</p>}
             {venueName && <p>📍 {venueName}{venueCity ? `, ${venueCity}` : ""}</p>}
             <p className="font-mono text-[9px] uppercase tracking-wider text-[#121212]/40 pt-1 border-t border-[#121212]/10 w-full">
-              REF: {qrCode.slice(0, 16).toUpperCase()}
+              {hasActiveQr && qrCode ? `REF: ${qrCode.slice(0, 16).toUpperCase()}` : "REF: Available after approval"}
             </p>
           </div>
 
@@ -171,7 +187,7 @@ export default function QRTicket({
       <div className="border-t-2 border-dashed border-[#121212]/20 mx-4" />
 
       {/* Actions */}
-      {!compact && (
+      {!compact && hasActiveQr && (
         <div className="bg-[#FAF8F5] px-4 py-3 flex flex-wrap items-center justify-center sm:justify-start gap-2">
           <button
             onClick={handleDownload}

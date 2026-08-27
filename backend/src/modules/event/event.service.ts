@@ -324,7 +324,15 @@ export class EventService {
         },
       });
 
-      return { registration, ticket };
+      return {
+        registration,
+        // The ticket record is created now, but its QR secret is withheld until review.
+        ticket: {
+          ...ticket,
+          qrCode:
+            paymentStatus === PaymentStatus.APPROVED ? ticket.qrCode : null,
+        },
+      };
     });
   }
 
@@ -350,7 +358,10 @@ export class EventService {
 
     return tickets.map((ticket: any) => ({
       ticketId: ticket.id,
-      qrCode: ticket.qrCode,
+      qrCode:
+        ticket.registration.paymentStatus === PaymentStatus.APPROVED
+          ? ticket.qrCode
+          : null,
       isUsed: ticket.isUsed,
       usedAt: ticket.usedAt,
       createdAt: ticket.createdAt,
