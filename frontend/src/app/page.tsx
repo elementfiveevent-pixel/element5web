@@ -1,0 +1,674 @@
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import { useApp } from "@/context/AppContext";
+import HeroBackground from "@/components/ui/HeroBackground";
+
+import { Play, Flame, Star, Trophy, Users, Award, Calendar, MapPin, Clock, ArrowRight, Check, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
+
+export default function Home() {
+  const { showToast } = useToast();
+  const { artists, events, userVotes, registeredEvents, voteForArtist, registerForEvent } = useApp();
+  const nextEvent = events[0] || {
+    id: "stageverse-3.0",
+    title: "StageVerse 3.0: Ahmedabad Edition",
+    venue: "Mishty Studio Cafe, Ahmedabad",
+    audienceCount: 148,
+    registrationLimit: 250,
+    countdownDate: "2026-07-26T19:00:00+05:30",
+    date: "26 JUL 2026",
+    time: "07:00 PM",
+    slug: "stageverse-3-0",
+    isPaid: false,
+    price: 0,
+  };
+
+  // Filter active events list (StageVerse prioritized)
+  const activeEventsList = [...events]
+    .filter((e) => !e.isCompleted)
+    .sort((a, b) => {
+      const isStageVerseA = a.type?.toLowerCase().includes("stageverse") || a.title?.toLowerCase().includes("stageverse");
+      const isStageVerseB = b.type?.toLowerCase().includes("stageverse") || b.title?.toLowerCase().includes("stageverse");
+      if (isStageVerseA && !isStageVerseB) return -1;
+      if (!isStageVerseA && isStageVerseB) return 1;
+      return 0;
+    });
+
+  const [currentEventIndex, setCurrentEventIndex] = useState(0);
+  const displayedEvent = activeEventsList.length > 0 ? activeEventsList[currentEventIndex] : nextEvent;
+
+  const handlePrevEvent = () => {
+    setCurrentEventIndex((prev) => (prev > 0 ? prev - 1 : activeEventsList.length - 1));
+  };
+  const handleNextEvent = () => {
+    setCurrentEventIndex((prev) => (prev < activeEventsList.length - 1 ? prev + 1 : 0));
+  };
+
+  // Local client-side voting state for landing page (database is not affected)
+  const [localVoteIncrements, setLocalVoteIncrements] = useState<Record<string, number>>({});
+  const [votedIds, setVotedIds] = useState<Record<string, boolean>>({});
+
+  // Fallback default highlights
+  const MOCK_HIGHLIGHTS = [
+    {
+      id: "h-1",
+      imageUrl: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?w=600&h=400&fit=crop",
+      description: "Sufi Acoustic Jam Session"
+    },
+    {
+      id: "h-2",
+      imageUrl: "https://images.unsplash.com/photo-1516280440614-37939bbacd6a?w=600&h=800&fit=crop",
+      description: "Rajkot Stand-up Special Round"
+    },
+    {
+      id: "h-3",
+      imageUrl: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=600&h=350&fit=crop",
+      description: "D-Vibe Headlining Surat 2.0"
+    },
+    {
+      id: "h-4",
+      imageUrl: "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=600&h=600&fit=crop",
+      description: "Element Talks Rehearsals"
+    }
+  ];
+
+  // Dynamic Highlights feed state
+  const [highlights, setHighlights] = useState<any[]>([]);
+  const [highlightsLoading, setHighlightsLoading] = useState(true);
+
+  useEffect(() => {
+    api.get("/highlights")
+      .then((d) => {
+        setHighlights(Array.isArray(d) ? d : []);
+      })
+      .catch((err: any) => {
+        showToast("Failed to load dynamic highlights: " + (err?.message || ""), "warning");
+      })
+      .finally(() => {
+        setHighlightsLoading(false);
+      });
+  }, []);
+
+  const [curtainsOpened, setCurtainsOpened] = useState(false);
+  const [curtainsFinished, setCurtainsFinished] = useState(false);
+  const [lightsOn, setLightsOn] = useState(false);
+  
+  // Timer for Countdown
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    // Cinematic entrance sequence
+    const curtainTimer = setTimeout(() => {
+      setCurtainsOpened(true);
+    }, 1200);
+
+    const finishTimer = setTimeout(() => {
+      setCurtainsFinished(true);
+    }, 2400);
+
+    const lightsTimer = setTimeout(() => {
+      setLightsOn(true);
+    }, 2200);
+
+    return () => {
+      clearTimeout(curtainTimer);
+      clearTimeout(finishTimer);
+      clearTimeout(lightsTimer);
+    };
+  }, []);
+
+  // Sync and calculate countdown for currently displayed event
+  useEffect(() => {
+    const dateStr = displayedEvent.countdownDate || displayedEvent.date;
+    if (!dateStr || dateStr === "TBD") {
+      setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      return;
+    }
+
+    const targetDate = new Date(dateStr).getTime();
+    if (isNaN(targetDate)) {
+      setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const diff = targetDate - now;
+
+      if (diff <= 0) {
+        clearInterval(interval);
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      } else {
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeLeft({ days, hours, minutes, seconds });
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [displayedEvent]);
+
+  const triggerConfetti = async () => {
+    const { default: confetti } = await import("canvas-confetti");
+    confetti({
+      particleCount: 120,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ["#FFDE4D", "#D80032", "#FAF8F5", "#E36414"]
+    });
+  };
+
+  const handleVote = (artistId: string) => {
+    if (votedIds[artistId]) return;
+    setLocalVoteIncrements((prev) => ({
+      ...prev,
+      [artistId]: (prev[artistId] || 0) + 1,
+    }));
+    setVotedIds((prev) => ({
+      ...prev,
+      [artistId]: true,
+    }));
+    triggerConfetti();
+  };
+
+  const handleRegister = (eventId: string) => {
+    registerForEvent(eventId);
+    triggerConfetti();
+  };
+
+  // Sort artists reactively using local client-side simulated votes
+  const sortedArtists = [...artists]
+    .map((artist) => ({
+      ...artist,
+      votes: artist.votes + (localVoteIncrements[artist.id] || 0),
+    }))
+    .sort((a, b) => b.votes - a.votes);
+
+  return (
+    <div className="relative overflow-hidden min-h-screen bg-[#121212]">
+      {/* 1. CINEMATIC CURTAIN INTRO */}
+      {!curtainsFinished && (
+        <div
+          className={`fixed inset-0 z-50 flex pointer-events-none transition-transform duration-1000 ease-in-out ${
+            curtainsOpened ? "translate-y-[-100%]" : "translate-y-0"
+          }`}
+        >
+          <div className="w-1/2 h-full bg-[#0F0E0E] border-r-2 border-yellow-festival flex items-center justify-end pr-4 sm:pr-8">
+            <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-yellow-festival uppercase tracking-tighter select-none">
+              ELEMENT
+            </h1>
+          </div>
+          <div className="w-1/2 h-full bg-[#0F0E0E] border-l-2 border-yellow-festival flex items-center justify-start pl-4 sm:pl-8">
+            <h1 className="font-display font-extrabold text-3xl sm:text-5xl text-[#FAF8F5] uppercase tracking-tighter select-none">
+              5
+            </h1>
+          </div>
+          {/* Entrance trigger block (clickable if user wants to skip) */}
+          <button
+            onClick={() => {
+              setCurtainsOpened(true);
+              setCurtainsFinished(true);
+            }}
+            className="absolute inset-0 m-auto w-28 h-28 sm:w-36 sm:h-36 rounded-full border-3 border-yellow-festival bg-[#121212] text-yellow-festival font-black uppercase text-xs tracking-widest flex flex-col items-center justify-center gap-1 shadow-brutal animate-bounce pointer-events-auto"
+          >
+            <span>ENTER</span>
+            <span className="text-[9px] text-[#FAF8F5]/60">THE VENUE</span>
+          </button>
+        </div>
+      )}
+
+      {/* 2. HERO EXPERIENCE */}
+      <section className="relative h-[92vh] flex items-center justify-center px-4 sm:px-6 border-b-3 border-[#121212]">
+        <HeroBackground />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-transparent z-1" />
+
+        <div className="relative z-10 w-full max-w-5xl text-center space-y-5 sm:space-y-8 select-none px-2">
+          <div className="inline-flex items-center gap-3">
+            <span className="brutal-sticker text-[10px] sm:text-sm uppercase tracking-wider rotate-[3deg]">
+              🔥 GUJARAT'S CREATIVE MOVEMENT
+            </span>
+          </div>
+
+          <h1 className="font-display font-extrabold text-4xl sm:text-6xl lg:text-7xl xl:text-8xl tracking-tight leading-none uppercase text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+            WE BUILD <br />
+            <span className="text-yellow-festival inline-block">OPPORTUNITIES</span>
+          </h1>
+
+          <p className="font-space text-sm sm:text-lg md:text-xl max-w-2xl mx-auto text-[#FAF8F5]/90 font-bold bg-[#121212]/70 p-3 sm:p-4 border-2 border-[#121212] shadow-brutal rounded">
+            StageVerse is Ahmedabad's biggest community-driven Open Mic platform. 
+            We showcase the rawest poetry, hip-hop, beatboxing, and storytelling.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-6 pt-2 sm:pt-4 px-4 sm:px-0">
+            <Link href="#register" className="text-center bg-red-stage text-[#FAF8F5] border-3 border-[#121212] px-6 py-3 sm:px-8 sm:py-4 font-black uppercase tracking-wider text-sm sm:text-base shadow-brutal-white shadow-brutal-white-hover rounded">
+              BOOK TICKETS
+            </Link>
+            <Link href="/artists" className="text-center bg-yellow-festival text-[#121212] border-3 border-[#121212] px-6 py-3 sm:px-8 sm:py-4 font-black uppercase tracking-wider text-sm sm:text-base shadow-brutal shadow-brutal-hover rounded">
+              DISCOVER CREATORS
+            </Link>
+          </div>
+        </div>
+
+        <div className="absolute bottom-4 sm:bottom-8 left-4 sm:left-8 hidden sm:flex items-end gap-1.5 z-10 opacity-70">
+          <div className={`w-1.5 bg-yellow-festival animate-[audioPulse1_0.8s_infinite_alternate] ease-in-out`} />
+          <div className={`w-1.5 bg-red-stage animate-[audioPulse2_0.8s_infinite_alternate] ease-in-out`} />
+          <div className={`w-1.5 bg-[#FAF8F5] animate-[audioPulse3_0.8s_infinite_alternate] ease-in-out`} />
+          <div className={`w-1.5 bg-orange-burnt animate-[audioPulse4_0.8s_infinite_alternate] ease-in-out`} />
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#FAF8F5]/50 pl-2">LIVE FREQUENCY</span>
+        </div>
+      </section>
+
+      {/* 3. WHO WE ARE */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6 border-b-3 border-[#121212] bg-[#FAF8F5] text-[#121212] relative overflow-hidden">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="space-y-8">
+            <span className="brutal-tape text-sm">THE VISION</span>
+            <h2 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-6xl uppercase tracking-tighter leading-none">
+              THIS IS NOT A <span className="inline-block">TEMPLATE.</span> <br />
+              <span className="text-red-stage">THIS IS A <span className="inline-block">MOVEMENT.</span></span>
+            </h2>
+            <p className="font-space text-lg font-bold leading-relaxed text-[#121212]/80">
+              Element 5 is Gujarat's youth-first creative network. We believe that every artist, whether a street rapper in Surat, a poet in Rajkot, or an experimental composer in Ahmedabad, deserves a premium stage. We build the physical and digital infrastructure that turns unknown creators into recognized culture-makers.
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full">
+              <div className="border-3 border-[#121212] p-2.5 sm:p-4 bg-yellow-festival shadow-brutal rounded min-w-0">
+                <h4 className="font-display font-black text-xl sm:text-2xl truncate">100K+</h4>
+                <p className="font-bold text-[9px] sm:text-xs uppercase tracking-wide truncate">Combined Reach</p>
+              </div>
+              <div className="border-3 border-[#121212] p-2.5 sm:p-4 bg-[#FAF8F5] shadow-brutal rounded min-w-0">
+                <h4 className="font-display font-black text-xl sm:text-2xl truncate">15+</h4>
+                <p className="font-bold text-[9px] sm:text-xs uppercase tracking-wide truncate">Selected Artists</p>
+              </div>
+              <div className="border-3 border-[#121212] p-2.5 sm:p-4 bg-[#121212] text-[#FAF8F5] shadow-brutal rounded min-w-0">
+                <h4 className="font-display font-black text-xl sm:text-2xl truncate">₹2,500</h4>
+                <p className="font-bold text-[9px] sm:text-xs uppercase tracking-wide truncate">Cash Prize</p>
+              </div>
+            </div>
+          </div>
+          <div className="relative border-4 border-[#121212] bg-[#121212] p-2 rounded shadow-brutal-red h-[400px]">
+            <img
+              src="/stageverse1.0grp.jpeg"
+              alt="StageVerse 1.0 group photo"
+              className="w-full h-full object-cover border-2 border-[#FAF8F5] rounded"
+            />
+            <div className="absolute top-4 left-4 brutal-tape-red text-xs">STAGEVERSE 1.0 SURAT</div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. PRODUCT / STAGEVERSE SECTION WITH TIMELINE */}
+      <section id="stageverse" className="py-16 sm:py-24 px-4 sm:px-6 border-b-3 border-[#121212] bg-[#121212] relative">
+        <div className="max-w-7xl mx-auto space-y-16">
+          <div className="text-center space-y-4">
+            <span className="brutal-sticker rotate-[-3deg] text-sm bg-yellow-festival">OUR FIRST IP</span>
+            <h2 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-6xl uppercase tracking-tighter text-white">
+              <span className="inline-block">STAGEVERSE</span> <span className="inline-block">EVOLUTION</span>
+            </h2>
+            <p className="font-space text-lg text-[#FAF8F5]/60 max-w-xl mx-auto">
+              From secret underground rooms to packing major cultural hubs. Look how far StageVerse has evolved.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-8">
+            {/* Phase 1 */}
+            <div className="border-3 border-white bg-[#0F0E0E] p-6 shadow-brutal-light rounded space-y-4">
+              <span className="font-display text-4xl font-extrabold text-[#FAF8F5]/30">01</span>
+              <h3 className="font-display text-2xl font-bold text-yellow-festival">StageVerse 1.0</h3>
+              <p className="text-sm text-[#FAF8F5]/70 font-space">
+                The pilot run. Structured for 15 artists, bringing in a highly energetic crowd and crowning Aarav Mehta as the inaugural spoken word champion.
+              </p>
+              <div className="text-xs bg-[#FAF8F5]/10 p-2 rounded font-bold">
+                📍 Mishty Studio Cafe, Ahmedabad • Completed
+              </div>
+            </div>
+
+            {/* Phase 2 */}
+            <div className="border-3 border-yellow-festival bg-[#0F0E0E] p-6 shadow-brutal-yellow rounded space-y-4">
+              <span className="font-display text-4xl font-extrabold text-yellow-festival">02</span>
+              <h3 className="font-display text-2xl font-bold text-[#FAF8F5]">StageVerse 2.0</h3>
+              <p className="text-sm text-[#FAF8F5]/80 font-space">
+                Expanded reach with video reels that amassed 100K+ cumulative social views. Introduced loops, beatbox sets, and Gujarati rap battles to the audience.
+              </p>
+              <div className="text-xs bg-yellow-festival/20 text-yellow-festival p-2 rounded font-bold">
+                📍 Mishty Studio Cafe, Ahmedabad • Completed
+              </div>
+            </div>
+
+            {/* Phase 3 */}
+            <div className="border-3 border-red-stage bg-[#0F0E0E] p-6 shadow-brutal-red rounded space-y-4 relative overflow-hidden">
+              <div className="absolute top-2 right-2 brutal-tape-red text-[8px] tracking-widest uppercase">UPCOMING</div>
+              <span className="font-display text-4xl font-extrabold text-red-stage">03</span>
+              <h3 className="font-display text-2xl font-bold text-red-stage">StageVerse 3.0</h3>
+              <p className="text-sm text-[#FAF8F5]/90 font-space">
+                Ahmedabad edition. Integrating full digital voting, premium studio recording outputs, and custom branding panels with Red Bull Culture as the main sponsor.
+              </p>
+              <div className="text-xs bg-red-stage/20 text-red-stage p-2 rounded font-bold">
+                📍 Mishty Studio Cafe, Ahmedabad • Booking Open
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. ARTIST LEADERBOARD (LIVE VOTE) */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6 border-b-3 border-[#121212] bg-[#FFF5E4] text-[#121212]">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
+          
+          <div className="lg:col-span-4 space-y-6">
+            <span className="brutal-tape">REAL-TIME RANKINGS</span>
+            <h2 className="font-display font-extrabold text-3xl sm:text-4xl lg:text-4xl uppercase tracking-tighter leading-none">
+              <span className="inline-block">STAGEVERSE</span> <br />
+              <span className="text-red-stage inline-block">LEADERBOARD</span>
+            </h2>
+            <p className="font-space font-bold text-sm text-[#121212]/80 leading-relaxed">
+              Each StageVerse event connects live to this dashboard. Audience members vote directly from their phones. Cast your vote below to support your favorite regional talent!
+            </p>
+          </div>
+
+          <div className="lg:col-span-8 space-y-4">
+            <div className="bg-[#121212] text-[#FAF8F5] border-3 border-[#121212] p-4 font-display font-black text-sm uppercase tracking-wider flex justify-between rounded shadow-brutal select-none">
+              <span>ARTIST RANKINGS</span>
+              <span className="text-yellow-festival">STAGEVERSE 3.0 VOTE</span>
+            </div>
+
+            <div className="space-y-3">
+              {sortedArtists.slice(0, 6).map((artist, idx) => {
+                const isVoted = votedIds[artist.id];
+                return (
+                  <div
+                    key={artist.id}
+                    className="bg-white border-3 border-[#121212] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded shadow-brutal hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-brutal-yellow transition-all"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <span className={`absolute -top-2 -left-2 w-6 h-6 border-2 border-[#121212] rounded-full flex items-center justify-center font-display font-black text-xs ${
+                          idx === 0 ? "bg-yellow-festival" : idx === 1 ? "bg-slate-300" : idx === 2 ? "bg-orange-300" : "bg-[#FAF8F5]"
+                        }`}>
+                          {idx + 1}
+                        </span>
+                        <img
+                          src={artist.avatar}
+                          alt={artist.name}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-[#121212]"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="font-display font-bold text-lg leading-tight hover:underline">
+                            <Link href={`/artists/${artist.id}`}>{artist.name}</Link>
+                          </h4>
+                          <span className="text-xs bg-[#121212]/10 px-2 py-0.5 rounded font-black uppercase text-[#121212]/60">
+                            {artist.location.split(",")[0]}
+                          </span>
+                        </div>
+                        <p className="text-xs font-space font-medium text-gray-600">{artist.genre}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-6 border-t sm:border-none pt-3 sm:pt-0">
+                      <div className="text-right">
+                        <span className="text-xs font-black uppercase tracking-wider text-gray-500 block">VOTES</span>
+                        <span className="font-display font-black text-xl text-red-stage animate-pulse">
+                          {artist.votes}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => handleVote(artist.id)}
+                        disabled={!!isVoted}
+                        data-cursor="vote"
+                        className={`flex items-center gap-2 border-2 border-[#121212] font-black uppercase text-xs tracking-wider px-4 py-2.5 rounded shadow-brutal transition-all ${
+                          isVoted
+                            ? "bg-green-500 text-white shadow-none translate-x-[2px] translate-y-[2px] cursor-not-allowed"
+                            : "bg-yellow-festival text-[#121212] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none"
+                        }`}
+                      >
+                        {isVoted ? (
+                          <>
+                            <Check size={14} /> VOTED
+                          </>
+                        ) : (
+                          <>
+                            <Flame size={14} /> VOTE NOW
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 6. NEXT EVENT TICKETS COUNTDOWN */}
+      <section id="register" className="py-16 sm:py-24 px-4 sm:px-6 border-b-3 border-[#121212] bg-[#FAF8F5] text-[#121212] relative overflow-hidden">
+        <div className="absolute left-0 top-0 w-2/3 h-full bg-[#FFDE4D]/25 rotate-[-2deg] origin-top-left -z-0 pointer-events-none" />
+
+        <div className="max-w-4xl mx-auto border-4 border-[#121212] bg-white p-8 md:p-12 rounded shadow-brutal relative z-10">
+          {/* Navigation Arrows on Left and Right */}
+          {activeEventsList.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={handlePrevEvent}
+                className="absolute -left-6 top-1/2 -translate-y-1/2 w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full hidden sm:flex items-center justify-center font-black text-lg shadow-brutal hover:scale-105 hover:bg-yellow-festival/90 transition-all cursor-pointer z-20"
+                title="Previous Event"
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                onClick={handleNextEvent}
+                className="absolute -right-6 top-1/2 -translate-y-1/2 w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full hidden sm:flex items-center justify-center font-black text-lg shadow-brutal hover:scale-105 hover:bg-yellow-festival/90 transition-all cursor-pointer z-20"
+                title="Next Event"
+              >
+                →
+              </button>
+            </>
+          )}
+
+          <div className="absolute -top-5 right-8 flex items-center gap-3 select-none">
+            <div className="brutal-tape-red uppercase font-black tracking-widest text-xs">
+              EVENT TICKETS
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <div className="space-y-4">
+              <span className="text-xs font-black uppercase tracking-widest text-gray-500 flex items-center gap-1.5">
+                <Calendar size={14} /> {displayedEvent.date} {displayedEvent.time ? `• ${displayedEvent.time}` : ""}
+              </span>
+              <h2 className="font-display font-extrabold text-3xl md:text-5xl uppercase tracking-tighter">
+                {displayedEvent.title}
+              </h2>
+              <div className="flex flex-wrap gap-4 text-xs font-black uppercase text-gray-600">
+                <span className="flex items-center gap-1 bg-[#121212]/10 px-3 py-1 rounded">
+                  <MapPin size={12} /> {displayedEvent.venue.split(",")[0]}
+                </span>
+                <span className="flex items-center gap-1 bg-[#121212]/10 px-3 py-1 rounded">
+                  <Clock size={12} /> Live Audience Voting
+                </span>
+              </div>
+            </div>
+
+            {/* Countdown Grid */}
+            <div className="grid grid-cols-4 gap-2 sm:gap-4 text-center border-y-3 border-[#121212] py-4 sm:py-6 my-6 bg-[#FAF8F5]">
+              <div className="space-y-1">
+                <span className="font-display font-black text-2xl sm:text-3xl md:text-5xl text-[#121212] block">
+                  {String(timeLeft.days).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">DAYS</span>
+              </div>
+              <div className="space-y-1">
+                <span className="font-display font-black text-2xl sm:text-3xl md:text-5xl text-[#121212] block">
+                  {String(timeLeft.hours).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">HOURS</span>
+              </div>
+              <div className="space-y-1">
+                <span className="font-display font-black text-2xl sm:text-3xl md:text-5xl text-[#121212] block">
+                  {String(timeLeft.minutes).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">MINS</span>
+              </div>
+              <div className="space-y-1">
+                <span className="font-display font-black text-2xl sm:text-3xl md:text-5xl text-[#121212] block">
+                  {String(timeLeft.seconds).padStart(2, "0")}
+                </span>
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">SECS</span>
+              </div>
+            </div>
+
+            {/* Registration Progress */}
+            <div className="space-y-2">
+              <div className="flex justify-between font-black uppercase text-xs">
+                <span>Registration Cap Progress</span>
+                <span className="text-red-stage">
+                  {displayedEvent.audienceCount} / {displayedEvent.registrationLimit} Seats Filled
+                </span>
+              </div>
+              <div className="w-full h-6 border-3 border-[#121212] bg-[#FAF8F5] rounded overflow-hidden p-0.5">
+                <div
+                  className="h-full bg-red-stage border-r-2 border-[#121212] transition-all duration-500"
+                  style={{ width: `${(displayedEvent.audienceCount / displayedEvent.registrationLimit) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row items-center gap-6 justify-between border-t-2 border-[#121212]/10">
+              <p className="text-sm font-space text-gray-600 font-bold max-w-sm">
+                Each ticket enters you as a verified judge inside the arena. Vote on-stage live using your ticket code.
+              </p>
+              
+              {registeredEvents.includes(displayedEvent.id) ? (
+                <div className="w-full sm:w-auto bg-green-500 text-white font-black px-8 py-4 border-3 border-[#121212] shadow-brutal flex items-center justify-center gap-2 rounded select-none">
+                  <Check size={18} /> REGISTERED SUCCESSFULLY
+                </div>
+              ) : (
+                <Link
+                  href={`/events/${displayedEvent.slug || displayedEvent.id}`}
+                  className="text-center w-full sm:w-auto bg-yellow-festival text-[#121212] font-black px-8 py-4 border-3 border-[#121212] shadow-brutal hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none transition-all rounded uppercase tracking-wider text-base"
+                >
+                  {displayedEvent.isPaid ? "BOOK TICKETS NOW" : "CLAIM FREE SPOT"}
+                </Link>
+              )}
+            </div>
+
+            {activeEventsList.length > 1 && (
+              <div className="flex sm:hidden items-center justify-center gap-4 pt-4 border-t-2 border-[#121212]/10 mt-4">
+                <button
+                  type="button"
+                  onClick={handlePrevEvent}
+                  className="w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full flex items-center justify-center font-black text-lg shadow-brutal-sm hover:scale-105 transition-all cursor-pointer"
+                  title="Previous Event"
+                >
+                  ←
+                </button>
+                <span className="font-space font-black text-xs uppercase tracking-wider text-gray-500 select-none">
+                  {currentEventIndex + 1} of {activeEventsList.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleNextEvent}
+                  className="w-10 h-10 border-3 border-[#121212] bg-yellow-festival text-[#121212] rounded-full flex items-center justify-center font-black text-lg shadow-brutal-sm hover:scale-105 transition-all cursor-pointer"
+                  title="Next Event"
+                >
+                  →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 7. HIGHLIGHTS GALLERY MASONRY */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6 border-b-3 border-[#121212] bg-[#121212] text-white">
+        <div className="max-w-7xl mx-auto space-y-16">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+            <div className="space-y-4">
+              <span className="brutal-tape-red">THE FEED</span>
+              <h2 className="font-display font-extrabold text-5xl tracking-tighter">
+                CULTURAL HIGHLIGHTS
+              </h2>
+            </div>
+            <p className="font-space text-sm text-[#FAF8F5]/60 max-w-xs">
+              Moments from the open mics, stage rehearsals, and underground circles.
+            </p>
+          </div>
+
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 space-y-6">
+            {highlightsLoading ? (
+              <div className="col-span-full py-12 text-center font-display font-black uppercase text-[#FAF8F5]/40 animate-pulse">
+                Loading Highlights Feed...
+              </div>
+            ) : highlights.length > 0 ? (
+              highlights.map((h, idx) => {
+                const rotation = idx % 3 === 0 ? "hover:rotate-[1deg]" : idx % 3 === 1 ? "hover:rotate-[-1deg]" : "hover:rotate-[2deg]";
+                const color = idx % 3 === 0 ? "text-yellow-festival" : idx % 3 === 1 ? "text-[#FAF8F5]" : "text-red-stage";
+                return (
+                  <div key={h.id || idx} className={`break-inside-avoid border-3 border-white p-2 bg-[#0F0E0E] rounded shadow-brutal-light ${rotation} transition-all duration-300`}>
+                    <img
+                      src={h.imageUrl}
+                      alt={h.description}
+                      className="w-full h-auto object-cover rounded border border-white"
+                    />
+                    <div className={`p-3 font-display font-bold text-sm ${color}`}>{h.description}</div>
+                  </div>
+                );
+              })
+            ) : (
+              MOCK_HIGHLIGHTS.map((h, idx) => {
+                const rotation = idx % 3 === 0 ? "hover:rotate-[1deg]" : idx % 3 === 1 ? "hover:rotate-[-1deg]" : "hover:rotate-[2deg]";
+                const color = idx % 3 === 0 ? "text-yellow-festival" : idx % 3 === 1 ? "text-[#FAF8F5]" : "text-red-stage";
+                return (
+                  <div key={h.id || idx} className={`break-inside-avoid border-3 border-white p-2 bg-[#0F0E0E] rounded shadow-brutal-light ${rotation} transition-all duration-300`}>
+                    <img
+                      src={h.imageUrl}
+                      alt={h.description}
+                      className="w-full h-auto object-cover rounded border border-white"
+                    />
+                    <div className={`p-3 font-display font-bold text-sm ${color}`}>{h.description}</div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 8. JOIN THE MOVEMENT CTA */}
+      <section className="py-16 sm:py-24 px-4 sm:px-6 bg-yellow-festival text-[#121212] relative overflow-hidden">
+        <div className="absolute right-[5%] top-[-10%] rotate-12 text-[15vw] font-display font-black text-white/10 select-none pointer-events-none">
+          CREATOR
+        </div>
+
+        <div className="max-w-4xl mx-auto text-center space-y-8 relative z-10">
+          <h2 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-6xl uppercase tracking-tighter">
+            DON'T JUST WATCH. <br />
+            <span className="text-red-stage inline-block">TAKE THE STAGE.</span>
+          </h2>
+          <p className="font-space text-lg md:text-xl font-bold max-w-xl mx-auto text-[#121212]/80">
+            Submit your profile to join Element 5. Be discovered by brands, discover collaborators, and get shortlisted for upcoming StageVerse open mics.
+          </p>
+
+          <div className="flex flex-wrap items-center justify-center gap-6 pt-4">
+            <Link
+              href="/artists"
+              className="bg-[#121212] text-[#FAF8F5] border-3 border-[#121212] px-8 py-4 font-black uppercase tracking-wider text-base shadow-brutal-white shadow-brutal-white-hover rounded"
+            >
+              CREATE CREATOR PROFILE
+            </Link>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

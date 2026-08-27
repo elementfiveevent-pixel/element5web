@@ -1,0 +1,79 @@
+import { Controller, Post, Body, Get, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
+import { AuthService } from "./auth.service";
+import { RegisterDto } from "./dto/register.dto";
+import { LoginDto } from "./dto/login.dto";
+import { SetupArtistProfileDto } from "./dto/setup-artist-profile.dto";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from "@nestjs/swagger";
+
+@ApiTags("Authentication")
+@Controller("auth")
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  @Post("register")
+  @ApiOperation({ summary: "Register a new creator or audience account" })
+  @ApiResponse({ status: 201, description: "Account created successfully" })
+  @ApiResponse({ status: 409, description: "Email already exists" })
+  async register(@Body() dto: RegisterDto) {
+    return this.authService.register(dto);
+  }
+
+  @Post("login")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Authenticate credentials and get tokens" })
+  @ApiResponse({ status: 200, description: "Logged in successfully" })
+  @ApiResponse({ status: 401, description: "Invalid email or password" })
+  async login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
+  }
+
+  @Post("google")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Authenticate with Firebase Google ID token" })
+  @ApiResponse({ status: 200, description: "Logged in via Google successfully" })
+  async googleLogin(@Body("idToken") idToken: string, @Body("role") role?: string) {
+    return this.authService.googleLogin(idToken, role);
+  }
+
+  @Post("refresh")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Rotate tokens using a valid refresh token" })
+  @ApiResponse({ status: 200, description: "Tokens rotated successfully" })
+  @ApiResponse({ status: 401, description: "Token is invalid, used, or expired" })
+  async refresh(@Body("refreshToken") refreshToken: string) {
+    return this.authService.refreshTokens(refreshToken);
+  }
+
+  @Post("logout")
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: "Revoke an active session refresh token" })
+  async logout(@Body("refreshToken") refreshToken: string) {
+    return this.authService.logout(refreshToken);
+  }
+
+  @Post("artist-profile")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Create or update artist profile during onboarding" })
+  async setupArtistProfile(@CurrentUser() user: any, @Body() dto: SetupArtistProfileDto) {
+    return this.authService.setupArtistProfile(user.id, dto);
+  }
+
+  @Get("me")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get verified user details from request JWT" })
+  async me(@CurrentUser() user: any) {
+    return user;
+  }
+
+  @Post("profile-photo")
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Update user profile photo url" })
+  async updateProfilePhoto(@CurrentUser() user: any, @Body("profilePhotoUrl") profilePhotoUrl: string) {
+    return this.authService.updateProfilePhoto(user.id, profilePhotoUrl);
+  }
+}

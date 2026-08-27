@@ -1,0 +1,68 @@
+name: Element 5 — Monolith CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: Use Node.js 20.x
+      uses: actions/setup-node@v3
+      with:
+        node-node-version: 20.x
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd server
+        npm ci
+
+    - name: Run ESLint audits
+      run: |
+        cd server
+        npm run lint
+
+    - name: Verify TypeScript types
+      run: |
+        cd server
+        npx tsc --noEmit
+
+    - name: Validate Prisma Database Models
+      run: |
+        cd server
+        npx prisma validate
+
+    - name: Run Unit & Integration Tests
+      run: |
+        cd server
+        npm run test
+
+  docker-build-scan:
+    needs: test-and-lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build local production test image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: docker/prod.Dockerfile
+        push: false
+        tags: element5/backend:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
