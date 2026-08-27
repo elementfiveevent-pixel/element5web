@@ -118,12 +118,12 @@ export default function StageVerseArena() {
         <div className="border-3 border-[#121212] bg-[#FAF8F5] p-4 sm:p-6 rounded shadow-brutal flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-2">
             <span className="brutal-tape text-xs uppercase select-none">STAGEVERSE LIVE</span>
-            <h2 className="font-display font-extrabold text-3xl uppercase tracking-tighter mt-2">
-              THE PERFORMANCE ARENA
+            <h2 className="font-display font-extrabold text-2xl sm:text-3xl uppercase tracking-tighter leading-none mt-2 max-w-[12ch] sm:max-w-none">
+              THE PERFORMANCE <span className="block sm:inline">ARENA</span>
             </h2>
           </div>
           
-          <div className="flex items-center gap-3 border-2 border-[#121212] bg-[#121212] text-white px-4 py-2.5 rounded shadow-brutal-light select-none">
+          <div className="flex items-center gap-3 border-2 border-[#121212] bg-[#121212] text-white px-3 py-2 rounded shadow-brutal-light select-none">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
@@ -153,11 +153,11 @@ export default function StageVerseArena() {
       <div className="max-w-7xl mx-auto mt-8 sm:mt-12">
         <div className="border-3 border-[#121212] bg-[#FAF8F5] p-5 sm:p-8 rounded shadow-brutal space-y-6">
           <div>
-            <h3 className="font-display font-black text-2xl uppercase tracking-tighter">STAGEVERSE EVENT ARCHIVE & SCHEDULE</h3>
+            <h3 className="font-display font-black text-xl sm:text-2xl uppercase tracking-tighter leading-tight">STAGEVERSE EVENT ARCHIVE &amp; SCHEDULE</h3>
             <p className="font-space text-xs text-gray-500 font-bold mt-1">Explore upcoming arenas and past live events.</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
             {/* Upcoming Events Column */}
             <div className="space-y-4">
               <span className="brutal-tape text-xs uppercase bg-[#FFDE4D] text-[#121212] select-none inline-block">UPCOMING ARENAS</span>

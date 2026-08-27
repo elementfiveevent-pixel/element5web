@@ -58,14 +58,25 @@ export class SocialController {
     @Param("communityId") communityId: string,
     @Body("title") title: string,
     @Body("content") content: string,
+    @Body("metadata") metadata?: Record<string, string>,
   ) {
-    return this.socialService.createPost(user.id, communityId, title, content);
+    return this.socialService.createPost(user.id, communityId, title, content, metadata);
   }
 
   @Delete("posts/:postId")
   @ApiOperation({ summary: "Delete your post" })
   async deletePost(@CurrentUser() user: any, @Param("postId") postId: string) {
     return this.socialService.deletePost(user.id, postId);
+  }
+
+  @Post("posts/:postId/report")
+  @ApiOperation({ summary: "Report a community post for moderator review" })
+  async reportPost(
+    @CurrentUser() user: any,
+    @Param("postId") postId: string,
+    @Body("reason") reason: string,
+  ) {
+    return this.socialService.reportPost(user.id, postId, reason);
   }
 
   @Post("posts/:postId/like")

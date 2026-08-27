@@ -224,7 +224,13 @@ export class SocialService {
     return enrichedPosts;
   }
 
-  async createPost(authorId: string, communityId: string, title: string, content: string) {
+  async createPost(
+    authorId: string,
+    communityId: string,
+    title: string,
+    content: string,
+    metadata?: Record<string, string>,
+  ) {
     try {
       const isMember = await this.prisma.communityMember.findFirst({
         where: { communityId, userId: authorId },
@@ -238,7 +244,7 @@ export class SocialService {
 
     try {
       return await this.prisma.post.create({
-        data: { communityId, authorId, title: title || "New Post", content },
+        data: { communityId, authorId, title: title || "New Post", content, metadata },
       });
     } catch (err) {
       return {
@@ -247,10 +253,25 @@ export class SocialService {
         authorId,
         title: title || "New Post",
         content,
+        metadata,
         createdAt: new Date(),
         updatedAt: new Date()
       };
     }
+  }
+
+  async reportPost(reporterId: string, postId: string, reason: string) {
+    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    if (!post) throw new NotFoundException("Post not found");
+
+    return this.prisma.moderationReport.create({
+      data: {
+        reporterId,
+        targetType: "COMMUNITY_POST",
+        targetId: postId,
+        reason: reason?.trim() || "Community guidelines concern",
+      },
+    });
   }
 
   async deletePost(userId: string, postId: string) {

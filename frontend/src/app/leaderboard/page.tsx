@@ -114,12 +114,12 @@ export default function LeaderboardPage() {
   const remaining = filteredStandings.slice(3);
 
   return (
-    <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-16 px-6">
-      <div className="max-w-6xl mx-auto space-y-12">
+    <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-10 sm:py-16 px-4 sm:px-6">
+      <div className="max-w-6xl mx-auto space-y-8 sm:space-y-12">
         {/* Page Header */}
         <div className="space-y-4">
           <span className="brutal-tape text-xs uppercase select-none">EVENT VOTING LEADERBOARD</span>
-          <h1 className="font-display font-extrabold text-4xl sm:text-5xl lg:text-7xl uppercase tracking-tighter">
+          <h1 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-7xl uppercase tracking-tighter leading-none">
             THE <span className="inline-block">STAGEVERSE</span> <span className="text-red-stage inline-block">CHARTS</span>
           </h1>
           <p className="font-space text-base font-bold text-gray-700 max-w-xl">
@@ -128,15 +128,15 @@ export default function LeaderboardPage() {
         </div>
 
         {/* Filters and Search */}
-        <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
+        <div className="border-3 border-[#121212] bg-[#FAF8F5] p-4 sm:p-6 rounded shadow-brutal flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           {/* Timeframe & Event selector */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-            <div className="flex border-3 border-[#121212] rounded overflow-hidden bg-white">
+            <div className="grid grid-cols-3 border-3 border-[#121212] rounded overflow-hidden bg-white w-full sm:w-auto">
               {(["ALL_TIME", "MONTHLY", "EVENT"] as const).map(tf => (
                 <button
                   key={tf}
                   onClick={() => setTimeframe(tf)}
-                  className={`py-2.5 px-4 font-display font-black text-xs uppercase transition-colors cursor-pointer ${
+                  className={`py-2.5 px-2 sm:px-4 font-display font-black text-[10px] sm:text-xs uppercase transition-colors cursor-pointer ${
                     timeframe === tf ? "bg-[#121212] text-white" : "bg-white text-[#121212] hover:bg-gray-100"
                   }`}
                 >
@@ -184,10 +184,10 @@ export default function LeaderboardPage() {
 
         {/* Podium Display */}
         {filteredStandings.length > 0 && !loading && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end pt-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 items-end pt-2 sm:pt-8">
             {/* 2nd Place */}
             {topThree[1] && (
-              <div className="border-3 border-[#121212] bg-white p-6 rounded shadow-brutal flex flex-col items-center text-center space-y-4 md:order-1 order-2">
+              <div className="border-3 border-[#121212] bg-white p-4 sm:p-6 rounded shadow-brutal flex flex-col items-center text-center space-y-3 sm:space-y-4 md:order-1 order-2">
                 <div className="relative">
                   <img
                     src={topThree[1].avatar}
@@ -213,7 +213,7 @@ export default function LeaderboardPage() {
 
             {/* 1st Place */}
             {topThree[0] && (
-              <div className="border-3 border-[#121212] bg-white p-8 rounded shadow-brutal flex flex-col items-center text-center space-y-4 md:order-2 order-1 md:scale-105 relative overflow-hidden">
+              <div className="border-3 border-[#121212] bg-white p-5 sm:p-8 rounded shadow-brutal flex flex-col items-center text-center space-y-3 sm:space-y-4 md:order-2 order-1 md:scale-105 relative overflow-hidden">
                 <div className="absolute top-0 right-0 bg-yellow-festival border-b-2 border-l-2 border-[#121212] p-2">
                   <Trophy size={20} className="text-[#121212]" />
                 </div>
@@ -243,7 +243,7 @@ export default function LeaderboardPage() {
 
             {/* 3rd Place */}
             {topThree[2] && (
-              <div className="border-3 border-[#121212] bg-white p-6 rounded shadow-brutal flex flex-col items-center text-center space-y-4 md:order-3 order-3">
+              <div className="border-3 border-[#121212] bg-white p-4 sm:p-6 rounded shadow-brutal flex flex-col items-center text-center space-y-3 sm:space-y-4 md:order-3 order-3">
                 <div className="relative">
                   <img
                     src={topThree[2].avatar}

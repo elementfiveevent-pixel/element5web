@@ -10,7 +10,7 @@ import { io, Socket } from "socket.io-client";
 import {
   ArrowLeft, Calendar, MapPin, Users, Check, Vote, Flame,
   AlertCircle, Tag, Shield, ExternalLink, LayoutDashboard,
-  Clock, Ticket, BarChart2, PlusCircle, X, Radio, CheckCircle2
+  Clock, Ticket, BarChart2, PlusCircle, X, Radio, CheckCircle2, Eye
 } from "lucide-react";
 import QRTicket from "@/components/ui/QRTicket";
 import SupabaseUpload from "@/components/ui/SupabaseUpload";
@@ -32,7 +32,7 @@ interface BackendEvent {
   showLeaderboard?: boolean;
   votingActive?: boolean;
 }
-interface MyTicket { id: string; qrCode: string | null; isUsed: boolean; usedAt?: string; paymentStatus: string; customData?: Record<string, any> }
+interface MyTicket { id: string; qrCode: string | null; isUsed: boolean; usedAt?: string; paymentStatus: string; totalAmount?: string | number; customData?: Record<string, any> }
 
 // ── Skeleton ───────────────────────────────────────────────────────────────────
 function Skeleton() {
@@ -91,7 +91,6 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
   const [myTickets, setMyTickets] = useState<MyTicket[]>([]);
   const [regError, setRegError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("");
-  const [liveCount, setLiveCount] = useState(148);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [registrationType, setRegistrationType] = useState<"AUDIENCE" | "ARTIST">("AUDIENCE");
   const [registrationStep, setRegistrationStep] = useState<"SELECT" | "PAYMENT">("SELECT");
@@ -118,8 +117,6 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
   const isCompleted = event ? ["COMPLETED","ARCHIVED","CANCELLED"].includes(event.status) : false;
   const hasTickets = myTickets.length > 0;
   const hasPendingTicket = myTickets.some((ticket) => ticket.paymentStatus === "PENDING");
-
-  useEffect(() => { const iv = setInterval(() => setLiveCount((p) => Math.max(10, p + Math.floor(Math.random()*5)-2)), 4000); return () => clearInterval(iv); }, []);
 
   useEffect(() => {
     (async () => {
@@ -148,7 +145,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
     try {
       const tickets: any[] = await api.get("/events/attendee/my-tickets");
       const mine = tickets.filter((ticket) => ticket.event.id === event.id || ticket.event.slug === event.slug);
-      setMyTickets(mine.map((ticket) => ({ id: ticket.ticketId, qrCode: ticket.qrCode, isUsed: ticket.isUsed, usedAt: ticket.usedAt, paymentStatus: ticket.paymentStatus, customData: ticket.customData })));
+      setMyTickets(mine.map((ticket) => ({ id: ticket.ticketId, qrCode: ticket.qrCode, isUsed: ticket.isUsed, usedAt: ticket.usedAt, paymentStatus: ticket.paymentStatus, totalAmount: ticket.totalAmount, customData: ticket.customData })));
     } catch {
       // Keep the last successfully loaded ticket state visible.
     }
@@ -470,7 +467,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
             {/* Flyer (Left Side) */}
             <div className="w-full lg:w-2/5 aspect-[4/5] border-b-4 lg:border-b-0 lg:border-r-4 border-[#121212] overflow-hidden flex-shrink-0 bg-[#121212] relative">
               {event.flyerUrl ? (
-                <img src={event.flyerUrl} alt={event.title} className="w-full h-full object-cover" />
+                <img src={event.flyerUrl} alt={event.title} className="w-full h-full object-contain" />
               ) : (
                 <div className="w-full h-full min-h-[220px] bg-gradient-to-br from-[#1a1a1a] to-[#333] flex items-center justify-center">
                   <span className="font-display font-black text-9xl text-white/[0.04]">E5</span>
@@ -479,7 +476,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
             </div>
 
             {/* Info (Right Side) */}
-            <div className="flex-1 p-6 sm:p-8 space-y-5">
+            <div className="flex-1 p-5 sm:p-8 space-y-5 min-w-0">
               <div className="flex items-start gap-3 flex-wrap">
                 <span className="font-black text-[9px] uppercase bg-red-stage text-white px-2.5 py-1 rounded">
                   {event.category}
@@ -491,7 +488,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                 )}
               </div>
 
-              <h1 className="font-display font-extrabold text-3xl sm:text-5xl uppercase tracking-tighter leading-none text-yellow-festival">
+              <h1 className="font-display font-extrabold text-3xl sm:text-5xl uppercase tracking-tighter leading-none text-yellow-festival break-words">
                 {event.title}
               </h1>
 
@@ -501,8 +498,8 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                 </p>
               )}
 
-              <div className="flex flex-wrap gap-3 text-[11px] font-black uppercase">
-                <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded">
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 text-[10px] sm:text-[11px] font-black uppercase">
+                <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded min-w-0">
                   <Calendar size={11} /> {formattedStart}
                 </span>
                 {event.location && (
@@ -515,6 +512,9 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                 </span>
                 <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded">
                   <Tag size={11} /> {event.isPaid ? `₹${event.price}` : "FREE ENTRY"}
+                </span>
+                <span className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded">
+                  <Eye size={11} /> {event.viewsCount ?? 0} Views
                 </span>
               </div>
 
@@ -544,10 +544,6 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                     {registering ? "PROCESSING…" : user ? "REGISTER EVENT" : "LOGIN TO REGISTER"}
                   </button>
                 )}
-                <div className="flex items-center gap-2 text-[11px] bg-red-stage/20 border border-red-stage text-red-400 font-black px-4 py-2 rounded">
-                  <span className="w-2 h-2 rounded-full bg-red-stage animate-ping" />
-                  {liveCount} VIEWING
-                </div>
               </div>
 
               {regError && (
@@ -662,15 +658,15 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                   eventTitle={event.title} eventDate={formattedStart}
                   venueName={event.location?.venueName} venueCity={event.location?.city}
                   category={event.category} participationType={t.customData?.participationType || registrationType}
-                  paymentStatus={t.paymentStatus} totalAmount={event.price} />
+                  paymentStatus={t.paymentStatus} totalAmount={t.totalAmount} />
               ))}
             </div>
           </div>
         )}
 
         {/* ── Venue & Details ──────────────────────────────────────────────── */}
-        <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal space-y-6">
-          <h2 className="font-display font-black text-2xl uppercase tracking-tight border-b-3 border-[#121212] pb-3">
+        <div className="border-3 border-[#121212] bg-[#FAF8F5] p-4 sm:p-6 rounded shadow-brutal space-y-4">
+          <h2 className="font-display font-black text-xl sm:text-2xl uppercase tracking-tight border-b-3 border-[#121212] pb-3">
             Venue &amp; Location
           </h2>
 
@@ -687,19 +683,20 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
               const mapsUrl = loc.mapsLink || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([loc.venueName, loc.venueAddress, loc.city, loc.state].filter(Boolean).join(", "))}`;
 
               return (
-                <div className="space-y-4 pt-2 font-space">
-                  {loc.venueName && <h4 className="font-display font-extrabold text-xl">{loc.venueName}</h4>}
+                <div className="space-y-3 pt-1 font-space">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 flex-shrink-0 border-2 border-[#121212] bg-yellow-festival rounded flex items-center justify-center"><MapPin size={16} /></div>
+                    <div className="min-w-0">
+                      {loc.venueName && <h4 className="font-display font-extrabold text-lg leading-tight">{loc.venueName}</h4>}
+                      {(loc.city || loc.state) && <p className="font-space text-xs text-[#121212]/50 font-bold mt-1">{loc.city}{loc.city && loc.state ? ", " : ""}{loc.state}</p>}
+                    </div>
+                  </div>
                   {loc.venueAddress && (
-                    <p className="font-space text-sm text-[#121212]/70 font-bold flex items-center gap-1.5">
-                      <MapPin size={15} className="text-red-stage flex-shrink-0" /> {loc.venueAddress}
+                    <p className="font-space text-xs sm:text-sm text-[#121212]/70 font-bold leading-relaxed">
+                      {loc.venueAddress}
                     </p>
                   )}
-                  {(loc.city || loc.state) && (
-                    <p className="font-space text-xs text-[#121212]/50 font-bold">
-                      {loc.city}{loc.city && loc.state ? ", " : ""}{loc.state}
-                    </p>
-                  )}
-                  <div className="pt-2">
+                  <div className="pt-1">
                     <a
                       href={mapsUrl}
                       target="_blank"
@@ -721,7 +718,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 
           {/* End date */}
           {event.endDate && (
-            <div className="border-t border-[#121212]/10 pt-4 flex items-center gap-3">
+            <div className="border-t border-[#121212]/10 pt-3 flex items-center gap-3">
               <Clock size={18} className="text-orange-burnt flex-shrink-0" />
               <div>
                 <span className="font-display font-black text-xs uppercase text-[#121212]/50 block">Event ends</span>
@@ -734,10 +731,12 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 
           {/* Terms */}
           {event.termsConditions && (
-            <div className="border-t border-[#121212]/10 pt-4 space-y-2">
-              <h3 className="font-display font-black text-sm uppercase">Terms &amp; Conditions</h3>
-              <p className="font-space text-xs text-[#121212]/60 leading-relaxed font-bold">{event.termsConditions}</p>
-            </div>
+            <details className="border-t border-[#121212]/10 pt-3 group">
+              <summary className="font-display font-black text-sm uppercase cursor-pointer list-none flex items-center justify-between gap-3">
+                Terms &amp; Conditions <span className="text-red-stage transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <p className="font-space text-xs text-[#121212]/60 leading-relaxed font-bold pt-3">{event.termsConditions}</p>
+            </details>
           )}
         </div>
 

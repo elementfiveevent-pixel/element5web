@@ -153,9 +153,7 @@ function mapBackend(data: BackendArtistProfile): Artist {
       avatar: (data.user?.profilePhotoUrl && data.user.profilePhotoUrl.startsWith("http"))
         ? data.user.profilePhotoUrl 
         : `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(data.stageName || "Artist")}&backgroundColor=121212&textColor=FAF8F5`,
-      cover: (data.portfolioUrls && data.portfolioUrls[0] && data.portfolioUrls[0].startsWith("http"))
-        ? data.portfolioUrls[0]
-        : "https://images.unsplash.com/photo-1540039155733-5bb30b4f21f0?w=1200&h=400&fit=crop",
+      cover: "",
       videos: data.performances?.filter((p) => p.videoUrl).map((p) => ({
         title: `Performance on ${new Date(p.performanceDate).toLocaleDateString()}`,
         url: p.videoUrl!,
@@ -288,34 +286,14 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
         </Link>
 
         {/* ── Profile Card ── */}
-        <div className="border-4 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal overflow-hidden">
-          {/* Cover */}
-          <div className="h-56 bg-gradient-to-r from-[#121212] via-[#2A2928] to-[#121212] border-b-4 border-[#121212] relative overflow-hidden">
-            {artist.cover && (
-              <img 
-                src={artist.cover} 
-                alt={artist.name} 
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&h=400&fit=crop";
-                }} 
-              />
-            )}
-            <div className="absolute bottom-4 right-4 flex gap-2">
-              {artist.badges.includes("Verified") && (
-                <span className="brutal-tape text-xs bg-green-400 rotate-[2deg]">✓ VERIFIED CREATOR</span>
-              )}
-              <span className="brutal-tape text-xs rotate-[-2deg]">🔥 {artist.availability}</span>
-            </div>
-          </div>
-
-          <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="border-4 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal">
+          <div className="p-5 sm:p-6 md:p-8 grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8">
             {/* Left column */}
             <div className="md:col-span-1 flex flex-col items-center md:items-start text-center md:text-left space-y-4">
               <img
                 src={artist.avatar}
                 alt={artist.name}
-                className="w-36 h-36 rounded object-cover border-4 border-[#121212] bg-white -mt-24 shadow-brutal relative z-10"
+                className="w-28 h-28 sm:w-32 sm:h-32 rounded object-cover border-4 border-[#121212] bg-white shadow-brutal"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(artist.name || "Artist")}&backgroundColor=121212&textColor=FAF8F5`;
                 }}
@@ -328,7 +306,7 @@ export default function ArtistProfile({ params }: { params: Promise<{ id: string
                 </p>
                 {artist.availability && (
                   <span className="inline-block bg-green-500 text-white font-display font-black text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border border-green-500 mt-1 select-none">
-                    🟢 {artist.availability}
+                    {artist.availability}
                   </span>
                 )}
               </div>

@@ -4,7 +4,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useApp, Artist } from "@/context/AppContext";
 import { api } from "@/lib/api";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Search, MapPin, Grid, Map, ChevronRight, Navigation, AlertCircle } from "lucide-react";
+
+const CreatorMap = dynamic(() => import("@/components/ui/CreatorMap"), { ssr: false });
 
 // Skeleton card
 function ArtistCardSkeleton() {
@@ -45,7 +48,9 @@ interface BackendArtist {
   user?: { fullName: string; profilePhotoUrl?: string };
 }
 
-function mapBackendArtist(a: BackendArtist): Artist {
+type DirectoryArtist = Artist & { latitude?: number; longitude?: number };
+
+function mapBackendArtist(a: BackendArtist): DirectoryArtist {
   return {
     id: a.userId || a.id,
     name: a.stageName || a.user?.fullName || "Unknown Artist",
@@ -69,12 +74,14 @@ function mapBackendArtist(a: BackendArtist): Artist {
     availability: a.availabilityStatus === "AVAILABLE" ? "Available" : a.availabilityStatus === "BOOKED" ? "Booked" : "Collab Only",
     collaborationsOpen: a.availabilityStatus !== "UNAVAILABLE",
     socials: {},
+    latitude: a.latitude,
+    longitude: a.longitude,
   };
 }
 
 export default function DiscoverArtists() {
   const { artists: localArtists } = useApp();
-  const [displayArtists, setDisplayArtists] = useState<Artist[]>([]);
+  const [displayArtists, setDisplayArtists] = useState<DirectoryArtist[]>([]);
   const [loading, setLoading] = useState(true);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyError, setNearbyError] = useState<string | null>(null);
@@ -83,6 +90,7 @@ export default function DiscoverArtists() {
   const [selectedGenre, setSelectedGenre] = useState("All");
   const [selectedLocation, setSelectedLocation] = useState("All");
   const [viewMode, setViewMode] = useState<"grid" | "map">("grid");
+  const [visibleCities, setVisibleCities] = useState<string[]>([]);
 
   const locations = ["All", "Ahmedabad", "Surat", "Vadodara", "Rajkot"];
   const genres = ["All", "Poetry", "Rap", "Singing", "Comedy", "Beatbox"];
@@ -160,6 +168,11 @@ export default function DiscoverArtists() {
     );
   }, [localArtists]);
 
+  const handleMapCitySelect = useCallback((city: string) => {
+    setSelectedLocation(city);
+    setViewMode("grid");
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#FFF5E4] text-[#121212] py-10 sm:py-14 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto space-y-12">
@@ -176,9 +189,9 @@ export default function DiscoverArtists() {
         </div>
 
         {/* Filters */}
-        <div className="border-3 border-[#121212] bg-[#FAF8F5] p-6 rounded shadow-brutal flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 flex-wrap">
+        <div className="border-3 border-[#121212] bg-[#FAF8F5] p-4 sm:p-6 rounded shadow-brutal flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 flex-wrap">
           <div className="flex-1 flex flex-wrap items-center gap-4">
-            <div className="relative flex-1 min-w-[240px]">
+            <div className="relative flex-1 min-w-0 sm:min-w-[240px]">
               <span className="absolute inset-y-0 left-3 flex items-center text-gray-400">
                 <Search size={18} />
               </span>
@@ -247,7 +260,7 @@ export default function DiscoverArtists() {
 
         {/* ── GRID VIEW ── */}
         {viewMode === "grid" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 min-[440px]:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
             {loading ? (
               Array.from({ length: 6 }).map((_, i) => <ArtistCardSkeleton key={i} />)
             ) : displayArtists.length === 0 ? (
@@ -260,7 +273,7 @@ export default function DiscoverArtists() {
               displayArtists.map((artist) => (
                 <div
                   key={artist.id}
-                  className="bg-white border-3 border-[#121212] p-6 rounded shadow-brutal hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-brutal-yellow transition-all flex flex-col justify-between"
+                  className="bg-white border-3 border-[#121212] p-4 sm:p-6 rounded shadow-brutal hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-brutal-yellow transition-all flex flex-col justify-between"
                 >
                   <div className="space-y-6">
                     {/* Cover */}
@@ -337,92 +350,13 @@ export default function DiscoverArtists() {
 
         {/* ── MAP VIEW ── */}
         {viewMode === "map" && (
-          <div className="border-3 border-[#121212] bg-[#121212] text-[#FAF8F5] p-5 sm:p-8 rounded shadow-brutal min-h-[500px] flex flex-col lg:flex-row gap-8 lg:gap-12 items-center justify-between">
-            <div className="lg:w-1/2 space-y-6">
-              <span className="brutal-tape-red text-xs">VIRTUAL RADIUS</span>
-              <h2 className="font-display font-extrabold text-4xl uppercase tracking-tighter text-yellow-festival">
-                GUJARAT CREATIVE HUB
-              </h2>
-              <p className="font-space text-sm text-[#FAF8F5]/80">
-                Click on a region to filter creators by city. Use "NEARBY" to find artists within 100km of your current location.
-              </p>
-
-              <div className="space-y-3">
-                {[
-                  { name: "Ahmedabad", key: "Ahmedabad" },
-                  { name: "Surat", key: "Surat" },
-                  { name: "Vadodara", key: "Vadodara" },
-                  { name: "Rajkot", key: "Rajkot" },
-                ].map(({ name, key }) => {
-                  const count = loading
-                    ? 0
-                    : displayArtists.filter((a) => a.location.toLowerCase().includes(key.toLowerCase())).length;
-                  return (
-                    <div
-                      key={key}
-                      onClick={() => { setSelectedLocation(key); setViewMode("grid"); }}
-                      className={`border-2 p-3 rounded cursor-pointer flex justify-between items-center transition-all ${
-                        selectedLocation === key
-                          ? "bg-yellow-festival text-[#121212] border-yellow-festival"
-                          : "border-[#FAF8F5]/20 hover:border-white"
-                      }`}
-                    >
-                      <span className="font-display font-bold">{name} District</span>
-                      <span className="text-xs font-black bg-red-stage text-white px-2 py-0.5 rounded">
-                        {count} Creators
-                      </span>
-                    </div>
-                  );
-                })}
-                {selectedLocation !== "All" && (
-                  <button
-                    onClick={() => setSelectedLocation("All")}
-                    className="w-full text-center text-xs font-black underline text-red-stage hover:text-red-400 mt-2 block"
-                  >
-                    RESET MAP FILTER
-                  </button>
-                )}
-              </div>
-
-              <button
-                onClick={handleNearbySearch}
-                disabled={nearbyLoading}
-                className="flex items-center gap-2 border-2 border-yellow-festival text-yellow-festival font-black uppercase text-xs px-4 py-2 rounded hover:bg-yellow-festival hover:text-[#121212] transition-all disabled:opacity-50"
-              >
-                <Navigation size={14} className={nearbyLoading ? "animate-spin" : ""} />
-                {nearbyLoading ? "LOCATING YOU..." : "FIND CREATORS NEAR ME"}
-              </button>
+          <div className="border-3 border-[#121212] bg-[#121212] text-[#FAF8F5] p-4 sm:p-6 rounded shadow-brutal space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+              <div><span className="brutal-tape-red text-xs">LOCALITY-LEVEL VIEW</span><h2 className="font-display font-extrabold text-2xl sm:text-3xl uppercase tracking-tighter text-yellow-festival mt-2">GUJARAT CREATOR MAP</h2></div>
+              <p className="font-space text-xs text-[#FAF8F5]/70 sm:max-w-xs">Markers show creator availability by city, never an exact address. Pan and zoom to refine the visible localities.</p>
             </div>
-
-            {/* Gujarat SVG Map */}
-            <div className="lg:w-1/2 flex justify-center">
-              <svg viewBox="0 0 500 500" className="w-full max-w-[380px] aspect-square h-auto filter drop-shadow-[0_8px_16px_rgba(0,0,0,0.5)]">
-                <path
-                  d="M100,100 L250,50 L400,120 L450,220 L380,320 L280,380 L180,320 L150,240 L100,100 Z"
-                  fill="#0F0E0E" stroke="#FAF8F5" strokeWidth="3" strokeDasharray="4"
-                />
-                {[
-                  { cx: 280, cy: 180, label: "AHMEDABAD", key: "Ahmedabad" },
-                  { cx: 340, cy: 260, label: "VADODARA", key: "Vadodara" },
-                  { cx: 310, cy: 340, label: "SURAT", key: "Surat" },
-                  { cx: 180, cy: 230, label: "RAJKOT", key: "Rajkot" },
-                ].map(({ cx, cy, label, key }) => (
-                  <g key={key} className="cursor-pointer" onClick={() => { setSelectedLocation(key); setViewMode("grid"); }}>
-                    <circle
-                      cx={cx} cy={cy} r={selectedLocation === key ? 18 : 14}
-                      fill={selectedLocation === key ? "#FFDE4D" : "#D80032"}
-                      stroke="#FAF8F5" strokeWidth="2"
-                    />
-                    {selectedLocation === key && (
-                      <circle cx={cx} cy={cy} r="28" fill="none" stroke="#FFDE4D" strokeWidth="1" opacity="0.4" className="animate-ping" />
-                    )}
-                    <text x={cx} y={cy + (selectedLocation === key ? 38 : 34)} textAnchor="middle" fill="#FAF8F5" fontSize="10" fontWeight="bold">
-                      {label}
-                    </text>
-                  </g>
-                ))}
-              </svg>
-            </div>
+            <CreatorMap creators={displayArtists} onCitySelect={handleMapCitySelect} onVisibleCities={setVisibleCities} />
+            <div className="flex items-center justify-between gap-3 text-[10px] font-black uppercase"><span>{visibleCities.length ? `Visible: ${visibleCities.join(", ")}` : "Zoom out to see localities"}</span><button onClick={handleNearbySearch} disabled={nearbyLoading} className="text-yellow-festival hover:underline">{nearbyLoading ? "Locating..." : "Find near me"}</button></div>
           </div>
         )}
 

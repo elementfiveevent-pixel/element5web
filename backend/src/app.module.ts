@@ -12,6 +12,7 @@ import { MediaModule } from "./modules/media/media.module";
 import { AdminModule } from "./modules/admin/admin.module";
 import { StatsModule } from "./modules/stats/stats.module";
 import { HighlightModule } from "./modules/highlight/highlight.module";
+import { SocialModule } from "./modules/social/social.module";
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { HighlightModule } from "./modules/highlight/highlight.module";
     AdminModule,
     StatsModule,
     HighlightModule,
+    SocialModule,
   ],
 })
 export class AppModule {}

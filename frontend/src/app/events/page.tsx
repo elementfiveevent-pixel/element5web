@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import Link from "next/link";
 import {
   Search, Calendar, MapPin, Users, ArrowRight, Flame, Tag,
-  Clock, Trophy, Ticket
+  Clock, Trophy, Ticket, SlidersHorizontal, X
 } from "lucide-react";
 
 interface BackendEvent {
@@ -59,6 +59,7 @@ function EventsContent() {
   const [city, setCity] = useState("All");
   const [events, setEvents] = useState<BackendEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const mapLocal = useCallback(
     (tab: "upcoming" | "past"): BackendEvent[] =>
@@ -148,7 +149,14 @@ function EventsContent() {
         </div>
 
         {/* Filters */}
-        <div className="border-3 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal p-4 flex flex-col gap-3">
+        <div className="border-3 border-[#121212] bg-[#FAF8F5] rounded shadow-brutal p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-3 sm:hidden">
+            <span className="font-display font-black text-xs uppercase">Find events</span>
+            <button onClick={() => setFiltersOpen((open) => !open)} className="border-2 border-[#121212] bg-white p-2 rounded" aria-expanded={filtersOpen} aria-label="Toggle event filters">
+              {filtersOpen ? <X size={16} /> : <SlidersHorizontal size={16} />}
+            </button>
+          </div>
+          <div className={`${filtersOpen ? "flex" : "hidden"} sm:flex flex-col gap-3 mt-3 sm:mt-0`}>
           <div className="relative w-full">
             <Search size={16} className="absolute inset-y-0 left-3 my-auto text-[#121212]/40" />
             <input type="text" placeholder="Search events…" value={search}
@@ -169,6 +177,7 @@ function EventsContent() {
                 {events.length} event{events.length !== 1 ? "s" : ""}
               </span>
             )}
+          </div>
           </div>
         </div>
 
@@ -205,9 +214,9 @@ function EventsContent() {
                   className={`bg-white border-3 border-[#121212] rounded shadow-brutal hover:translate-x-[-4px] hover:translate-y-[-4px] hover:shadow-brutal-yellow transition-all flex flex-col sm:flex-row overflow-hidden ${isCompleted ? "opacity-75" : ""}`}>
                   
                   {/* Flyer (Left Side) */}
-                  <div className="w-full sm:w-2/5 aspect-video sm:aspect-[4/5] bg-[#121212] border-b-3 sm:border-b-0 sm:border-r-3 border-[#121212] overflow-hidden flex-shrink-0 relative">
+                  <div className="w-full sm:w-2/5 aspect-[4/5] bg-[#121212] border-b-3 sm:border-b-0 sm:border-r-3 border-[#121212] overflow-hidden flex-shrink-0 relative">
                     {event.flyerUrl ? (
-                      <img src={event.flyerUrl} alt={event.title} className="w-full h-full object-cover" />
+                      <img src={event.flyerUrl} alt={event.title} className="w-full h-full object-contain" loading="lazy" />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-[#121212] to-[#2a2a2a] flex items-center justify-center">
                         <span className="font-display font-black text-7xl text-white/[0.06]">E5</span>

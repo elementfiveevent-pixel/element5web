@@ -52,7 +52,7 @@ export default function QRTicket({
       canvasRef.current!,
       qrCode,
       {
-        width: compact ? 140 : 200,
+        width: compact ? 128 : 164,
         margin: 2,
         color: { dark: "#121212", light: "#FAF8F5" },
         errorCorrectionLevel: "H",
@@ -111,11 +111,11 @@ export default function QRTicket({
       style={{ opacity: isUsed ? 0.75 : 1 }}
     >
       {/* Top bar */}
-      <div className="bg-[#0F0E0E] px-4 py-2.5 flex items-center justify-between border-b border-[#FAF8F5]/10">
+      <div className="bg-[#0F0E0E] px-3.5 py-2 flex items-center justify-between gap-2 border-b border-[#FAF8F5]/10">
         <div className="flex items-center gap-2">
           <QrCode size={14} className="text-yellow-festival" />
           <span className="font-display font-black text-[10px] uppercase tracking-widest text-[#FAF8F5]">
-            E5 ADMISSION TICKET
+            E5 TICKET
           </span>
         </div>
         <span className={`flex items-center gap-1 font-black text-[9px] uppercase px-2 py-0.5 rounded ${status.badge}`}>
@@ -124,14 +124,14 @@ export default function QRTicket({
       </div>
 
       {/* Ticket body */}
-      <div className="p-4 flex flex-col sm:flex-row gap-4 items-center sm:items-start bg-[#FAF8F5] text-[#121212]">
+      <div className="p-3.5 flex flex-col sm:flex-row gap-3.5 items-center sm:items-start bg-[#FAF8F5] text-[#121212]">
         {/* QR is intentionally unavailable until the organizer approves payment. */}
         {hasActiveQr ? (
           <div className="flex-shrink-0 border-3 border-[#121212] bg-[#FAF8F5] p-1 rounded flex justify-center max-w-full sm:w-auto">
             <canvas ref={canvasRef} className="block rounded max-w-full" />
           </div>
         ) : (
-          <div className="w-full sm:w-[208px] min-h-[156px] flex-shrink-0 border-3 border-dashed border-[#121212]/30 bg-[#121212]/5 p-4 rounded flex flex-col items-center justify-center text-center gap-2">
+          <div className="w-full sm:w-[172px] min-h-[140px] flex-shrink-0 border-3 border-dashed border-[#121212]/30 bg-[#121212]/5 p-4 rounded flex flex-col items-center justify-center text-center gap-2">
             {paymentStatus === "REJECTED" ? <AlertCircle size={24} className="text-red-stage" /> : <Clock size={24} className="text-yellow-700" />}
             <span className="font-display font-black text-[10px] uppercase tracking-wide">
               {paymentStatus === "REJECTED" ? "Payment Not Approved" : "QR Locked"}
@@ -161,7 +161,7 @@ export default function QRTicket({
           </div>
 
           {!compact && (
-            <div className="grid grid-cols-2 gap-2 pt-1 text-left">
+          <div className="grid grid-cols-2 gap-2 pt-1 text-left">
               <div className="bg-[#121212]/5 border border-[#121212]/10 rounded p-2">
                 <span className="text-[9px] font-black uppercase text-[#121212]/40 block">Ticket ID</span>
                 <span className="font-mono text-[10px] font-black">{ticketId.slice(0, 8).toUpperCase()}</span>
