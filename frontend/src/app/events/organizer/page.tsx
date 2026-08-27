@@ -10,7 +10,7 @@ import {
   LayoutDashboard, BarChart2, Users, QrCode, Ticket, PlusCircle,
   RefreshCw, AlertCircle, Check, X, CheckCircle, Clock, XCircle,
   Calendar, MapPin, TrendingUp, Eye, EyeOff, Trash2, ArrowRight, Camera, Loader2,
-  ChevronDown, ChevronUp, Search, Radio, Vote, Pencil, Download, Tv
+  ChevronDown, ChevronUp, Search, Radio, Vote, Pencil, Download, Tv, Mail
 } from "lucide-react";
 import QRCode from "qrcode";
 import { supabase } from "@/lib/supabaseClient";
@@ -107,6 +107,9 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [expandedRegId, setExpandedRegId] = useState<string | null>(null);
+  const [selectedForResend, setSelectedForResend] = useState<Set<string>>(new Set());
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [bulkResending, setBulkResending] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -160,10 +163,48 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
   const review = async (id: string, action: "APPROVED" | "REJECTED") => {
     setReviewing(id);
     try {
-      await api.patch(`/events/registrations/${id}/review`, { action });
-      setRegs((prev) => prev.map((r) => r.id === id ? { ...r, paymentStatus: action } : r));
-    } catch {}
+      const updated = await api.patch(`/events/registrations/${id}/review`, { action });
+      setRegs((prev) => prev.map((r) => r.id === id ? { ...r, ...updated, paymentStatus: action } : r));
+      showToast(action === "APPROVED" ? "Registration approved. Ticket email is being sent." : "Registration rejected.", action === "APPROVED" ? "success" : "info");
+    } catch (error: any) { showToast(error?.message || "Could not review registration.", "error"); }
     finally { setReviewing(null); }
+  };
+
+  const resendTicket = async (registrationId: string) => {
+    setResendingId(registrationId);
+    try {
+      await api.post(`/events/registrations/${registrationId}/resend-ticket`);
+      const sentAt = new Date().toISOString();
+      setRegs((prev) => prev.map((registration) => registration.id === registrationId ? {
+        ...registration,
+        customData: { ...registration.customData, ticketEmail: { ...(registration.customData?.ticketEmail || {}), status: "RESENT", lastSentAt: sentAt, error: null } },
+      } : registration));
+      showToast("Ticket email resent.", "success");
+    } catch (error: any) {
+      const message = error?.message || "Could not send the ticket email.";
+      setRegs((prev) => prev.map((registration) => registration.id === registrationId ? {
+        ...registration,
+        customData: { ...registration.customData, ticketEmail: { ...(registration.customData?.ticketEmail || {}), status: "FAILED", error: message } },
+      } : registration));
+      showToast(message, "error");
+    } finally { setResendingId(null); }
+  };
+
+  const bulkResendTickets = async () => {
+    const registrationIds = [...selectedForResend];
+    if (!registrationIds.length) return;
+    setBulkResending(true);
+    try {
+      const result = await api.post(`/events/${eventId}/registrations/resend-tickets`, { registrationIds });
+      const queuedIds = new Set<string>(result.registrationIds || registrationIds);
+      setRegs((prev) => prev.map((registration) => queuedIds.has(registration.id) ? {
+        ...registration,
+        customData: { ...registration.customData, ticketEmail: { ...(registration.customData?.ticketEmail || {}), status: "SENDING", error: null } },
+      } : registration));
+      setSelectedForResend(new Set());
+      showToast(`${result.queued || 0} ticket email${result.queued === 1 ? "" : "s"} queued in batches.`, "success");
+    } catch (error: any) { showToast(error?.message || "Could not queue ticket emails.", "error"); }
+    finally { setBulkResending(false); }
   };
 
   const filtered = regs.filter((r) => {
@@ -174,6 +215,13 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
       || (typeFilter === "ARTIST" && isArtist)
       || (typeFilter === "AUDIENCE" && !isArtist);
     return matchSearch && matchFilter && matchType;
+  });
+  const approvedFilteredIds = filtered.filter((registration) => registration.paymentStatus === "APPROVED").map((registration) => registration.id);
+  const toggleAllApproved = () => setSelectedForResend((current) => {
+    const next = new Set(current);
+    const allSelected = approvedFilteredIds.length > 0 && approvedFilteredIds.every((id) => next.has(id));
+    approvedFilteredIds.forEach((id) => allSelected ? next.delete(id) : next.add(id));
+    return next;
   });
 
   const handleExportCSV = () => {
@@ -273,6 +321,14 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
         >
           <Download size={13} /> Export Sheet
         </button>
+        <button onClick={toggleAllApproved} disabled={!approvedFilteredIds.length}
+          className="px-4 py-2.5 border-2 border-[#121212] bg-white text-[#121212] font-display font-black text-xs uppercase tracking-tight rounded hover:bg-[#FAF8F5] disabled:opacity-40">
+          {approvedFilteredIds.length && approvedFilteredIds.every((id) => selectedForResend.has(id)) ? "Clear email selection" : "Select approved"}
+        </button>
+        <button onClick={bulkResendTickets} disabled={!selectedForResend.size || bulkResending}
+          className="px-4 py-2.5 border-2 border-[#121212] bg-[#121212] text-white font-display font-black text-xs uppercase tracking-tight rounded shadow-brutal-sm disabled:opacity-40 flex items-center justify-center gap-1.5">
+          <Mail size={13} /> {bulkResending ? "Queueing..." : `Resend selected (${selectedForResend.size})`}
+        </button>
       </div>
       <div className="border-3 border-[#121212] rounded overflow-hidden shadow-brutal">
         <div className="hidden sm:grid grid-cols-12 bg-[#121212] text-[#FAF8F5] px-4 py-2.5 font-display font-black text-[10px] uppercase tracking-wider">
@@ -294,6 +350,7 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
               youtubeLink: r.customData?.youtubeLink || r.user?.artistProfile?.youtubeLink || "",
               mobileNumber: r.customData?.mobileNumber || r.user?.mobileNumber || "",
             };
+            const emailStatus = r.customData?.ticketEmail;
             
             return (
               <div key={r.id} className="border-b border-[#121212]/10 bg-white">
@@ -353,7 +410,17 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
                       </>
                     )}
                     {r.paymentStatus !== "PENDING" && (
-                      <span className="text-[9px] font-black text-[#121212]/30 uppercase">Done</span>
+                      r.paymentStatus === "APPROVED" ? <>
+                        <label className="inline-flex items-center gap-1 text-[9px] font-black uppercase cursor-pointer">
+                          <input type="checkbox" checked={selectedForResend.has(r.id)} onChange={() => setSelectedForResend((current) => {
+                            const next = new Set(current); next.has(r.id) ? next.delete(r.id) : next.add(r.id); return next;
+                          })} /> Batch
+                        </label>
+                        <button onClick={() => void resendTicket(r.id)} disabled={resendingId === r.id}
+                          className="text-[9px] font-black bg-[#121212] text-white px-2 py-1 rounded disabled:opacity-50 hover:bg-[#333] transition-colors cursor-pointer">
+                          {resendingId === r.id ? "SENDING..." : "RESEND TICKET"}
+                        </button>
+                      </> : <span className="text-[9px] font-black text-[#121212]/30 uppercase">Done</span>
                     )}
                   </div>
                 </div>
@@ -361,6 +428,12 @@ function RegistrationsPanel({ eventId, eventTitle }: { eventId: string; eventTit
                 {/* Accordion Content */}
                 {expandedRegId === r.id && (
                   <div className="bg-[#FAF8F5] border-t border-[#121212]/5 px-4 sm:px-12 py-4 space-y-3 font-space text-xs text-[#121212]/80 animate-fade-in">
+                    {r.paymentStatus === "APPROVED" && (
+                      <div className={`border-2 p-3 rounded flex flex-wrap items-center justify-between gap-2 ${emailStatus?.status === "FAILED" ? "border-red-stage bg-red-50" : "border-[#121212]/15 bg-white"}`}>
+                        <div><span className="font-black text-[9px] uppercase text-[#121212]/45 block">Ticket email</span><span className="font-black uppercase text-[11px]">{emailStatus?.status || "NOT SENT"}</span>{emailStatus?.lastSentAt && <span className="ml-2 text-[10px] text-[#121212]/50">Last sent {new Date(emailStatus.lastSentAt).toLocaleString("en-IN")}</span>}{emailStatus?.error && <p className="text-[10px] text-red-stage mt-1">{emailStatus.error}</p>}</div>
+                        <button onClick={() => void resendTicket(r.id)} disabled={resendingId === r.id} className="border-2 border-[#121212] bg-yellow-festival px-3 py-2 text-[10px] font-black uppercase rounded disabled:opacity-50">{resendingId === r.id ? "Sending..." : "Retry email"}</button>
+                      </div>
+                    )}
                     {isUserArtist ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">

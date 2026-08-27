@@ -819,16 +819,17 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
 
       {/* Registration Selection & Payment Modal */}
       {showRegisterModal && event && (
-        <div className="fixed inset-0 z-[9999] bg-[#121212]/70 flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border-4 border-[#121212] p-6 max-w-md w-full rounded shadow-brutal space-y-6 text-[#121212] font-space relative my-8 max-h-[85vh] sm:max-h-none overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] bg-[#121212]/70 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-hidden">
+          <div className="bg-white border-4 border-[#121212] max-w-lg w-full h-[100dvh] sm:h-auto sm:max-h-[calc(100dvh-2rem)] rounded-none sm:rounded shadow-brutal text-[#121212] font-space relative flex flex-col overflow-hidden">
             {/* Close button */}
             <button 
               onClick={() => setShowRegisterModal(false)}
-              className="absolute top-4 right-4 w-8 h-8 border-2 border-[#121212] bg-white rounded flex items-center justify-center hover:bg-gray-100 font-black shadow-brutal-sm z-10"
+              className="absolute top-4 right-4 w-8 h-8 border-2 border-[#121212] bg-white rounded flex items-center justify-center hover:bg-gray-100 font-black shadow-brutal-sm z-20"
             >
               ✕
             </button>
 
+            <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 pr-4 sm:pr-5 space-y-6">
             {registrationStep === "SELECT" ? (
               <>
                 <div className="space-y-1">
@@ -903,7 +904,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                     </button>
                   </div>
                 ) : (
-                  <div className="pt-2 border-t border-[#121212]/10 flex flex-col gap-2">
+                  <div className="sticky bottom-0 -mx-5 sm:-mx-6 px-5 sm:px-6 py-3 bg-white border-t border-[#121212]/10 flex flex-col gap-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -1002,7 +1003,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                   </div>
                 )}
 
-                <div className="pt-2 border-t border-[#121212]/10 flex flex-col gap-2">
+                <div className="sticky bottom-0 -mx-5 sm:-mx-6 px-5 sm:px-6 py-3 bg-white border-t border-[#121212]/10 flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={confirmRegistration}
@@ -1021,6 +1022,7 @@ export default function EventDetail({ params }: { params: Promise<{ id: string }
                 </div>
               </>
             )}
+            </div>
           </div>
         </div>
       )}

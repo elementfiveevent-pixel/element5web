@@ -625,7 +625,7 @@ export class EventService {
   ) {
     const registration = await this.prisma.eventRegistration.findUnique({
       where: { id: registrationId },
-      include: { event: { include: { location: true } }, user: true },
+      include: { event: { include: { location: true } }, user: true, tickets: true },
     });
 
     if (!registration) {
@@ -644,24 +644,46 @@ export class EventService {
 
     if (action === "APPROVED") {
       try {
-        const ticket = await this.prisma.eventTicket.findFirst({ where: { registrationId } });
-        if (ticket?.qrCode && registration.user?.email) {
-          await this.emailService.sendApprovedTicket({
-            recipientEmail: registration.user.email,
-            recipientName: registration.user.fullName || "Element 5 attendee",
-            ticketId: ticket.id,
-            qrCode: ticket.qrCode,
-            amount: updatedRegistration.totalAmount,
-            ticketType: this.getCustomString(updatedRegistration.customData, "ticketCategoryName"),
-            event: registration.event,
-          });
-        }
+        await this.sendTicketEmailForRegistration({ ...registration, ...updatedRegistration });
       } catch (error) {
-        this.logger.error(`Registration ${registrationId} approved, but confirmation email failed: ${(error as Error).message}`);
+        // Approval remains valid even when a delivery provider is temporarily unavailable.
+        this.logger.error(`Registration ${registrationId} approved, but ticket email failed: ${(error as Error).message}`);
       }
     }
 
-    return updatedRegistration;
+    return this.prisma.eventRegistration.findUnique({ where: { id: registrationId } });
+  }
+
+  async resendTicketEmail(
+    registrationId: string,
+    organizerId: string,
+    roles: UserRole[] = [],
+  ) {
+    const registration = await this.getRegistrationForTicketEmail(registrationId);
+    await this.assertOrganizerAccess(registration.eventId, organizerId, roles);
+    await this.sendTicketEmailForRegistration(registration, true);
+    return { queued: false, registrationId, status: "RESENT" };
+  }
+
+  async bulkResendTicketEmails(
+    eventId: string,
+    registrationIds: string[] | undefined,
+    organizerId: string,
+    roles: UserRole[] = [],
+  ) {
+    await this.assertOrganizerAccess(eventId, organizerId, roles);
+    const registrations = await this.prisma.eventRegistration.findMany({
+      where: { eventId },
+      include: { event: { include: { location: true } }, user: true, tickets: true },
+    });
+    const requested = registrationIds?.length ? new Set(registrationIds) : null;
+    const approved = registrations.filter((registration: any) =>
+      registration.paymentStatus === PaymentStatus.APPROVED && (!requested || requested.has(registration.id)),
+    );
+
+    // Run in small detached batches so the organizer dashboard stays responsive.
+    setImmediate(() => void this.processTicketEmailBatch(approved));
+    return { queued: approved.length, registrationIds: approved.map((registration: any) => registration.id) };
   }
 
   async checkInTicket(
@@ -853,5 +875,88 @@ export class EventService {
     }
     const found = (value as Record<string, unknown>)[key];
     return typeof found === "string" ? found : undefined;
+  }
+
+  private getCustomObject(value: unknown): Record<string, any> {
+    if (value && typeof value === "object" && !Array.isArray(value)) return { ...(value as Record<string, any>) };
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  }
+
+  private async getRegistrationForTicketEmail(registrationId: string) {
+    const registration = await this.prisma.eventRegistration.findUnique({
+      where: { id: registrationId },
+      include: { event: { include: { location: true } }, user: true, tickets: true },
+    });
+    if (!registration) throw new NotFoundException("Registration not found");
+    return registration;
+  }
+
+  private async processTicketEmailBatch(registrations: any[]) {
+    const batchSize = 10;
+    for (let start = 0; start < registrations.length; start += batchSize) {
+      const batch = registrations.slice(start, start + batchSize);
+      await Promise.allSettled(batch.map((registration) => this.sendTicketEmailForRegistration(registration, true)));
+      if (start + batchSize < registrations.length) await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+
+  private async sendTicketEmailForRegistration(registration: any, isResend = false) {
+    if (registration.paymentStatus !== PaymentStatus.APPROVED) {
+      throw new BadRequestException("Only approved registrations can receive tickets");
+    }
+    const event = registration.event || await this.prisma.event.findUnique({ where: { id: registration.eventId }, include: { location: true } });
+    const user = registration.user || await this.prisma.user.findUnique({ where: { id: registration.userId } });
+    if (!event || !user?.email) throw new BadRequestException("Ticket email recipient is unavailable");
+
+    let ticket = Array.isArray(registration.tickets) ? registration.tickets[0] : null;
+    if (!ticket) ticket = await this.prisma.eventTicket.findFirst({ where: { registrationId: registration.id } });
+    if (!ticket) {
+      ticket = await this.prisma.eventTicket.create({
+        data: {
+          registrationId: registration.id,
+          eventId: registration.eventId,
+          userId: registration.userId,
+          qrCode: this.signTicketCode(registration.id, registration.userId, registration.eventId),
+        },
+      });
+    }
+
+    const customData = this.getCustomObject(registration.customData);
+    const emailMeta = { ...(customData.ticketEmail || {}), status: "SENDING", error: null };
+    await this.prisma.eventRegistration.update({ where: { id: registration.id }, data: { customData: { ...customData, ticketEmail: emailMeta } } });
+
+    try {
+      await this.emailService.sendApprovedTicket({
+        recipientEmail: user.email,
+        recipientName: user.fullName || "Element 5 attendee",
+        ticketId: ticket.id,
+        qrCode: ticket.qrCode,
+        amount: registration.totalAmount,
+        ticketType: this.getCustomString(customData, "ticketCategoryName"),
+        event,
+      });
+      const sentAt = new Date().toISOString();
+      await this.prisma.eventRegistration.update({
+        where: { id: registration.id },
+        data: { customData: { ...customData, ticketEmail: { ...emailMeta, status: isResend ? "RESENT" : "SENT", lastSentAt: sentAt } } },
+      });
+      return { ticket, status: isResend ? "RESENT" : "SENT", lastSentAt: sentAt };
+    } catch (error) {
+      const message = (error as Error).message.slice(0, 300);
+      await this.prisma.eventRegistration.update({
+        where: { id: registration.id },
+        data: { customData: { ...customData, ticketEmail: { ...emailMeta, status: "FAILED", error: message } } },
+      });
+      this.logger.error(`Ticket email failed for registration ${registration.id}: ${message}`);
+      throw error;
+    }
   }
 }

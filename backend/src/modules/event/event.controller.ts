@@ -172,4 +172,29 @@ export class EventController {
   ) {
     return this.eventService.reviewRegistration(registrationId, user.id, action, user.roles ?? []);
   }
+
+  @Post("registrations/:registrationId/resend-ticket")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Resend an approved attendee's existing ticket email" })
+  async resendTicket(
+    @CurrentUser() user: any,
+    @Param("registrationId") registrationId: string,
+  ) {
+    return this.eventService.resendTicketEmail(registrationId, user.id, user.roles ?? []);
+  }
+
+  @Post(":eventId/registrations/resend-tickets")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Queue a batched resend for approved event attendees" })
+  async bulkResendTickets(
+    @CurrentUser() user: any,
+    @Param("eventId") eventId: string,
+    @Body("registrationIds") registrationIds?: string[],
+  ) {
+    return this.eventService.bulkResendTicketEmails(eventId, registrationIds, user.id, user.roles ?? []);
+  }
 }

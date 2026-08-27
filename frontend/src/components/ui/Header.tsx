@@ -384,12 +384,21 @@ export const Header: React.FC = () => {
               </Link>
 
               <Link
+                href="/artists"
+                className={`hover:text-yellow-festival transition-colors ${
+                  pathname.startsWith("/artists") ? "text-yellow-festival" : ""
+                }`}
+              >
+                Creators
+              </Link>
+
+              <Link
                 href="/community"
                 className={`hover:text-yellow-festival transition-colors ${
                   pathname.startsWith("/community") ? "text-yellow-festival" : ""
                 }`}
               >
-                Creators
+                Collab Circle
               </Link>
 
               {isAdmin && (
@@ -580,13 +589,23 @@ export const Header: React.FC = () => {
                 </Link>
 
                 <Link
+                  href="/artists"
+                  onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-3 px-2 py-2.5 rounded hover:bg-[#FAF8F5]/5 transition-colors font-display font-bold text-xs uppercase tracking-wider ${
+                    pathname.startsWith("/artists") ? "text-yellow-festival" : "text-[#FAF8F5]"
+                  }`}
+                >
+                  <span className="text-yellow-festival">👥</span> Creators
+                </Link>
+
+                <Link
                   href="/community"
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 px-2 py-2.5 rounded hover:bg-[#FAF8F5]/5 transition-colors font-display font-bold text-xs uppercase tracking-wider ${
                     pathname.startsWith("/community") ? "text-yellow-festival" : "text-[#FAF8F5]"
                   }`}
                 >
-                  <span className="text-yellow-festival">👥</span> Creators
+                  <span className="text-yellow-festival">✦</span> Collab Circle
                 </Link>
               </>
             )}
